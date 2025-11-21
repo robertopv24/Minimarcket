@@ -37,6 +37,7 @@ Thumbs.db
 
 # Base de datos (si usas alguna)
 *.db
+*.sql
 *.sqlite
 *.sqlite3
 
