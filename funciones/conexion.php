@@ -6,43 +6,53 @@ error_reporting(E_ALL);
 
 
 
+class Database
+{
+    private ?PDO $connection = null;
+    private string $host;
+    private string $name;
+    private string $user;
+    private string $password;
+    private string $port;
 
-class Database {
-    private static $instance = null;
-    private $connection;
-    private $host = "fdb1028.awardspace.net";
-    private $dbname = "4560900_web";
-    private $username = "4560900_web";
-    private $password = "l{GB}Lg*7pwNGbcX";
-
-    // Constructor privado (patrón Singleton)
-    private function __construct() {
-        try {
-            $options = [
-                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, // Modo de fetch predeterminado
-                PDO::ATTR_EMULATE_PREPARES   => false, // Deshabilitar la emulación de prepared statements
-            ];
-            $this->connection = new PDO(
-                "mysql:host={$this->host};dbname={$this->dbname};charset=utf8mb4",
-                $this->username,
-                $this->password,
-                $options
-            );
-        } catch (PDOException $e) {
-            error_log("Error de conexión a la base de datos: " . $e->getMessage());
-            die("No se pudo conectar a la base de datos. Contacte al administrador.");
-        }
+    public function __construct()
+    {
+        // Cargar variables de entorno
+        $this->host = $_ENV['DB_HOST'] ?? 'localhost';
+        $this->name = $_ENV['DB_NAME'] ?? 'minimarket';
+        $this->user = $_ENV['DB_USER'] ?? 'root';
+        $this->password = $_ENV['DB_PASSWORD'] ?? '';
+        $this->port = $_ENV['DB_PORT'] ?? '3306';
     }
 
-    // Método para obtener la instancia única de la conexión
-    public static function getConnection() {
-        if (self::$instance === null) {
-            self::$instance = new Database();
+    public function getConnection(): PDO
+    {
+        if ($this->connection === null) {
+            try {
+                $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->name};charset=utf8mb4";
+
+                $this->connection = new PDO($dsn, $this->user, $this->password, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                    PDO::ATTR_STRINGIFY_FETCHES => false
+                ]);
+
+                // Configuración adicional para asegurar compatibilidad con utf8mb4
+                $this->connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+
+            } catch (PDOException $exception) {
+                throw new PDOException(
+                    "Error de conexión: " . $exception->getMessage(),
+                    (int)$exception->getCode()
+                );
+            }
         }
-        return self::$instance->connection;
+
+        return $this->connection;
     }
 }
+
 
 // Ejemplo de uso
 // $db = Database::getConnection();
