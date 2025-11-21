@@ -3,57 +3,42 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-
-
-
 class Database
 {
-    private ?PDO $connection = null;
-    private string $host;
-    private string $name;
-    private string $user;
-    private string $password;
-    private string $port;
+    private static $connection = null;
 
-    public function __construct()
+    public static function getConnection()
     {
-        // Cargar variables de entorno
-        $this->host = $_ENV['DB_HOST'] ?? 'localhost';
-        $this->name = $_ENV['DB_NAME'] ?? 'minimarket';
-        $this->user = $_ENV['DB_USER'] ?? 'root';
-        $this->password = $_ENV['DB_PASSWORD'] ?? '';
-        $this->port = $_ENV['DB_PORT'] ?? '3306';
-    }
-
-    public function getConnection(): PDO
-    {
-        if ($this->connection === null) {
+        if (self::$connection === null) {
             try {
-                $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->name};charset=utf8mb4";
+                // AHORA SÍ: Obtenemos credenciales desde el .env seguro
+                $host     = $_ENV['DB_HOST'] ?? 'localhost';
+                $dbname   = $_ENV['DB_NAME'] ?? 'minimarket';
+                $username = $_ENV['DB_USER'] ?? 'root';
+                $password = $_ENV['DB_PASSWORD'] ?? '';
+                $port     = $_ENV['DB_PORT'] ?? '3306';
 
-                $this->connection = new PDO($dsn, $this->user, $this->password, [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                $options = [
+                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                    PDO::ATTR_STRINGIFY_FETCHES => false
-                ]);
+                    PDO::ATTR_EMULATE_PREPARES   => false,
+                ];
 
-                // Configuración adicional para asegurar compatibilidad con utf8mb4
-                $this->connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-            } catch (PDOException $exception) {
-                throw new PDOException(
-                    "Error de conexión: " . $exception->getMessage(),
-                    (int)$exception->getCode()
+                self::$connection = new PDO(
+                    "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4",
+                    $username,
+                    $password,
+                    $options
                 );
+
+            } catch (PDOException $e) {
+                // Mensaje genérico por seguridad (no mostrar detalles de conexión al público)
+                error_log("Error de conexión: " . $e->getMessage()); // Loguear el error real
+                die("<h3>Error de conexión.</h3><p>Verifica tu archivo .env y los logs del servidor.</p>");
             }
         }
 
-        return $this->connection;
+        return self::$connection;
     }
 }
-
-
-// Ejemplo de uso
-// $db = Database::getConnection();
 ?>

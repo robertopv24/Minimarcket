@@ -58,17 +58,28 @@ $newExchangeRate = $GLOBALS['exchange_rate'];
 // Procesar actualización de tasa de cambio
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_exchange_rate'])) {
     $newExchangeRate = isset($_POST['new_exchange_rate']) ? floatval($_POST['new_exchange_rate']) : 0;
-    $value = $newExchangeRate;
-    if ($config->update('exchange_rate', $value)) {
-        foreach ($productManager->getAllProducts() as $product) {
-            $newPriceVes = $product['price_usd'] * $newExchangeRate;
-            $productManager->updateProductPriceVes($product['id'], $newPriceVes);
-        }
-        $success_message = "Tasa de cambio y precios de productos actualizados.";
 
+    if ($newExchangeRate <= 0) {
+        $error_message = "Error: La tasa debe ser mayor a 0.";
     } else {
-        $error_message = "Error al actualizar la tasa de cambio.";
-        // error_log("Error al ejecutar la consulta: " . implode(", ", $stmt->errorInfo())); // Eliminado
+        // 1. Actualizar configuración global
+        if ($config->update('exchange_rate', $newExchangeRate)) {
+
+            // 2. [OPTIMIZACIÓN FASE 1] Ejecutar actualización masiva
+            // Ya no usamos el foreach. Llamamos a la función SQL directa.
+            if ($productManager->updateAllPricesBasedOnRate($newExchangeRate)) {
+                $success_message = "Tasa actualizada y precios recalculados correctamente.";
+
+                // Actualizar variable global para la vista actual
+                $GLOBALS['exchange_rate'] = $newExchangeRate;
+                $newExchangeRate = $GLOBALS['exchange_rate'];
+            } else {
+                $error_message = "La tasa se guardó, pero hubo un error recalculando precios.";
+            }
+
+        } else {
+            $error_message = "Error al guardar la configuración.";
+        }
     }
 }
 

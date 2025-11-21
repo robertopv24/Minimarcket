@@ -87,6 +87,20 @@ class ProductManager {
         $stmt = $this->db->prepare("DELETE FROM products WHERE id = ?");
         return $stmt->execute([$id]);
     }
+
+    public function updateAllPricesBasedOnRate($newRate) {
+        try {
+            // Multiplica price_usd * tasa y actualiza price_ves en toda la tabla
+            $sql = "UPDATE products SET price_ves = price_usd * :rate, updated_at = NOW()";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([':rate' => $newRate]);
+        } catch (PDOException $e) {
+            error_log("Error en actualización masiva: " . $e->getMessage());
+            return false;
+        }
+    }
+
+
 }
 
 // Uso de la clase
