@@ -45,7 +45,7 @@ Este sistema es una solución completa desarrollada en PHP nativo que permite ge
 
 El sistema ha sido refactorizado para eliminar redundancias y centralizar la lógica de negocio:
 
-
+```
 /
 ├── admin/          # Panel de Control (Protegido por rol Admin)
 ├── funciones/      # Lógica de Negocio (Managers: Product, Cart, User, Order...)
@@ -54,7 +54,7 @@ El sistema ha sido refactorizado para eliminar redundancias y centralizar la ló
 ├── uploads/        # Almacenamiento de imágenes de productos y perfiles
 ├── db.sql          # Estructura inicial de la Base de Datos
 └── index.php       # Enrutador principal / Semáforo de entrada
-
+```
 
 
 
