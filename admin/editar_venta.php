@@ -3,61 +3,87 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-session_start();
-
-if (!isset($_SESSION['user_name']) || $_SESSION['user_role'] !== 'admin') {
-    header("Location: ../paginas/login.php");
-    exit();
-}
-
 require_once '../templates/autoload.php';
 
+session_start();
+if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+    header('Location: ../paginas/login.php');
+    exit;
+}
 
-// Obtener el ID de la venta de la URL
+$mensaje = '';
 $ventaId = $_GET['id'] ?? 0;
-
-// Crear una instancia de OrderManager
-$orderManager = new OrderManager($db);
-
-// Obtener la información de la venta
 $venta = $orderManager->getOrderById($ventaId);
 
 if (!$venta) {
-    echo '<div class="alert alert-danger">Venta no encontrada.</div>';
-    exit();
+    echo '<div class="container mt-5"><div class="alert alert-danger">Venta no encontrada.</div><a href="ventas.php" class="btn btn-primary">Volver</a></div>';
+    require_once '../templates/footer.php';
+    exit;
 }
 
+// Procesar Formulario
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nuevoEstado = $_POST['estado'];
-    $orderManager->updateOrderStatus($ventaId, $nuevoEstado);
-    header("Location: ventas.php"); // Redirigir a la lista de ventas
-    exit();
-}
+    $tracking = $_POST['tracking_number'] ?? '';
 
+    // Advertencia: Cambiar estado a 'cancelled' no devuelve stock automáticamente en esta versión básica.
+    // Se actualiza usando el Manager
+    if ($orderManager->updateOrderStatus($ventaId, $nuevoEstado, $tracking)) {
+        $mensaje = '<div class="alert alert-success">Estado actualizado correctamente.</div>';
+        $venta = $orderManager->getOrderById($ventaId); // Refrescar datos
+    } else {
+        $mensaje = '<div class="alert alert-danger">Error al actualizar el estado.</div>';
+    }
+}
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
-
-
-
 ?>
 
 <div class="container mt-5">
-    <h2>Editar Estado de la Venta #<?= htmlspecialchars($venta['id']) ?></h2>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Editar Venta #<?= htmlspecialchars($venta['id']) ?></h3>
+                </div>
+                <div class="card-body">
+                    <?= $mensaje ?>
 
-    <form method="post" action="">
-        <div class="mb-3">
-            <label for="estado" class="form-label">Estado Actual: <?= htmlspecialchars($venta['status']) ?></label>
-            <select class="form-select" id="estado" name="estado">
-                <option value="pending" <?= ($venta['status'] === 'pending') ? 'selected' : '' ?>>Pendiente</option>
-                <option value="paid" <?= ($venta['status'] === 'paid') ? 'selected' : '' ?>>Pagada</option>
-                <option value="shipped" <?= ($venta['status'] === 'shipped') ? 'selected' : '' ?>>Enviada</option>
-                <option value="delivered" <?= ($venta['status'] === 'delivered') ? 'selected' : '' ?>>Entregada</option>
-                <option value="cancelled" <?= ($venta['status'] === 'cancelled') ? 'selected' : '' ?>>Cancelada</option>
-            </select>
+                    <div class="alert alert-secondary">
+                        <strong>Cliente:</strong> <?= htmlspecialchars($venta['customer_name'] ?? 'Desconocido') ?><br>
+                        <strong>Total:</strong> $<?= number_format($venta['total_price'], 2) ?>
+                    </div>
+
+                    <form method="post" action="">
+                        <div class="mb-3">
+                            <label for="estado" class="form-label fw-bold">Estado del Pedido</label>
+                            <select class="form-select form-select-lg" id="estado" name="estado">
+                                <option value="pending" <?= ($venta['status'] === 'pending') ? 'selected' : '' ?>>Pendiente</option>
+                                <option value="paid" <?= ($venta['status'] === 'paid') ? 'selected' : '' ?>>Pagado (Completado)</option>
+                                <option value="shipped" <?= ($venta['status'] === 'shipped') ? 'selected' : '' ?>>Enviado</option>
+                                <option value="delivered" <?= ($venta['status'] === 'delivered') ? 'selected' : '' ?>>Entregado</option>
+                                <option value="cancelled" <?= ($venta['status'] === 'cancelled') ? 'selected' : '' ?>>Cancelado</option>
+                            </select>
+                            <div class="form-text text-danger">
+                                <i class="fa fa-exclamation-circle"></i> Nota: Cambiar a "Cancelado" no devuelve el stock automáticamente. Debes ajustar el inventario manualmente si es necesario.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="tracking" class="form-label">Número de Seguimiento / Nota</label>
+                            <input type="text" class="form-control" id="tracking" name="tracking_number" value="<?= htmlspecialchars($venta['tracking_number'] ?? '') ?>" placeholder="Ej: Nota interna o guía de envío">
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">Guardar Cambios</button>
+                            <a href="ver_venta.php?id=<?= $venta['id'] ?>" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-    </form>
+    </div>
 </div>
 
 <?php require_once '../templates/footer.php'; ?>

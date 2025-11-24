@@ -147,7 +147,36 @@ class CashRegisterManager {
             }
         }
 
+        // --- NUEVO: Obtener detalle completo de una sesión cerrada por ID ---
+            public function getSessionDetailsById($sessionId) {
+                // 1. Datos básicos de la sesión
+                $stmt = $this->db->prepare("SELECT cs.*, u.name as cashier_name
+                                            FROM cash_sessions cs
+                                            JOIN users u ON cs.user_id = u.id
+                                            WHERE cs.id = ?");
+                $stmt->execute([$sessionId]);
+                $session = $stmt->fetch(PDO::FETCH_ASSOC);
 
+                if (!$session) return null;
+
+                // 2. Agrupar totales por Método de Pago
+                // Esto nos dirá: Zelle=$50, Pago Móvil=200Bs, Efectivo=$20...
+                $sql = "SELECT pm.name as method_name, pm.currency, pm.type,
+                        SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END) as total
+                        FROM transactions t
+                        JOIN payment_methods pm ON t.payment_method_id = pm.id
+                        WHERE t.cash_session_id = ?
+                        GROUP BY pm.id, pm.name, pm.currency, pm.type";
+
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$sessionId]);
+                $methods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                return [
+                    'info' => $session,
+                    'methods' => $methods
+                ];
+            }
 
 
 

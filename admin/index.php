@@ -3,272 +3,220 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-
-session_start();
-
-if (!isset($_SESSION['user_name']) || $_SESSION['user_role'] !== 'admin') {
-    header("Location: ../paginas/login.php"); // Redirige a la página de login si no es admin
-    exit();
-}
-
-
 require_once '../templates/autoload.php';
 
+session_start();
+if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+    header('Location: ../paginas/login.php');
+    exit;
+}
 
+$success_message = '';
+$error_message = '';
 
-require_once '../templates/header.php';
-require_once '../templates/menu.php';
-
-// Obtener la conexión a la base de datos
-
-
-// Consultar las ventas totales (total de ventas en USD)
-$totalVentasTotales = $orderManager->getTotalVentas();
-
-// Consultar total de pedidos completados
-$totalPedidos = $orderManager->countOrdersByStatus('delivered');
-
-// Consultar total de productos vendidos
-$totalProductosVendidos = $orderManager->getTotalProductosVendidos();
-
-// Consultar últimos pedidos
-$ultimosPedidos = $orderManager->getUltimosPedidos();
-
-// Consultar número de usuarios registrados
-$totalUsuarios = $userManager->getTotalUsuarios();
-
-// Consultar el total de productos
-$totalProductos = $productManager->getTotalProduct();
-
-// Consultar productos con bajo stock
-$productosBajoStock = $productManager->getLowStockProducts();
-
-// Consultar ventas totales del mes
-$totalVentasMes = $orderManager->getTotalVentasMes();
-
-// Consultar ventas totales de la semana
-$totalVentasSemana = $orderManager->getTotalVentasSemana();
-
-// Consultar ventas totales del día
-$totalVentasDia = $orderManager->getTotalVentasDia();
-
-$newExchangeRate = $GLOBALS['exchange_rate'];
-
-
-// Procesar actualización de tasa de cambio
+// 1. Procesar Tasa de Cambio
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_exchange_rate'])) {
-    $newExchangeRate = isset($_POST['new_exchange_rate']) ? floatval($_POST['new_exchange_rate']) : 0;
-
-    if ($newExchangeRate <= 0) {
-        $error_message = "Error: La tasa debe ser mayor a 0.";
-    } else {
-        // 1. Actualizar configuración global
-        if ($config->update('exchange_rate', $newExchangeRate)) {
-
-            // 2. [OPTIMIZACIÓN FASE 1] Ejecutar actualización masiva
-            // Ya no usamos el foreach. Llamamos a la función SQL directa.
-            if ($productManager->updateAllPricesBasedOnRate($newExchangeRate)) {
-                $success_message = "Tasa actualizada y precios recalculados correctamente.";
-
-                // Actualizar variable global para la vista actual
-                $GLOBALS['exchange_rate'] = $newExchangeRate;
-                $newExchangeRate = $GLOBALS['exchange_rate'];
+    $newRate = floatval($_POST['new_exchange_rate']);
+    if ($newRate > 0) {
+        if ($config->update('exchange_rate', $newRate)) {
+            if ($productManager->updateAllPricesBasedOnRate($newRate)) {
+                $success_message = "Tasa actualizada a <strong>$newRate</strong>. Precios recalculados.";
             } else {
-                $error_message = "La tasa se guardó, pero hubo un error recalculando precios.";
+                $error_message = "Tasa guardada, pero error al recalcular precios.";
             }
-
         } else {
-            $error_message = "Error al guardar la configuración.";
+            $error_message = "Error al guardar configuración.";
         }
+    } else {
+        $error_message = "La tasa debe ser mayor a 0.";
     }
 }
 
+// 2. OBTENER TODAS LAS MÉTRICAS
+$currentRate = $config->get('exchange_rate');
+$vaultBalance = $vaultManager->getBalance();
+
+// Métricas de Ventas (Ingresos)
+$ventasDia = $orderManager->getTotalVentasDia();
+$ventasSemana = $orderManager->getTotalVentasSemana();
+$ventasMes = $orderManager->getTotalVentasMes();
+$ventasAnio = $orderManager->getTotalVentasAnio();
+
+// Métricas Operativas
+$ordenesPendientes = $orderManager->countOrdersByStatus('pending');
+$stockCritico = count($productManager->getLowStockProducts(5));
+
+// Listas Recientes
+$ultimasVentas = $orderManager->getUltimosPedidos(5);
+$stmt = $db->query("SELECT * FROM vault_movements ORDER BY created_at DESC LIMIT 5");
+$ultimosMovimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+require_once '../templates/header.php';
+require_once '../templates/menu.php';
 ?>
 
+<div class="container mt-5 mb-5">
 
-<?php if (isset($success_message)): ?>
-    <div class="alert alert-success align-items-center justify-content-between text-center"><?php echo $success_message; ?></div>
-<?php endif; ?>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>🚀 Dashboard General</h2>
+            <p class="text-muted mb-0">Resumen del negocio al <?= date('d/m/Y h:i A') ?></p>
+        </div>
 
-<?php if (isset($error_message)): ?>
-    <div class="alert alert-danger align-items-center justify-content-between text-center"><?php echo $error_message; ?></div>
-<?php endif; ?>
-
-
-<div class="container-fluid mt-4">
-    <div class="row">
-      <!-- Total Sale -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-chart-bar fa-3x text-primary"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Total Sale</p>
-                  <h6 class="mb-0">$<?php echo number_format($totalVentasTotales, 2); ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Pedidos Completados -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-check-circle fa-3x text-white"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Total Orders</p>
-                  <h6 class="mb-0"><?php echo $totalPedidos; ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Productos Vendidos -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-cogs fa-3x text-white"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Total Products Sold</p>
-                  <h6 class="mb-0"><?php echo $totalProductosVendidos; ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Productos -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-cogs fa-3x text-white"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Total Products</p>
-                  <h6 class="mb-0"><?php echo $totalProductos; ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Usuarios Registrados -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-users fa-3x text-white"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Total Users</p>
-                  <h6 class="mb-0"><?php echo $totalUsuarios; ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Ventas del Mes -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-calendar-alt fa-3x text-primary"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Ventas del Mes</p>
-                  <h6 class="mb-0">$<?php echo number_format($totalVentasMes, 2); ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Ventas de la Semana -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-calendar-week fa-3x text-info"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Ventas de la Semana</p>
-                  <h6 class="mb-0">$<?php echo number_format($totalVentasSemana, 2); ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Total Ventas del Día -->
-      <div class="col-sm-6 col-xl-3 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-calendar-day fa-3x text-warning"></i>
-              <div class="ms-3">
-                  <p class="mb-2">Ventas del Día</p>
-                  <h6 class="mb-0">$<?php echo number_format($totalVentasDia, 2); ?></h6>
-              </div>
-          </div>
-      </div>
-
-      <!-- Otros elementos del dashboard... -->
-
-      <div class="col-sm-6 col-xl-4 mb-4">
-          <div class="bg-secondary rounded d-flex align-items-center justify-content-between p-4">
-              <i class="fa fa-cogs fa-3x text-white"></i>
-
-
-
-          <div class="ms-3">
-          <h3>Actualizar Tasa de Cambio</h3>
-
-          <form method="POST">
-              <input type="hidden" name="update_exchange_rate" value="1">
-              <div class="mb-3">
-                  <label for="new_exchange_rate" class="form-label">Nueva Tasa de Cambio (USD a VES):</label>
-                  <input type="number" name="new_exchange_rate" id="new_exchange_rate" step="0.01" class="form-control" required value="<?php echo htmlspecialchars($newExchangeRate); ?>">
-              </div>
-              <button type="submit" class="btn btn-warning">Actualizar Tasa y Recalcular Precios</button>
-          </form>
-
+        <div class="card border-primary shadow-sm" style="width: 280px;">
+            <div class="card-body p-2">
+                <form method="POST" class="row g-1 align-items-center">
+                    <div class="col-7">
+                        <label class="small fw-bold text-primary">Tasa BCV/Paralelo</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">Bs</span>
+                            <input type="number" step="0.01" name="new_exchange_rate" class="form-control fw-bold" value="<?= $currentRate ?>">
+                        </div>
+                    </div>
+                    <div class="col-5">
+                        <button type="submit" name="update_exchange_rate" class="btn btn-primary btn-sm w-100 h-100" onclick="return confirm('¿Actualizar precios?');">
+                            <i class="fa fa-sync"></i> Fijar
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 
+    <?php if ($success_message): ?>
+        <div class="alert alert-success alert-dismissible fade show"><?= $success_message ?> <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    <?php endif; ?>
 
-          <!-- Últimos Pedidos -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-warning text-white">
-                    <h5>Últimos Pedidos</h5>
-                </div>
+    <h5 class="text-muted mb-3"><i class="fa fa-chart-line me-2"></i>Ingresos por Ventas (POS)</h5>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-white border-start border-4 border-success shadow-sm h-100">
                 <div class="card-body">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Pedido ID</th>
-                                <th>Fecha</th>
-                                <th>Cliente</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($ultimosPedidos as $pedido): ?>
-                                <tr>
-                                    <td><?php echo $pedido['id']; ?></td>
-                                    <td><?php echo date('d-m-Y H:i', strtotime($pedido['created_at'])); ?></td>
-                                    <td><?php echo $pedido['name']; ?></td>
-                                    <td>$<?php echo number_format($pedido['total_price'], 2); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                    <small class="text-muted text-uppercase">Ventas Hoy</small>
+                    <h3 class="fw-bold text-dark mb-0">$<?= number_format($ventasDia, 2) ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-white border-start border-4 border-info shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted text-uppercase">Últimos 7 Días</small>
+                    <h3 class="fw-bold text-dark mb-0">$<?= number_format($ventasSemana, 2) ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-white border-start border-4 border-primary shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted text-uppercase">Este Mes</small>
+                    <h3 class="fw-bold text-dark mb-0">$<?= number_format($ventasMes, 2) ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-white border-start border-4 border-dark shadow-sm h-100">
+                <div class="card-body">
+                    <small class="text-muted text-uppercase">Acumulado Año</small>
+                    <h3 class="fw-bold text-dark mb-0">$<?= number_format($ventasAnio, 2) ?></h3>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Productos con Bajo Stock -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-primary text-dark">
-                    <h5>Productos con Bajo Stock</h5>
+    <h5 class="text-muted mb-3"><i class="fa fa-cogs me-2"></i>Estado Operativo</h5>
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card bg-secondary text-white shadow h-100">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase opacity-75">Bóveda Central (Caja Chica)</h6>
+                        <h2 class="fw-bold mb-0">$<?= number_format($vaultBalance['balance_usd'], 2) ?></h2>
+                        <span class="badge bg-dark text-white"><?= number_format($vaultBalance['balance_ves'], 2) ?> Bs</span>
+                    </div>
+                    <div class="text-end">
+                        <i class="fa fa-vault fa-3x opacity-25 mb-2"></i><br>
+                        <a href="caja_chica.php" class="btn btn-sm btn-light text-dark">Ver Movimientos</a>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <table class="table table-striped">
-                        <thead>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark shadow h-100">
+                <div class="card-body text-center">
+                    <h1 class="fw-bold display-4 mb-0"><?= $ordenesPendientes ?></h1>
+                    <small class="text-uppercase fw-bold">Pedidos Pendientes</small>
+                    <a href="ventas.php?filter=pending" class="stretched-link"></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-danger text-white shadow h-100">
+                <div class="card-body text-center">
+                    <h1 class="fw-bold display-4 mb-0"><?= $stockCritico ?></h1>
+                    <small class="text-uppercase fw-bold">Stock Bajo</small>
+                    <a href="productos.php?filter=stock_bajo" class="stretched-link"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card shadow h-100">
+                <div class="card-header bg-white fw-bold">🛒 Últimas Ventas</div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle table-sm">
+                        <thead class="table-light">
                             <tr>
-                                <th>Producto ID</th>
-                                <th>Nombre</th>
-                                <th>Stock Actual</th>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($productosBajoStock as $producto): ?>
+                            <?php foreach ($ultimasVentas as $v):
+                                $badge = $v['status'] == 'paid' ? 'bg-success' : 'bg-secondary';
+                            ?>
                                 <tr>
-                                    <td><?php echo $producto['id']; ?></td>
-                                    <td><?php echo $producto['name']; ?></td>
-                                    <td><?php echo $producto['stock']; ?></td>
+                                    <td class="fw-bold">#<?= $v['id'] ?></td>
+                                    <td><?= htmlspecialchars($v['name'] ?? 'Consumidor') ?></td>
+                                    <td class="fw-bold text-success">$<?= number_format($v['total_price'], 2) ?></td>
+                                    <td><span class="badge <?= $badge ?>"><?= $v['status'] ?></span></td>
+                                    <td class="text-end"><a href="ver_venta.php?id=<?= $v['id'] ?>" class="btn btn-sm btn-outline-primary"><i class="fa fa-eye"></i></a></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+                <div class="card-footer bg-white text-center">
+                    <a href="ventas.php" class="text-decoration-none small">Ver todas las ventas</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow h-100">
+                <div class="card-header bg-white fw-bold">💰 Actividad Reciente (Bóveda)</div>
+                <div class="list-group list-group-flush">
+                    <?php foreach ($ultimosMovimientos as $mov):
+                        $color = $mov['type'] == 'deposit' ? 'text-success' : 'text-danger';
+                        $sign = $mov['type'] == 'deposit' ? '+' : '-';
+                    ?>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="d-block fw-bold text-truncate" style="max-width: 150px;"><?= htmlspecialchars($mov['origin']) ?></small>
+                                <small class="text-muted" style="font-size: 0.75rem;"><?= $mov['description'] ?></small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold <?= $color ?>"><?= $sign ?> <?= number_format($mov['amount'], 2) ?> <?= $mov['currency'] ?></span><br>
+                                <small class="text-muted" style="font-size: 0.7rem;"><?= date('d/m H:i', strtotime($mov['created_at'])) ?></small>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>

@@ -26,23 +26,24 @@
 
             <div class="navbar-nav w-100">
 
-                <?php if ($user_role === 'admin'): ?>
-                    <div class="nav-item dropdown">
-                        <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown"><i class="fa fa-shopping-cart me-2"></i>Menú Admin</a>
-                        <div class="dropdown-menu bg-transparent border-0">
-                          <a href="../admin/index.php" class="nav-item nav-link ">Inicio</a>
-                          <a href="../admin/usuarios.php" class="nav-item nav-link ">Usuarios</a>
-                          <a href="../admin/productos.php" class="nav-item nav-link ">Productos</a>
-                          <a href="../admin/ventas.php" class="nav-item nav-link ">Ventas</a>
-                          <a href="../admin/compras.php" class="nav-item nav-link ">Compras</a>
-                          <a href="../admin/proveedores.php" class="nav-item nav-link ">proveedores</a>
-                          <a href="../admin/list_purchase_orders.php" class="nav-item nav-link ">Órdenes de Compra</a>
-                          <a href="../admin/list_purchase_receipts.php" class="nav-item nav-link ">Recepciones de Mercancía</a>
-                          <a href="../admin/caja_chica.php" class="nav-item nav-link ">Caja Chica</a>
+              <?php if ($user_role === 'admin'): ?>
+                                  <div class="nav-item dropdown">
+                                      <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown"><i class="fa fa-cogs me-2"></i>Administración</a>
+                                      <div class="dropdown-menu bg-transparent border-0 ps-4">
+                                        <a href="../admin/index.php" class="nav-item nav-link">Dashboard</a>
+                                        <a href="../admin/ventas.php" class="nav-item nav-link">Ventas</a>
+                                        <a href="../admin/compras.php" class="nav-item nav-link">Compras</a>
+                                        <a href="../admin/productos.php" class="nav-item nav-link">Inventario</a>
 
+                                        <div class="nav-item nav-link text-warning small fw-bold mt-2">FINANZAS</div>
+                                        <a href="../admin/caja_chica.php" class="nav-item nav-link">Tesorería General</a>
+                                        <a href="../admin/reportes_caja.php" class="nav-item nav-link">Auditoría de Cierres</a>
 
-                        </div>
-                    </div>
+                                        <div class="nav-item nav-link text-warning small fw-bold mt-2">SISTEMA</div>
+                                        <a href="../admin/usuarios.php" class="nav-item nav-link">Usuarios</a>
+                                        <a href="../admin/proveedores.php" class="nav-item nav-link">Proveedores</a>
+                                      </div>
+                                  </div>
 
 
                       <div class="nav-item dropdown">

@@ -1,121 +1,132 @@
 <?php
+// admin/compras.php
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// 1. Cargar el sistema completo
 require_once '../templates/autoload.php';
 
 session_start();
-// 2. Seguridad: Solo admin
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
-    header('Location: login.php');
+    header('Location: ../paginas/login.php');
     exit;
 }
 
-// 3. Procesar formularios POST (Corrección de variable y método)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_purchase'])) {
-    $items = json_decode($_POST['items'], true);
-    if ($items) {
-        // CORRECCIÓN: Usamos $purchaseOrderManager y los parámetros correctos de la Fase 2
-        // Se usa la fecha de hoy y la tasa actual del sistema
-        if ($purchaseOrderManager->createPurchaseOrder(
-            $_POST['supplier_id'] ?? 0,
-            date('Y-m-d'),
-            date('Y-m-d', strtotime('+7 days')),
-            $items,
-            $GLOBALS['config']->get('exchange_rate')
-        )) {
-            $success_message = "Compra registrada con éxito.";
-        } else {
-            $error_message = "Error al registrar la compra.";
-        }
-    } else {
-        $error_message = "Error: Ítems de compra no válidos.";
-    }
-}
-
-// 4. Obtener todas las órdenes de compra
-$purchases = $purchaseOrderManager->getAllPurchaseOrders() ?? [];
+// Obtener todas las órdenes
+$purchaseOrders = $purchaseOrderManager->getAllPurchaseOrders();
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
 ?>
 
 <div class="container mt-5">
-    <h2 class="text-center">Gestión de Compras (Historial)</h2>
-
-    <?php if (isset($success_message)): ?>
-        <div class="alert alert-success"><?php echo $success_message; ?></div>
-    <?php endif; ?>
-
-    <?php if (isset($error_message)): ?>
-        <div class="alert alert-danger"><?php echo $error_message; ?></div>
-    <?php endif; ?>
-
-    <div class="d-flex justify-content-end mb-3">
-        <a href="add_purchase_order.php" class="btn btn-success">Registrar Nueva Compra</a>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📦 Gestión de Compras</h2>
+        <a href="add_purchase_order.php" class="btn btn-success">
+            <i class="fa fa-plus-circle"></i> Nueva Compra
+        </a>
     </div>
 
-    <table class="table table-striped mt-4">
-        <thead class="table-dark">
-            <tr>
-                <th>ID</th>
-                <th>Fecha</th>
-                <th>Proveedor</th>
-                <th>Tasa Histórica</th>
-                <th>Total (USD)</th>
-                <th>Total Costo (VES)</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (!empty($purchases)): ?>
-                <?php foreach ($purchases as $purchase): ?>
-                    <?php
-                        // FASE 2: Lógica de Precio Histórico
-                        $historicalRate = (isset($purchase['exchange_rate']) && $purchase['exchange_rate'] > 0)
-                                          ? $purchase['exchange_rate']
-                                          : 1;
+    <div class="card shadow">
+        <div class="card-body p-0">
+            <?php if ($purchaseOrders): ?>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Fecha Compra</th>
+                                <th>Proveedor</th>
+                                <th>Entrega Estimada</th> <th>Total (USD)</th>
+                                <th>Pago (Tesorería)</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($purchaseOrders as $order): ?>
+                                <?php
+                                    $supplier = $supplierManager->getSupplierById($order['supplier_id']);
 
-                        $totalUsd = $purchase['total_amount'];
-                        $totalVes = $totalUsd * $historicalRate;
+                                    // Info Financiera
+                                    $stmt = $db->prepare("SELECT pm.name, t.amount, t.currency
+                                                          FROM transactions t
+                                                          JOIN payment_methods pm ON t.payment_method_id = pm.id
+                                                          WHERE t.reference_type = 'purchase' AND t.reference_id = ?");
+                                    $stmt->execute([$order['id']]);
+                                    $pago = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                        // Obtener nombre del proveedor
-                        $supplier = $supplierManager->getSupplierById($purchase['supplier_id']);
-                        $supplierName = $supplier ? $supplier['name'] : 'Desconocido';
-                    ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($purchase['id']); ?></td>
-                        <td><?php echo htmlspecialchars($purchase['order_date'] ?? $purchase['created_at']); ?></td>
-                        <td><?php echo htmlspecialchars($supplierName); ?></td>
+                                    // Estilos
+                                    $badgeClass = match($order['status']) {
+                                        'received' => 'bg-success',
+                                        'pending' => 'bg-warning text-dark',
+                                        'canceled' => 'bg-danger',
+                                        default => 'bg-secondary'
+                                    };
+                                ?>
+                                <tr>
+                                    <td class="fw-bold">#<?= $order['id'] ?></td>
+                                    <td><?= date('d/m/Y', strtotime($order['order_date'])) ?></td>
+                                    <td>
+                                        <span class="fw-bold"><?= htmlspecialchars($supplier['name'] ?? 'Desconocido') ?></span>
+                                    </td>
 
-                        <td><?php echo number_format($historicalRate, 2); ?> VES/USD</td>
+                                    <td>
+                                        <i class="fa fa-calendar-day text-muted me-1"></i>
+                                        <?= date('d/m/Y', strtotime($order['expected_delivery_date'])) ?>
+                                    </td>
 
-                        <td>$<?php echo number_format($totalUsd, 2); ?></td>
+                                    <td class="fw-bold text-primary">
+                                        $<?= number_format($order['total_amount'], 2) ?>
+                                    </td>
 
-                        <td class="fw-bold"><?php echo number_format($totalVes, 2); ?> VES</td>
+                                    <td>
+                                        <?php if ($pago): ?>
+                                            <small class="d-block text-muted">Método:</small>
+                                            <strong><?= $pago['name'] ?></strong>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary">N/A</span>
+                                        <?php endif; ?>
+                                    </td>
 
-                        <td>
-                            <?php if($purchase['status'] == 'received'): ?>
-                                <span class="badge bg-success">Recibido</span>
-                            <?php else: ?>
-                                <span class="badge bg-warning text-dark">Pendiente</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <a href="edit_purchase_order.php?id=<?= $purchase['id'] ?>" class="btn btn-sm btn-primary">Ver</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
+                                    <td>
+                                        <span class="badge <?= $badgeClass ?> rounded-pill px-3">
+                                            <?= strtoupper($order['status']) ?>
+                                        </span>
+                                    </td>
+
+                                    <td class="text-end">
+                                        <div class="btn-group">
+                                            <?php if($order['status'] !== 'received'): ?>
+                                                <a href="add_purchase_receipt.php?order_id=<?= $order['id'] ?>" class="btn btn-sm btn-success" title="Registrar Recepción de Mercancía">
+                                                    <i class="fa fa-box-open"></i>
+                                                </a>
+                                            <?php endif; ?>
+
+                                            <a href="edit_purchase_order.php?id=<?= $order['id'] ?>" class="btn btn-sm btn-primary" title="Ver Detalles">
+                                                <i class="fa fa-eye"></i>
+                                            </a>
+
+                                            <?php if($order['status'] !== 'received'): ?>
+                                                <a href="delete_purchase_order.php?id=<?= $order['id'] ?>" class="btn btn-sm btn-danger" title="Eliminar" onclick="return confirm('¿Eliminar esta orden?');">
+                                                    <i class="fa fa-trash"></i>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             <?php else: ?>
-                <tr>
-                    <td colspan="8" class="text-center">No hay compras registradas.</td>
-                </tr>
+                <div class="p-5 text-center text-muted">
+                    <i class="fa fa-box-open fa-3x mb-3"></i>
+                    <p>No hay órdenes de compra registradas.</p>
+                </div>
             <?php endif; ?>
-        </tbody>
-    </table>
+        </div>
+    </div>
 </div>
 
 <?php require_once '../templates/footer.php'; ?>

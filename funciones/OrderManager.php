@@ -107,6 +107,15 @@ class OrderManager {
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    
+    public function getTotalVentasAnio() {
+        // Ventas de ESTE AÑO
+        $sql = "SELECT SUM(total_price) as total FROM orders
+                WHERE YEAR(created_at) = YEAR(CURRENT_DATE())
+                AND (status = 'paid' OR status = 'delivered')";
+        $stmt = $this->db->query($sql);
+        return $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    }
 
     public function getTotalVentasMes() {
         $query = "SELECT SUM(total_price) AS total FROM orders WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())";

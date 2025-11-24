@@ -1,10 +1,13 @@
 <?php
-// edit_purchase_order.php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once '../templates/autoload.php';
 
 session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
-    header('Location: login.php');
+    header('Location: ../paginas/login.php');
     exit;
 }
 
@@ -20,110 +23,153 @@ $suppliers = $supplierManager->getAllSuppliers();
 $products = $productManager->getAllProducts();
 $orderItems = $purchaseOrderManager->getPurchaseOrderItems($purchaseOrderId);
 
+// Buscar información financiera
+$stmt = $db->prepare("SELECT t.*, pm.name as method_name
+                      FROM transactions t
+                      JOIN payment_methods pm ON t.payment_method_id = pm.id
+                      WHERE t.reference_type = 'purchase' AND t.reference_id = ?");
+$stmt->execute([$purchaseOrderId]);
+$transaccion = $stmt->fetch(PDO::FETCH_ASSOC);
+
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
 ?>
 
-<div class="container mt-5">
-    <h2>Editar Orden de Compra</h2>
-    <form method="post" action="process_purchase_order.php">
-        <input type="hidden" name="action" value="edit">
-        <input type="hidden" name="id" value="<?= $purchaseOrder['id'] ?>">
-        <div class="mb-3">
-            <label for="supplier_id" class="form-label">Proveedor:</label>
-            <select name="supplier_id" id="supplier_id" class="form-select" required>
-                <?php foreach ($suppliers as $supplier): ?>
-                    <option value="<?= $supplier['id'] ?>" <?= $purchaseOrder['supplier_id'] == $supplier['id'] ? 'selected' : '' ?>><?= $supplier['name'] ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label for="order_date" class="form-label">Fecha de Orden:</label>
-            <input type="date" name="order_date" id="order_date" class="form-control" value="<?= $purchaseOrder['order_date'] ?>" required>
-        </div>
-        <div class="mb-3">
-            <label for="expected_delivery_date" class="form-label">Fecha de Entrega Esperada:</label>
-            <input type="date" name="expected_delivery_date" id="expected_delivery_date" class="form-control" value="<?= $purchaseOrder['expected_delivery_date'] ?>" required>
-        </div>
-        <div id="items">
-            <?php foreach ($orderItems as $index => $item): ?>
-                <div class="border p-3 mb-3">
-                    <h4>Ítem <?= $index + 1 ?></h4>
-                    <div class="mb-3">
-                        <label for="product_id_<?= $index ?>" class="form-label">Producto:</label>
-                        <select name="items[<?= $index ?>][product_id]" id="product_id_<?= $index ?>" class="form-select" required>
-                            <?php foreach ($products as $product): ?>
-                                <option value="<?= $product['id'] ?>" <?= $item['product_id'] == $product['id'] ? 'selected' : '' ?>><?= htmlspecialchars($product['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="quantity_<?= $index ?>" class="form-label">Cantidad:</label>
-                        <input type="number" name="items[<?= $index ?>][quantity]" id="quantity_<?= $index ?>" class="form-control" value="<?= $item['quantity'] ?>" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="unit_price_<?= $index ?>" class="form-label">Precio Unitario:</label>
-                        <input type="number" name="items[<?= $index ?>][unit_price]" id="unit_price_<?= $index ?>" class="form-control" step="0.01" value="<?= $item['unit_price'] ?>" required>
-                    </div>
-                    <button type="button" class="btn btn-danger removeItem">Eliminar Ítem</button>
+<div class="container mt-5 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📝 Detalle Orden #<?= $purchaseOrder['id'] ?></h2>
+        <a href="list_purchase_orders.php" class="btn btn-secondary"><i class="fa fa-arrow-left"></i> Volver</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">Contenido de la Orden</div>
+                <div class="card-body">
+                    <form method="post" action="process_purchase_order.php">
+                        <input type="hidden" name="action" value="edit">
+                        <input type="hidden" name="id" value="<?= $purchaseOrder['id'] ?>">
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Proveedor</label>
+                                <select name="supplier_id" class="form-select" <?= $purchaseOrder['status'] == 'received' ? 'disabled' : '' ?>>
+                                    <?php foreach ($suppliers as $supplier): ?>
+                                        <option value="<?= $supplier['id'] ?>" <?= $purchaseOrder['supplier_id'] == $supplier['id'] ? 'selected' : '' ?>>
+                                            <?= $supplier['name'] ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Fecha Orden</label>
+                                <input type="date" name="order_date" class="form-control" value="<?= $purchaseOrder['order_date'] ?>" <?= $purchaseOrder['status'] == 'received' ? 'disabled' : '' ?>>
+                            </div>
+                        </div>
+
+                        <h5 class="mt-4">Productos</h5>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cant.</th>
+                                        <th>Costo Unit.</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($orderItems as $item):
+                                        // Obtener nombre del producto
+                                        $prod = $productManager->getProductById($item['product_id']);
+                                    ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($prod['name']) ?></td>
+                                            <td><?= $item['quantity'] ?></td>
+                                            <td>$<?= number_format($item['unit_price'], 2) ?></td>
+                                            <td class="fw-bold">$<?= number_format($item['quantity'] * $item['unit_price'], 2) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-bold">TOTAL:</td>
+                                        <td class="fw-bold text-success">$<?= number_format($purchaseOrder['total_amount'], 2) ?></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <?php if($purchaseOrder['status'] !== 'received'): ?>
+                            <div class="alert alert-warning mt-3">
+                                <i class="fa fa-info-circle"></i> Para modificar productos, elimina esta orden y crea una nueva (por integridad contable).
+                            </div>
+                            <button type="submit" class="btn btn-primary">Guardar Cambios (Fechas/Proveedor)</button>
+                        <?php else: ?>
+                            <div class="alert alert-success mt-3">
+                                <i class="fa fa-check-circle"></i> Esta orden ya fue recibida. No se puede editar.
+                            </div>
+                        <?php endif; ?>
+                    </form>
                 </div>
-            <?php endforeach; ?>
+            </div>
         </div>
-        <button type="button" id="addItem" class="btn btn-secondary mb-3">Agregar Ítem</button>
-        <button type="submit" class="btn btn-primary">Actualizar Orden de Compra</button>
-    </form>
+
+        <div class="col-md-4">
+            <div class="card shadow border-warning mb-4">
+                <div class="card-header bg-warning text-dark fw-bold">
+                    <i class="fa fa-file-invoice-dollar"></i> Información de Tesorería
+                </div>
+                <div class="card-body">
+                    <?php if ($transaccion): ?>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Método:</span>
+                                <strong><?= $transaccion['method_name'] ?></strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Monto Pagado:</span>
+                                <span class="text-danger fw-bold">- <?= number_format($transaccion['amount'], 2) ?> <?= $transaccion['currency'] ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Tasa usada:</span>
+                                <span><?= $transaccion['exchange_rate'] ?></span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span>Fecha Pago:</span>
+                                <span><?= date('d/m/Y', strtotime($transaccion['created_at'])) ?></span>
+                            </li>
+                        </ul>
+
+                        <?php if($transaccion['method_name'] === 'Efectivo USD' || $transaccion['method_name'] === 'Efectivo VES'): ?>
+                            <div class="alert alert-info mt-3 mb-0 small">
+                                <i class="fa fa-vault"></i> Este dinero se descontó automáticamente de la <strong>Caja Chica</strong>.
+                            </div>
+                        <?php endif; ?>
+
+                    <?php else: ?>
+                        <div class="text-center text-muted py-3">
+                            <i class="fa fa-exclamation-circle"></i> No se encontró registro de pago.
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="card shadow text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Estado Actual</h5>
+                    <?php if($purchaseOrder['status'] == 'received'): ?>
+                        <span class="badge bg-success fs-5 w-100">RECIBIDO</span>
+                        <p class="mt-2 small text-muted">El stock ya fue sumado al inventario.</p>
+                    <?php else: ?>
+                        <span class="badge bg-warning text-dark fs-5 w-100">PENDIENTE</span>
+                        <p class="mt-2 small text-muted">Falta confirmar la recepción de mercancía.</p>
+                        <a href="add_purchase_receipt.php" class="btn btn-success w-100">Recibir Mercancía Ahora</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const addItemButton = document.getElementById('addItem');
-        const itemsContainer = document.getElementById('items');
-        let itemCount = <?= count($orderItems) ?>;
-
-        addItemButton.addEventListener('click', function() {
-            itemCount++;
-
-            const itemDiv = document.createElement('div');
-            itemDiv.innerHTML = `
-                <div class="border p-3 mb-3">
-                    <h4>Ítem ${itemCount}</h4>
-                    <div class="mb-3">
-                        <label for="product_id_${itemCount}" class="form-label">Producto:</label>
-                        <select name="items[${itemCount}][product_id]" id="product_id_${itemCount}" class="form-select" required>
-                            <?php foreach ($products as $product): ?>
-                                <option value="<?= $product['id'] ?>"><?= htmlspecialchars($product['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="quantity_${itemCount}" class="form-label">Cantidad:</label>
-                        <input type="number" name="items[${itemCount}][quantity]" id="quantity_${itemCount}" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="unit_price_${itemCount}" class="form-label">Precio Unitario:</label>
-                        <input type="number" name="items[${itemCount}][unit_price]" id="unit_price_${itemCount}" class="form-control" step="0.01" required>
-                    </div>
-                    <button type="button" class="btn btn-danger removeItem">Eliminar Ítem</button>
-                </div>
-            `;
-
-            itemsContainer.appendChild(itemDiv);
-
-            const removeItemButtons = document.querySelectorAll('.removeItem');
-            removeItemButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    this.parentElement.remove();
-                });
-            });
-        });
-
-        const removeItemButtons = document.querySelectorAll('.removeItem');
-        removeItemButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                this.parentElement.remove();
-            });
-        });
-    });
-</script>
 
 <?php require_once '../templates/footer.php'; ?>

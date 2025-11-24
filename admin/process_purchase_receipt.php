@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $receiptDate = $_POST['receipt_date'] ?? '';
 
             if ($purchaseReceiptManager->createPurchaseReceipt($purchaseOrderId, $receiptDate)) {
-                header('Location: list_purchase_receipts.php');
+                header('Location: compras.php');
                 exit;
             } else {
                 echo "Error al registrar la recepción de mercancía.";
