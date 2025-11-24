@@ -54,9 +54,12 @@ require_once '../funciones/CartManager.php';
 require_once '../funciones/Menus.php';
 require_once '../funciones/OrderManager.php';
 require_once '../funciones/UserManager.php';
+require_once '../funciones/CashRegisterManager.php';
+require_once '../funciones/TransactionManager.php';
 require_once '../funciones/SupplierManager.php';
 require_once '../funciones/PurchaseOrderManager.php';
 require_once '../funciones/PurchaseReceiptManager.php';
+require_once '../funciones/VaultManager.php';
 
 
 // Instancias de los controladores
@@ -67,6 +70,9 @@ $supplierManager = new SupplierManager($db);  // Manejo de Proveedores
 $purchaseOrderManager = new PurchaseOrderManager($db);  // Manejo de Órdenes de Compra
 $purchaseReceiptManager = new PurchaseReceiptManager($db, $productManager);  // Manejo de Recepciones de Mercancía
 $userManager = new UserManager($db);  // Manejo de usuarios
+$cashRegisterManager = new CashRegisterManager($db);
+$transactionManager = new TransactionManager($db);
+$vaultManager = new VaultManager($db);
 
 /**
  * Ahora en cualquier archivo que incluya `autoload.php` se podrán usar estas instancias, por ejemplo:

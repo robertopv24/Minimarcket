@@ -38,7 +38,7 @@
                           <a href="../admin/proveedores.php" class="nav-item nav-link ">proveedores</a>
                           <a href="../admin/list_purchase_orders.php" class="nav-item nav-link ">Órdenes de Compra</a>
                           <a href="../admin/list_purchase_receipts.php" class="nav-item nav-link ">Recepciones de Mercancía</a>
-
+                          <a href="../admin/caja_chica.php" class="nav-item nav-link ">Caja Chica</a>
 
 
                         </div>
@@ -50,6 +50,7 @@
                           <div class="dropdown-menu bg-transparent border-0">
                             <a href="../paginas/index.php" class="nav-item nav-link ">Inicio</a>
                             <a href="../paginas/tienda.php" class="nav-item nav-link ">Tienda</a>
+                            <a href="../paginas/cierre_caja.php" class="nav-item nav-link text-danger"><i class="fa fa-file-invoice-dollar me-2"></i>Cierre de Caja</a>
 
                           </div>
                       </div>
@@ -63,6 +64,7 @@
                         <div class="dropdown-menu bg-transparent border-0">
                           <a href="index.php" class="nav-item nav-link ">Inicio</a>
                           <a href="tienda.php" class="nav-item nav-link ">Tienda</a>
+                          <a href="cierre_caja.php" class="nav-item nav-link text-danger"><i class="fa fa-file-invoice-dollar me-2"></i>Cierre de Caja</a>
 
                         </div>
                     </div>
