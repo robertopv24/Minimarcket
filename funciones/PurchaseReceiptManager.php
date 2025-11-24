@@ -11,61 +11,69 @@ class PurchaseReceiptManager {
     }
 
 
-    // PurchaseReceiptManager.php
-
-    public function updateProductPrice($productId, $unitPrice) {
-        try {
-            $stmt = $this->db->prepare("UPDATE products SET price_usd = ? WHERE id = ?");
-            return $stmt->execute([$unitPrice, $productId]);
-        } catch (PDOException $e) {
-            error_log("Error al actualizar el precio del producto: " . $e->getMessage());
-            return false;
-        }
-    }
-
-
-
-
-
-
     public function createPurchaseReceipt($purchaseOrderId, $receiptDate) {
-        try {
-            $this->db->beginTransaction();
+            try {
+                $this->db->beginTransaction();
 
-            $stmt = $this->db->prepare("INSERT INTO purchase_receipts (purchase_order_id, receipt_date) VALUES (?, ?)");
-            $stmt->execute([$purchaseOrderId, $receiptDate]);
+                // 1. Registrar la recepción
+                $stmt = $this->db->prepare("INSERT INTO purchase_receipts (purchase_order_id, receipt_date) VALUES (?, ?)");
+                $stmt->execute([$purchaseOrderId, $receiptDate]);
+                $receiptId = $this->db->lastInsertId();
 
-            $receiptId = $this->db->lastInsertId();
+                // 2. Obtener items y Tasa de Cambio Actual
+                $items = $this->getPurchaseOrderItems($purchaseOrderId);
 
-            // Actualizar el stock y el precio de los productos
-            $items = $this->getPurchaseOrderItems($purchaseOrderId);
-            foreach ($items as $item) {
-                $product = $this->productManager->getProductById($item['product_id']);
-                if ($product) {
-                    $newStock = $product['stock'] + $item['quantity'];
-                    $this->productManager->updateProductStock($item['product_id'], $newStock);
-                    $this->updateProductPrice($item['product_id'], $item['unit_price']); // Actualizar el precio
-                } else {
-                    throw new Exception("Producto no encontrado ID: " . $item['product_id']);
+                // Necesitamos la tasa actual para recalcular el precio VES
+                // Asumimos que $GLOBALS['config'] está disponible por el autoload
+                $currentRate = $GLOBALS['config']->get('exchange_rate');
+                if(!$currentRate) $currentRate = 1;
+
+                foreach ($items as $item) {
+                    $product = $this->productManager->getProductById($item['product_id']);
+
+                    if ($product) {
+                        // A. Actualizar Stock
+                        $newStock = $product['stock'] + $item['quantity'];
+
+                        // B. Calcular Nuevo Precio de Venta (USD)
+                        // CORRECCIÓN: Usamos $product['profit_margin'], no $item
+                        $margin = $product['profit_margin'];
+                        $cost = $item['unit_price'];
+
+                        // Fórmula: Costo + (Costo * %Margen)
+                        $newPriceUsd = $cost * (1 + ($margin / 100));
+
+                        // C. Calcular Nuevo Precio (VES) automáticamente
+                        $newPriceVes = $newPriceUsd * $currentRate;
+
+                        // D. Actualizar todo en el Producto (Stock, USD y VES)
+                        // Usamos una consulta directa para ser eficientes y atómicos
+                        $sql = "UPDATE products SET stock = ?, price_usd = ?, price_ves = ?, updated_at = NOW() WHERE id = ?";
+                        $stmtUpdate = $this->db->prepare($sql);
+                        $stmtUpdate->execute([$newStock, $newPriceUsd, $newPriceVes, $item['product_id']]);
+
+                    } else {
+                        throw new Exception("Producto no encontrado ID: " . $item['product_id']);
+                    }
                 }
+
+                // 3. Cerrar la Orden de Compra
+                $stmt = $this->db->prepare("UPDATE purchase_orders SET status = 'received' WHERE id = ?");
+                $stmt->execute([$purchaseOrderId]);
+
+                $this->db->commit();
+                return $receiptId;
+
+            } catch (PDOException $e) {
+                $this->db->rollBack();
+                error_log("Error DB en recepción: " . $e->getMessage());
+                return false;
+            } catch (Exception $e) {
+                $this->db->rollBack();
+                error_log("Error lógico en recepción: " . $e->getMessage());
+                return false;
             }
-
-            // Actualizar el estado de la orden de compra a 'received'
-            $stmt = $this->db->prepare("UPDATE purchase_orders SET status = 'received' WHERE id = ?");
-            $stmt->execute([$purchaseOrderId]);
-
-            $this->db->commit();
-            return $receiptId;
-        } catch (PDOException $e) {
-            $this->db->rollBack();
-            error_log("Error al crear la recepción de mercancía: " . $e->getMessage());
-            return false;
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            error_log("Error al actualizar el stock: " . $e->getMessage());
-            return false;
         }
-    }
 
     public function getPurchaseReceiptById($id) {
         try {

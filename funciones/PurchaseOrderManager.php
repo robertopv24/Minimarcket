@@ -8,33 +8,36 @@ class PurchaseOrderManager {
         $this->db = $db;
     }
 
-    public function createPurchaseOrder($supplierId, $orderDate, $expectedDeliveryDate, $items) {
-        try {
-            $this->db->beginTransaction();
+    public function createPurchaseOrder($supplierId, $orderDate, $expectedDeliveryDate, $items, $exchangeRate) {
+            try {
+                $this->db->beginTransaction();
 
-            $stmt = $this->db->prepare("INSERT INTO purchase_orders (supplier_id, order_date, expected_delivery_date, total_amount, status) VALUES (?, ?, ?, ?, 'pending')");
-            $stmt->execute([$supplierId, $orderDate, $expectedDeliveryDate, 0]);
+                // Insertamos incluyendo la tasa de cambio histórica (exchange_rate)
+                $stmt = $this->db->prepare("INSERT INTO purchase_orders (supplier_id, order_date, expected_delivery_date, total_amount, exchange_rate, status) VALUES (?, ?, ?, ?, ?, 'pending')");
+                // Nota: Inicializamos total_amount en 0, luego se calcula con los ítems
+                $stmt->execute([$supplierId, $orderDate, $expectedDeliveryDate, 0, $exchangeRate]);
 
-            $purchaseOrderId = $this->db->lastInsertId();
-            $totalAmount = 0;
+                $purchaseOrderId = $this->db->lastInsertId();
+                $totalAmount = 0;
 
-            foreach ($items as $item) {
-                $stmt = $this->db->prepare("INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$purchaseOrderId, $item['product_id'], $item['quantity'], $item['unit_price']]);
-                $totalAmount += $item['quantity'] * $item['unit_price'];
+                foreach ($items as $item) {
+                    $stmt = $this->db->prepare("INSERT INTO purchase_order_items (purchase_order_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)");
+                    $stmt->execute([$purchaseOrderId, $item['product_id'], $item['quantity'], $item['unit_price']]);
+                    $totalAmount += $item['quantity'] * $item['unit_price'];
+                }
+
+                // Actualizamos el total calculado
+                $stmt = $this->db->prepare("UPDATE purchase_orders SET total_amount = ? WHERE id = ?");
+                $stmt->execute([$totalAmount, $purchaseOrderId]);
+
+                $this->db->commit();
+                return $purchaseOrderId;
+            } catch (PDOException $e) {
+                $this->db->rollBack();
+                error_log("Error al crear la orden de compra: " . $e->getMessage());
+                return false;
             }
-
-            $stmt = $this->db->prepare("UPDATE purchase_orders SET total_amount = ? WHERE id = ?");
-            $stmt->execute([$totalAmount, $purchaseOrderId]);
-
-            $this->db->commit();
-            return $purchaseOrderId;
-        } catch (PDOException $e) {
-            $this->db->rollBack();
-            error_log("Error al crear la orden de compra: " . $e->getMessage());
-            return false;
         }
-    }
 
     public function updatePurchaseOrder($id, $supplierId, $orderDate, $expectedDeliveryDate, $items) {
         try {

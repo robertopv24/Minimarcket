@@ -34,6 +34,7 @@
                           <a href="../admin/usuarios.php" class="nav-item nav-link ">Usuarios</a>
                           <a href="../admin/productos.php" class="nav-item nav-link ">Productos</a>
                           <a href="../admin/ventas.php" class="nav-item nav-link ">Ventas</a>
+                          <a href="../admin/compras.php" class="nav-item nav-link ">Compras</a>
                           <a href="../admin/proveedores.php" class="nav-item nav-link ">proveedores</a>
                           <a href="../admin/list_purchase_orders.php" class="nav-item nav-link ">Órdenes de Compra</a>
                           <a href="../admin/list_purchase_receipts.php" class="nav-item nav-link ">Recepciones de Mercancía</a>
