@@ -60,56 +60,56 @@ class CashRegisterManager {
 
         // 1. Obtener reporte del turno actual (Cuánto debería haber)
         public function getSessionReport($userId) {
-            $sessionId = $this->hasOpenSession($userId);
-            if (!$sessionId) return null;
+                $sessionId = $this->hasOpenSession($userId);
+                if (!$sessionId) return null;
 
-            // Sumar ingresos y egresos por moneda agrupados
-            // Calculamos: Fondo Inicial + Ingresos - Egresos
+                $report = [
+                    'id' => $sessionId,
+                    'expected_usd' => 0,
+                    'expected_ves' => 0,
+                    'movements' => []
+                ];
 
-            $report = [
-                'id' => $sessionId,
-                'expected_usd' => 0,
-                'expected_ves' => 0,
-                'movements' => []
-            ];
+                // 1. Iniciar el conteo con el Fondo de Caja (Base)
+                $stmt = $this->db->prepare("SELECT * FROM cash_sessions WHERE id = ?");
+                $stmt->execute([$sessionId]);
+                $session = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Obtener detalles de la sesión (Fondo inicial)
-            $stmt = $this->db->prepare("SELECT * FROM cash_sessions WHERE id = ?");
-            $stmt->execute([$sessionId]);
-            $session = $stmt->fetch(PDO::FETCH_ASSOC);
+                $report['expected_usd'] = floatval($session['opening_balance_usd']);
+                $report['expected_ves'] = floatval($session['opening_balance_ves']);
+                $report['opened_at'] = $session['opened_at'];
 
-            $report['expected_usd'] += $session['opening_balance_usd'];
-            $report['expected_ves'] += $session['opening_balance_ves'];
-            $report['opened_at'] = $session['opened_at'];
+                // 2. Obtener transacciones
+                // Nota: Traemos TODAS (incluyendo ajustes) para mostrarlas en la lista
+                $sql = "SELECT t.*, pm.type as method_type, pm.name as method_name
+                        FROM transactions t
+                        JOIN payment_methods pm ON t.payment_method_id = pm.id
+                        WHERE t.cash_session_id = ?
+                        ORDER BY t.created_at ASC";
 
-            // Sumar transacciones (Solo las que afectan EFECTIVO, o general según tu modelo)
-            // NOTA: Si Zelle va directo a banco, no deberíamos sumarlo al "Cuadre de Efectivo" físico.
-            // Aquí separaremos por tipo de método de pago.
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$sessionId]);
+                $trans = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $sql = "SELECT t.*, pm.type as method_type, pm.name as method_name
-                    FROM transactions t
-                    JOIN payment_methods pm ON t.payment_method_id = pm.id
-                    WHERE t.cash_session_id = ?";
+                foreach ($trans as $t) {
+                    // Lógica de Suma:
+                    // Solo sumamos al "Total Esperado" si NO es un ajuste de fondo (reference_type != 'adjustment')
+                    // Porque el fondo ya lo sumamos en el paso 1 con $session['opening_balance...']
 
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$sessionId]);
-            $trans = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($trans as $t) {
-                // Solo sumamos al "Efectivo Esperado" si el método es tipo 'cash'
-                if ($t['method_type'] === 'cash') {
-                    if ($t['currency'] === 'USD') {
-                        $report['expected_usd'] += ($t['type'] === 'income' ? $t['amount'] : -$t['amount']);
-                    } elseif ($t['currency'] === 'VES') {
-                        $report['expected_ves'] += ($t['type'] === 'income' ? $t['amount'] : -$t['amount']);
+                    if ($t['method_type'] === 'cash' && $t['reference_type'] !== 'adjustment') {
+                        if ($t['currency'] === 'USD') {
+                            $report['expected_usd'] += ($t['type'] === 'income' ? $t['amount'] : -$t['amount']);
+                        } elseif ($t['currency'] === 'VES') {
+                            $report['expected_ves'] += ($t['type'] === 'income' ? $t['amount'] : -$t['amount']);
+                        }
                     }
-                }
-                // Guardamos el movimiento para el historial
-                $report['movements'][] = $t;
-            }
 
-            return $report;
-        }
+                    // Agregamos todo a la lista visual (incluso el fondo, para que se vea en el historial)
+                    $report['movements'][] = $t;
+                }
+
+                return $report;
+            }
 
         // 2. Cerrar la Caja (Guardar lo que contó el cajero)
         public function closeRegister($userId, $countedUsd, $countedVes) {

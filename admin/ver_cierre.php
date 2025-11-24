@@ -22,9 +22,30 @@ if (!$data) {
 $session = $data['info'];
 $methods = $data['methods'];
 
-// Calcular diferencias de efectivo
-$diffUsd = $session['closing_balance_usd'] - $session['calculated_usd'];
-$diffVes = $session['closing_balance_ves'] - $session['calculated_ves'];
+// --- RECALCULAR ESPERADO (CORREGIDO - SIN DUPLICIDAD) ---
+// La variable $methods ya incluye la transacción de "Apertura de Caja" (Adjustment).
+// Por lo tanto, la suma de $methods es el total absoluto que debe haber en caja.
+
+$expectedUsd = 0;
+$expectedVes = 0;
+
+foreach ($methods as $m) {
+    // Sumamos lo que dicen las transacciones registradas (que ya incluyen el fondo)
+    if ($m['method_name'] === 'Efectivo USD') {
+        $expectedUsd += $m['total'];
+    }
+    if ($m['method_name'] === 'Efectivo VES') {
+        $expectedVes += $m['total'];
+    }
+}
+
+// Si por alguna razón no hubo transacciones de efectivo (ni siquiera fondo), usamos el opening_balance
+if ($expectedUsd == 0 && $session['opening_balance_usd'] > 0) $expectedUsd = $session['opening_balance_usd'];
+if ($expectedVes == 0 && $session['opening_balance_ves'] > 0) $expectedVes = $session['opening_balance_ves'];
+
+// Calcular diferencias reales
+$diffUsd = $session['closing_balance_usd'] - $expectedUsd;
+$diffVes = $session['closing_balance_ves'] - $expectedVes;
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -72,16 +93,18 @@ require_once '../templates/menu.php';
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="text-start">Sistema (Fondo + Ventas)</td>
-                                <td><?= number_format($session['calculated_usd'], 2) ?></td>
-                                <td><?= number_format($session['calculated_ves'], 2) ?></td>
+                                <td class="text-start">
+                                    Sistema (Fondo + Ventas)
+                                </td>
+                                <td class="fw-bold"><?= number_format($expectedUsd, 2) ?></td>
+                                <td class="fw-bold"><?= number_format($expectedVes, 2) ?></td>
                             </tr>
                             <tr>
                                 <td class="text-start">Cajero (Conteo Real)</td>
-                                <td class="fw-bold"><?= number_format($session['closing_balance_usd'], 2) ?></td>
-                                <td class="fw-bold"><?= number_format($session['closing_balance_ves'], 2) ?></td>
+                                <td><?= number_format($session['closing_balance_usd'], 2) ?></td>
+                                <td><?= number_format($session['closing_balance_ves'], 2) ?></td>
                             </tr>
-                            <tr class="<?= ($diffUsd != 0 || $diffVes != 0) ? 'table-danger' : 'table-success' ?>">
+                            <tr class="<?= (abs($diffUsd) > 0.5 || abs($diffVes) > 1) ? 'table-warning' : 'table-success' ?>">
                                 <td class="text-start fw-bold">Diferencia</td>
                                 <td class="fw-bold">
                                     <?= ($diffUsd > 0 ? '+' : '') . number_format($diffUsd, 2) ?>
@@ -93,9 +116,9 @@ require_once '../templates/menu.php';
                         </tbody>
                     </table>
 
-                    <?php if ($diffUsd != 0 || $diffVes != 0): ?>
+                    <?php if (abs($diffUsd) > 0.5 || abs($diffVes) > 1): ?>
                         <div class="alert alert-warning small mb-0 border-warning">
-                            <i class="fa fa-exclamation-triangle"></i> <strong>Atención:</strong> El efectivo contado no coincide con el sistema.
+                            <i class="fa fa-exclamation-triangle"></i> <strong>Atención:</strong> El efectivo contado no coincide.
                         </div>
                     <?php else: ?>
                         <div class="alert alert-success small mb-0 text-center">
@@ -117,37 +140,32 @@ require_once '../templates/menu.php';
                         $icon = $m['type'] == 'cash' ? 'fa-money-bill' : 'fa-university';
                         $isCash = $m['type'] == 'cash';
 
-                        $finalTotal = $m['total'];
+                        // ELIMINAMOS LA SUMA MANUAL DEL FONDO
+                        // $m['total'] ya viene con la transacción de apertura incluida desde la DB
+                        $displayTotal = $m['total'];
+
                         $badgeFondo = '';
-
-                        // CORRECCIÓN: Usamos $m['method_name'] que es como viene de la BD
-                        if ($m['method_name'] === 'Efectivo USD') {
-                            $finalTotal += $session['opening_balance_usd'];
-                            if ($session['opening_balance_usd'] > 0) {
-                                $badgeFondo = '<span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;">+ Fondo $' . number_format($session['opening_balance_usd'], 2) . '</span>';
-                            }
+                        // Solo mostramos la etiqueta visual para informar, pero NO sumamos nada extra
+                        if ($m['method_name'] === 'Efectivo USD' && $session['opening_balance_usd'] > 0) {
+                            $badgeFondo = '<span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;" title="Incluido en el total">Inc. Fondo $' . number_format($session['opening_balance_usd'], 2) . '</span>';
                         }
-
-                        if ($m['method_name'] === 'Efectivo VES') {
-                            $finalTotal += $session['opening_balance_ves'];
-                            if ($session['opening_balance_ves'] > 0) {
-                                $badgeFondo = '<span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;">+ Fondo ' . number_format($session['opening_balance_ves'], 2) . '</span>';
-                            }
+                        if ($m['method_name'] === 'Efectivo VES' && $session['opening_balance_ves'] > 0) {
+                            $badgeFondo = '<span class="badge bg-warning text-dark ms-1" style="font-size: 0.6rem;" title="Incluido en el total">Inc. Fondo ' . number_format($session['opening_balance_ves'], 2) . '</span>';
                         }
                     ?>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
                                 <i class="fa <?= $icon ?> text-muted me-2"></i>
-                                <strong><?= $m['method_name'] ?></strong>
+                                <strong><?= htmlspecialchars($m['method_name']) ?></strong>
                                 <?php if($isCash): ?>
-                                    <span class="badge bg-dark rounded-pill ms-2" style="font-size: 0.6rem;">CAJA</span>
+                                    <span class="badge bg-secondary rounded-pill ms-2" style="font-size: 0.6rem;">CAJA</span>
                                 <?php else: ?>
                                     <span class="badge bg-info text-dark rounded-pill ms-2" style="font-size: 0.6rem;">BANCO</span>
                                 <?php endif; ?>
                                 <?= $badgeFondo ?>
                             </div>
                             <span class="fs-5 text-end">
-                                <?= number_format($finalTotal, 2) ?>
+                                <?= number_format($displayTotal, 2) ?>
                                 <small class="fs-6 text-muted"><?= $m['currency'] ?></small>
                             </span>
                         </li>
