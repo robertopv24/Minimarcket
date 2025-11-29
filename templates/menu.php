@@ -55,7 +55,7 @@
                           <div class="dropdown-menu bg-transparent border-0">
                             <a href="../paginas/index.php" class="nav-item nav-link ">Inicio</a>
                             <a href="../paginas/tienda.php" class="nav-item nav-link ">Tienda</a>
-                            <a href="despacho.php" class="nav-item nav-link text-warning fw-bold"><i class="fa fa-tasks me-2"></i>Despacho / Cocina</a>
+                            <a href="../paginas/despacho.php" class="nav-item nav-link text-warning fw-bold"><i class="fa fa-tasks me-2"></i>Despacho / Cocina</a>
                             <a href="../paginas/cierre_caja.php" class="nav-item nav-link text-danger"><i class="fa fa-file-invoice-dollar me-2"></i>Cierre de Caja</a>
 
                           </div>
