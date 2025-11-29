@@ -29,6 +29,8 @@ $valorInventarioUsd = 0;
 $itemsCriticos = 0;
 
 foreach ($productos as $p) {
+    // Nota: Para KPIs rápidos usamos el stock físico,
+    // pero podrías ajustarlo si quisieras valorar el stock virtual.
     $valorInventarioUsd += $p['price_usd'] * $p['stock'];
     if ($p['stock'] <= 5) $itemsCriticos++;
 }
@@ -58,7 +60,7 @@ require_once '../templates/menu.php';
             <div class="card bg-success text-white shadow">
                 <div class="card-body text-center">
                     <h3>$<?= number_format($valorInventarioUsd, 2) ?></h3>
-                    <small>Valor Venta del Inventario</small>
+                    <small>Valor Venta del Inventario (Físico)</small>
                 </div>
             </div>
         </div>
@@ -104,7 +106,7 @@ require_once '../templates/menu.php';
                             <th>Producto</th>
                             <th>Precios (PVP)</th>
                             <th>Margen</th>
-                            <th>Stock</th>
+                            <th class="text-center">Stock Disponible</th>
                             <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
@@ -121,9 +123,17 @@ require_once '../templates/menu.php';
                                             </div>
                                         <?php endif; ?>
                                     </td>
+
                                     <td>
                                         <span class="fw-bold"><?= htmlspecialchars($producto['name']) ?></span>
-                                        <?php if($producto['stock'] == 0): ?>
+
+                                        <?php if ($producto['product_type'] === 'prepared'): ?>
+                                            <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">COCINA</span>
+                                        <?php elseif ($producto['product_type'] === 'simple'): ?>
+                                            <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">REVENTA</span>
+                                        <?php endif; ?>
+
+                                        <?php if($producto['stock'] == 0 && $producto['product_type'] == 'simple'): ?>
                                             <span class="badge bg-danger ms-2">AGOTADO</span>
                                         <?php endif; ?>
                                         <br>
@@ -131,34 +141,70 @@ require_once '../templates/menu.php';
                                             <?= htmlspecialchars($producto['description']) ?>
                                         </small>
                                     </td>
+
                                     <td>
                                         <div class="d-flex flex-column">
                                             <span class="fw-bold text-success">$<?= number_format($producto['price_usd'], 2) ?></span>
                                             <span class="small text-muted"><?= number_format($producto['price_ves'], 2) ?> Bs</span>
                                         </div>
                                     </td>
+
                                     <td>
                                         <span class="badge bg-info text-dark">
                                             <?= number_format($producto['profit_margin'], 1) ?>%
                                         </span>
                                     </td>
-                                    <td>
+
+                                    <td class="text-center">
                                         <?php
+                                            $stockMostrar = 0;
+                                            $esVirtual = false;
+
+                                            // Lógica: Si es simple, muestra stock físico. Si es preparado, calcula receta.
+                                            if ($producto['product_type'] === 'simple') {
+                                                $stockMostrar = $producto['stock'];
+                                                $esVirtual = false;
+                                            } else {
+                                                // ¡IMPORTANTE! Asegúrate de tener getVirtualStock en ProductManager.php
+                                                $stockMostrar = $productManager->getVirtualStock($producto['id']);
+                                                $esVirtual = true;
+                                            }
+
+                                            // Colores del semáforo
                                             $stockClass = 'bg-success';
-                                            if ($producto['stock'] <= 5) $stockClass = 'bg-danger';
-                                            elseif ($producto['stock'] <= 15) $stockClass = 'bg-warning text-dark';
+                                            if ($stockMostrar <= 5) $stockClass = 'bg-danger';
+                                            elseif ($stockMostrar <= 15) $stockClass = 'bg-warning text-dark';
                                         ?>
-                                        <span class="badge <?= $stockClass ?> rounded-pill px-3">
-                                            <?= htmlspecialchars($producto['stock']) ?>
+
+                                        <span class="badge <?= $stockClass ?> rounded-pill px-3 position-relative">
+                                            <?= $stockMostrar ?>
+
+                                            <?php if($esVirtual): ?>
+                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary"
+                                                      style="font-size: 0.6em;"
+                                                      title="Calculado según ingredientes disponibles">
+                                                    <i class="fa fa-utensils"></i>
+                                                </span>
+                                            <?php endif; ?>
                                         </span>
+
+                                        <div style="font-size: 10px;" class="text-muted mt-1">
+                                            <?= $esVirtual ? 'Disp. Cocina' : 'Físico' ?>
+                                        </div>
                                     </td>
+
                                     <td class="text-end">
                                         <div class="btn-group">
                                             <a href="edit_product.php?id=<?= $producto['id'] ?>" class="btn btn-sm btn-warning" title="Editar">
                                                 <i class="fa fa-edit"></i>
                                             </a>
+
+                                            <a href="configurar_receta.php?id=<?= $producto['id'] ?>" class="btn btn-sm btn-dark ms-1" title="Configurar Receta">
+                                                <i class="fa fa-cogs"></i>
+                                            </a>
+
                                             <form action="delete_product.php?id=<?= $producto['id'] ?>" method="POST" style="display:inline;">
-                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar <?= htmlspecialchars($producto['name']) ?>?');" title="Eliminar">
+                                                <button type="submit" class="btn btn-sm btn-danger ms-1" onclick="return confirm('¿Eliminar <?= htmlspecialchars($producto['name']) ?>?');" title="Eliminar">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
                                             </form>
