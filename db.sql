@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 29-11-2025 a las 06:59:50
+-- Tiempo de generación: 29-11-2025 a las 08:36:39
 -- Versión del servidor: 10.11.11-MariaDB
 -- Versión de PHP: 8.4.12
 
@@ -35,6 +35,13 @@ CREATE TABLE `cart` (
   `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_spanish_ci;
 
+--
+-- Volcado de datos para la tabla `cart`
+--
+
+INSERT INTO `cart` (`id`, `user_id`, `product_id`, `quantity`, `consumption_type`) VALUES
+(123, 4, 88, 1, 'takeaway');
+
 -- --------------------------------------------------------
 
 --
@@ -49,6 +56,15 @@ CREATE TABLE `cart_item_modifiers` (
   `quantity_adjustment` decimal(10,4) DEFAULT 0.0000,
   `price_adjustment` decimal(10,2) DEFAULT 0.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `cart_item_modifiers`
+--
+
+INSERT INTO `cart_item_modifiers` (`id`, `cart_id`, `modifier_type`, `raw_material_id`, `quantity_adjustment`, `price_adjustment`) VALUES
+(1, 123, 'add', 52, 0.0500, 0.50),
+(2, 123, 'add', 12, 0.0500, 1.00),
+(3, 123, 'add', 18, 0.0500, 1.00);
 
 -- --------------------------------------------------------
 
@@ -667,7 +683,7 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (81, 'Pizza Pollo y Champiñones', 'Pollo desmechado y Champiñones frescos', 8.50, 2550.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
 (82, 'Pizza Pepperoni BORDE DE QUESO', 'Nuestra famosa pepperoni con orilla rellena de mozzarella', 9.50, 2850.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
 (87, 'Combo Fiestero (25 Tequeños)', '25 Tequeños fritos + 1 Salsa Tártara + 1 Coca-Cola 2L', 15.00, 4500.00, 0, 'compound', 'kitchen', NULL, '2025-11-29 03:40:43', 20.00, '2025-11-29 03:41:03'),
-(88, 'Combo Pareja (2 Pizzas)', '2 Pizzas Medianas (Margarita/Peppe) + 1 Coca-Cola 2L', 12.00, 3600.00, 0, 'compound', 'pizza', NULL, '2025-11-29 03:40:43', 20.00, '2025-11-29 03:41:03'),
+(88, 'Combo Pareja (2 Pizzas)', '2 Pizzas Medianas (Margarita/Peppe) + 1 Coca-Cola 2L', 15.00, 4500.00, 0, 'compound', 'pizza', NULL, '2025-11-29 03:40:43', 20.00, '2025-11-29 07:34:39'),
 (89, 'Combo Maracucho (Cena)', '2 Tumbarranchos + 2 Tequeyoyos + 2 Maltas', 8.00, 2400.00, 0, 'compound', 'kitchen', NULL, '2025-11-29 03:40:43', 20.00, '2025-11-29 03:41:03'),
 (90, 'Combo Burger Duo', '2 Hamburguesas Clásicas + Papitas + 2 Maltas', 9.00, 2700.00, 0, 'compound', 'kitchen', NULL, '2025-11-29 03:40:43', 20.00, '2025-11-29 03:41:03');
 
@@ -776,27 +792,17 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (127, 70, 'raw', 12, 0.1200),
 (128, 70, 'raw', 17, 0.0800),
 (129, 70, 'raw', 36, 1.0000),
-(139, 87, 'manufactured', 3, 25.0000),
-(140, 87, 'raw', 44, 0.2000),
-(141, 87, 'manufactured', 13, 0.2500),
-(142, 87, 'product', 71, 1.0000),
-(143, 88, 'manufactured', 1, 0.7000),
-(144, 88, 'manufactured', 2, 0.2000),
-(145, 88, 'raw', 12, 0.3000),
-(146, 88, 'raw', 36, 2.0000),
-(147, 88, 'product', 71, 1.0000),
-(148, 89, 'manufactured', 15, 2.0000),
-(149, 89, 'raw', 58, 0.1600),
-(150, 89, 'manufactured', 16, 0.1000),
-(151, 89, 'manufactured', 10, 2.0000),
-(152, 89, 'raw', 53, 0.1000),
-(153, 89, 'manufactured', 13, 0.1000),
-(154, 89, 'product', 72, 2.0000),
-(155, 90, 'manufactured', 4, 2.0000),
-(156, 90, 'raw', 10, 2.0000),
-(157, 90, 'raw', 14, 0.0600),
-(158, 90, 'raw', 25, 0.0500),
-(159, 90, 'product', 72, 2.0000);
+(164, 90, 'product', 60, 2.0000),
+(165, 90, 'product', 72, 2.0000),
+(166, 89, 'product', 62, 2.0000),
+(167, 89, 'product', 63, 2.0000),
+(168, 89, 'product', 72, 2.0000),
+(170, 88, 'product', 71, 1.0000),
+(171, 87, 'product', 67, 5.0000),
+(172, 87, 'product', 71, 1.0000),
+(173, 88, 'product', 57, 1.0000),
+(174, 88, 'product', 58, 1.0000),
+(175, 88, 'raw', 36, 2.0000);
 
 -- --------------------------------------------------------
 
@@ -1372,13 +1378,13 @@ ALTER TABLE `vault_movements`
 -- AUTO_INCREMENT de la tabla `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=117;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=124;
 
 --
 -- AUTO_INCREMENT de la tabla `cart_item_modifiers`
 --
 ALTER TABLE `cart_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
@@ -1462,7 +1468,7 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT de la tabla `product_components`
 --
 ALTER TABLE `product_components`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=160;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=176;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_orders`
