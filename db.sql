@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 29-11-2025 a las 05:37:09
+-- Tiempo de generación: 29-11-2025 a las 06:59:50
 -- Versión del servidor: 10.11.11-MariaDB
 -- Versión de PHP: 8.4.12
 
@@ -31,8 +31,24 @@ CREATE TABLE `cart` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `product_id` int(11) NOT NULL,
-  `quantity` int(11) NOT NULL
+  `quantity` int(11) NOT NULL,
+  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_spanish_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `cart_item_modifiers`
+--
+
+CREATE TABLE `cart_item_modifiers` (
+  `id` int(11) NOT NULL,
+  `cart_id` int(11) NOT NULL,
+  `modifier_type` enum('add','remove') NOT NULL,
+  `raw_material_id` int(11) NOT NULL,
+  `quantity_adjustment` decimal(10,4) DEFAULT 0.0000,
+  `price_adjustment` decimal(10,2) DEFAULT 0.00
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -271,6 +287,7 @@ CREATE TABLE `orders` (
   `user_id` int(11) NOT NULL,
   `total_price` decimal(10,2) NOT NULL,
   `status` enum('pending','paid','preparing','ready','delivered','cancelled') DEFAULT 'pending',
+  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway',
   `shipping_address` text NOT NULL,
   `shipping_method` varchar(100) DEFAULT NULL,
   `tracking_number` varchar(100) DEFAULT NULL,
@@ -282,44 +299,44 @@ CREATE TABLE `orders` (
 -- Volcado de datos para la tabla `orders`
 --
 
-INSERT INTO `orders` (`id`, `user_id`, `total_price`, `status`, `shipping_address`, `shipping_method`, `tracking_number`, `created_at`, `updated_at`) VALUES
-(21, 4, 0.80, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-21 23:13:49', '2025-11-29 04:51:26'),
-(22, 4, 0.80, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-21 23:14:22', '2025-11-29 04:52:47'),
-(23, 4, 1.20, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-21 23:14:29', '2025-11-29 04:52:50'),
-(24, 4, 0.66, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-24 00:24:00', '2025-11-29 04:52:51'),
-(25, 4, 0.17, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-24 00:25:20', '2025-11-29 04:52:51'),
-(28, 4, 0.24, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-24 00:25:28', '2025-11-29 04:52:52'),
-(29, 4, 1.20, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-24 00:25:38', '2025-11-29 04:52:52'),
-(30, 4, 0.12, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 16:28:06', '2025-11-29 04:52:53'),
-(31, 4, 0.10, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 16:28:22', '2025-11-29 04:52:53'),
-(32, 4, 0.40, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 17:03:30', '2025-11-29 04:52:54'),
-(33, 4, 1.00, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 17:20:19', '2025-11-29 04:52:54'),
-(34, 4, 1.23, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 17:56:09', '2025-11-29 04:52:55'),
-(35, 4, 0.13, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 18:18:17', '2025-11-29 04:52:55'),
-(36, 4, 1.30, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 18:41:32', '2025-11-29 04:52:56'),
-(37, 4, 1.00, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 18:48:21', '2025-11-29 04:52:56'),
-(38, 4, 2.32, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-09 23:14:38', '2025-11-29 04:52:57'),
-(39, 4, 1.20, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-10 00:37:34', '2025-11-29 04:52:57'),
-(40, 4, 0.60, 'delivered', 'asdasdasd12', NULL, NULL, '2025-03-14 23:41:19', '2025-11-29 04:52:58'),
-(41, 4, 0.60, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-21 23:18:47', '2025-11-29 04:52:58'),
-(42, 4, 3.10, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-24 04:35:06', '2025-11-29 04:52:59'),
-(43, 4, 1.50, 'delivered', 'asdasdasd12', NULL, NULL, '2025-11-24 04:49:28', '2025-11-29 04:52:59'),
-(48, 4, 3.00, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 05:30:57', '2025-11-29 04:53:00'),
-(49, 4, 6.00, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 05:39:48', '2025-11-29 04:53:00'),
-(50, 4, 1.50, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 05:40:56', '2025-11-29 04:53:01'),
-(51, 4, 26.60, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 06:47:57', '2025-11-29 04:53:01'),
-(52, 4, 8.00, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 06:48:27', '2025-11-29 04:53:01'),
-(53, 4, 3.60, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 06:49:11', '2025-11-29 04:53:02'),
-(54, 4, 5.00, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 06:50:07', '2025-11-29 04:53:02'),
-(55, 4, 8.89, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 06:51:08', '2025-11-29 04:53:03'),
-(56, 4, 15.70, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 06:52:02', '2025-11-29 04:53:05'),
-(57, 4, 11.22, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 11:31:28', '2025-11-29 04:53:05'),
-(58, 4, 3.87, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 12:04:49', '2025-11-29 04:53:06'),
-(59, 4, 3.87, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 12:36:46', '2025-11-29 04:53:07'),
-(60, 4, 3.87, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 12:39:13', '2025-11-29 04:53:08'),
-(61, 4, 3.82, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 15:37:37', '2025-11-29 04:53:10'),
-(62, 4, 3.27, 'delivered', 'Tienda Física', NULL, NULL, '2025-11-24 21:43:03', '2025-11-29 04:53:58'),
-(63, 4, 5.06, 'delivered', 'Tienda Física', NULL, '', '2025-11-24 23:44:45', '2025-11-29 04:53:59');
+INSERT INTO `orders` (`id`, `user_id`, `total_price`, `status`, `consumption_type`, `shipping_address`, `shipping_method`, `tracking_number`, `created_at`, `updated_at`) VALUES
+(21, 4, 0.80, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-21 23:13:49', '2025-11-29 04:51:26'),
+(22, 4, 0.80, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-21 23:14:22', '2025-11-29 04:52:47'),
+(23, 4, 1.20, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-21 23:14:29', '2025-11-29 04:52:50'),
+(24, 4, 0.66, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-24 00:24:00', '2025-11-29 04:52:51'),
+(25, 4, 0.17, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-24 00:25:20', '2025-11-29 04:52:51'),
+(28, 4, 0.24, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-24 00:25:28', '2025-11-29 04:52:52'),
+(29, 4, 1.20, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-24 00:25:38', '2025-11-29 04:52:52'),
+(30, 4, 0.12, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 16:28:06', '2025-11-29 04:52:53'),
+(31, 4, 0.10, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 16:28:22', '2025-11-29 04:52:53'),
+(32, 4, 0.40, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 17:03:30', '2025-11-29 04:52:54'),
+(33, 4, 1.00, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 17:20:19', '2025-11-29 04:52:54'),
+(34, 4, 1.23, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 17:56:09', '2025-11-29 04:52:55'),
+(35, 4, 0.13, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 18:18:17', '2025-11-29 04:52:55'),
+(36, 4, 1.30, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 18:41:32', '2025-11-29 04:52:56'),
+(37, 4, 1.00, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 18:48:21', '2025-11-29 04:52:56'),
+(38, 4, 2.32, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-09 23:14:38', '2025-11-29 04:52:57'),
+(39, 4, 1.20, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-10 00:37:34', '2025-11-29 04:52:57'),
+(40, 4, 0.60, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-03-14 23:41:19', '2025-11-29 04:52:58'),
+(41, 4, 0.60, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-21 23:18:47', '2025-11-29 04:52:58'),
+(42, 4, 3.10, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-24 04:35:06', '2025-11-29 04:52:59'),
+(43, 4, 1.50, 'delivered', 'takeaway', 'asdasdasd12', NULL, NULL, '2025-11-24 04:49:28', '2025-11-29 04:52:59'),
+(48, 4, 3.00, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 05:30:57', '2025-11-29 04:53:00'),
+(49, 4, 6.00, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 05:39:48', '2025-11-29 04:53:00'),
+(50, 4, 1.50, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 05:40:56', '2025-11-29 04:53:01'),
+(51, 4, 26.60, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 06:47:57', '2025-11-29 04:53:01'),
+(52, 4, 8.00, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 06:48:27', '2025-11-29 04:53:01'),
+(53, 4, 3.60, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 06:49:11', '2025-11-29 04:53:02'),
+(54, 4, 5.00, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 06:50:07', '2025-11-29 04:53:02'),
+(55, 4, 8.89, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 06:51:08', '2025-11-29 04:53:03'),
+(56, 4, 15.70, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 06:52:02', '2025-11-29 04:53:05'),
+(57, 4, 11.22, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 11:31:28', '2025-11-29 04:53:05'),
+(58, 4, 3.87, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 12:04:49', '2025-11-29 04:53:06'),
+(59, 4, 3.87, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 12:36:46', '2025-11-29 04:53:07'),
+(60, 4, 3.87, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 12:39:13', '2025-11-29 04:53:08'),
+(61, 4, 3.82, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 15:37:37', '2025-11-29 04:53:10'),
+(62, 4, 3.27, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 21:43:03', '2025-11-29 04:53:58'),
+(63, 4, 5.06, 'delivered', 'takeaway', 'Tienda Física', NULL, '', '2025-11-24 23:44:45', '2025-11-29 04:53:59');
 
 -- --------------------------------------------------------
 
@@ -332,88 +349,89 @@ CREATE TABLE `order_items` (
   `order_id` int(11) NOT NULL,
   `product_id` int(11) NOT NULL,
   `quantity` int(11) NOT NULL,
-  `price` decimal(10,2) NOT NULL
+  `price` decimal(10,2) NOT NULL,
+  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_spanish_ci;
 
 --
 -- Volcado de datos para la tabla `order_items`
 --
 
-INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`) VALUES
-(21, 21, 46, 1, 0.80),
-(23, 22, 46, 1, 0.80),
-(25, 23, 28, 1, 1.20),
-(27, 24, 26, 1, 0.66),
-(29, 25, 48, 1, 0.17),
-(34, 28, 42, 8, 0.03),
-(35, 29, 25, 1, 1.20),
-(36, 30, 42, 4, 0.03),
-(37, 31, 19, 1, 0.10),
-(38, 32, 33, 1, 0.40),
-(39, 33, 47, 1, 1.00),
-(40, 34, 24, 1, 1.20),
-(41, 34, 42, 1, 0.03),
-(42, 35, 38, 1, 0.13),
-(43, 36, 20, 10, 0.13),
-(44, 37, 47, 1, 1.00),
-(45, 38, 47, 1, 1.00),
-(46, 38, 42, 4, 0.03),
-(47, 38, 28, 1, 1.20),
-(48, 39, 16, 2, 0.60),
-(49, 40, 16, 1, 0.60),
-(50, 41, 16, 1, 0.60),
-(51, 42, 41, 2, 0.80),
-(52, 42, 4, 1, 1.50),
-(53, 43, 4, 1, 1.50),
-(58, 48, 4, 2, 1.50),
-(59, 49, 41, 1, 0.80),
-(60, 49, 4, 1, 1.50),
-(61, 49, 32, 1, 0.60),
-(62, 49, 21, 1, 1.00),
-(63, 49, 16, 1, 0.60),
-(64, 49, 24, 1, 1.20),
-(65, 49, 19, 3, 0.10),
-(66, 50, 4, 1, 1.50),
-(67, 51, 47, 10, 1.20),
-(68, 51, 21, 5, 1.00),
-(69, 51, 24, 8, 1.20),
-(70, 52, 21, 8, 1.00),
-(71, 53, 25, 3, 1.20),
-(72, 54, 27, 20, 0.25),
-(73, 55, 30, 7, 1.27),
-(74, 56, 17, 10, 1.57),
-(75, 57, 17, 1, 1.57),
-(76, 57, 30, 2, 1.27),
-(77, 57, 27, 1, 0.25),
-(78, 57, 25, 1, 1.20),
-(79, 57, 24, 1, 1.20),
-(80, 57, 4, 1, 1.80),
-(81, 57, 19, 3, 0.10),
-(82, 57, 28, 1, 1.20),
-(83, 57, 26, 1, 0.66),
-(84, 57, 18, 1, 0.50),
-(85, 58, 4, 1, 1.80),
-(86, 58, 17, 1, 1.57),
-(87, 58, 18, 1, 0.50),
-(88, 59, 4, 1, 1.80),
-(89, 59, 17, 1, 1.57),
-(90, 59, 18, 1, 0.50),
-(91, 60, 4, 1, 1.80),
-(92, 60, 17, 1, 1.57),
-(93, 60, 18, 1, 0.50),
-(94, 61, 4, 1, 1.80),
-(95, 61, 19, 1, 0.10),
-(96, 61, 34, 2, 0.20),
-(97, 61, 27, 1, 0.25),
-(98, 61, 30, 1, 1.27),
-(99, 62, 34, 1, 0.20),
-(100, 62, 4, 1, 1.80),
-(101, 62, 30, 1, 1.27),
-(102, 63, 4, 1, 1.80),
-(103, 63, 14, 3, 0.40),
-(104, 63, 19, 2, 0.10),
-(105, 63, 28, 1, 1.20),
-(106, 63, 26, 1, 0.66);
+INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, `consumption_type`) VALUES
+(21, 21, 46, 1, 0.80, 'takeaway'),
+(23, 22, 46, 1, 0.80, 'takeaway'),
+(25, 23, 28, 1, 1.20, 'takeaway'),
+(27, 24, 26, 1, 0.66, 'takeaway'),
+(29, 25, 48, 1, 0.17, 'takeaway'),
+(34, 28, 42, 8, 0.03, 'takeaway'),
+(35, 29, 25, 1, 1.20, 'takeaway'),
+(36, 30, 42, 4, 0.03, 'takeaway'),
+(37, 31, 19, 1, 0.10, 'takeaway'),
+(38, 32, 33, 1, 0.40, 'takeaway'),
+(39, 33, 47, 1, 1.00, 'takeaway'),
+(40, 34, 24, 1, 1.20, 'takeaway'),
+(41, 34, 42, 1, 0.03, 'takeaway'),
+(42, 35, 38, 1, 0.13, 'takeaway'),
+(43, 36, 20, 10, 0.13, 'takeaway'),
+(44, 37, 47, 1, 1.00, 'takeaway'),
+(45, 38, 47, 1, 1.00, 'takeaway'),
+(46, 38, 42, 4, 0.03, 'takeaway'),
+(47, 38, 28, 1, 1.20, 'takeaway'),
+(48, 39, 16, 2, 0.60, 'takeaway'),
+(49, 40, 16, 1, 0.60, 'takeaway'),
+(50, 41, 16, 1, 0.60, 'takeaway'),
+(51, 42, 41, 2, 0.80, 'takeaway'),
+(52, 42, 4, 1, 1.50, 'takeaway'),
+(53, 43, 4, 1, 1.50, 'takeaway'),
+(58, 48, 4, 2, 1.50, 'takeaway'),
+(59, 49, 41, 1, 0.80, 'takeaway'),
+(60, 49, 4, 1, 1.50, 'takeaway'),
+(61, 49, 32, 1, 0.60, 'takeaway'),
+(62, 49, 21, 1, 1.00, 'takeaway'),
+(63, 49, 16, 1, 0.60, 'takeaway'),
+(64, 49, 24, 1, 1.20, 'takeaway'),
+(65, 49, 19, 3, 0.10, 'takeaway'),
+(66, 50, 4, 1, 1.50, 'takeaway'),
+(67, 51, 47, 10, 1.20, 'takeaway'),
+(68, 51, 21, 5, 1.00, 'takeaway'),
+(69, 51, 24, 8, 1.20, 'takeaway'),
+(70, 52, 21, 8, 1.00, 'takeaway'),
+(71, 53, 25, 3, 1.20, 'takeaway'),
+(72, 54, 27, 20, 0.25, 'takeaway'),
+(73, 55, 30, 7, 1.27, 'takeaway'),
+(74, 56, 17, 10, 1.57, 'takeaway'),
+(75, 57, 17, 1, 1.57, 'takeaway'),
+(76, 57, 30, 2, 1.27, 'takeaway'),
+(77, 57, 27, 1, 0.25, 'takeaway'),
+(78, 57, 25, 1, 1.20, 'takeaway'),
+(79, 57, 24, 1, 1.20, 'takeaway'),
+(80, 57, 4, 1, 1.80, 'takeaway'),
+(81, 57, 19, 3, 0.10, 'takeaway'),
+(82, 57, 28, 1, 1.20, 'takeaway'),
+(83, 57, 26, 1, 0.66, 'takeaway'),
+(84, 57, 18, 1, 0.50, 'takeaway'),
+(85, 58, 4, 1, 1.80, 'takeaway'),
+(86, 58, 17, 1, 1.57, 'takeaway'),
+(87, 58, 18, 1, 0.50, 'takeaway'),
+(88, 59, 4, 1, 1.80, 'takeaway'),
+(89, 59, 17, 1, 1.57, 'takeaway'),
+(90, 59, 18, 1, 0.50, 'takeaway'),
+(91, 60, 4, 1, 1.80, 'takeaway'),
+(92, 60, 17, 1, 1.57, 'takeaway'),
+(93, 60, 18, 1, 0.50, 'takeaway'),
+(94, 61, 4, 1, 1.80, 'takeaway'),
+(95, 61, 19, 1, 0.10, 'takeaway'),
+(96, 61, 34, 2, 0.20, 'takeaway'),
+(97, 61, 27, 1, 0.25, 'takeaway'),
+(98, 61, 30, 1, 1.27, 'takeaway'),
+(99, 62, 34, 1, 0.20, 'takeaway'),
+(100, 62, 4, 1, 1.80, 'takeaway'),
+(101, 62, 30, 1, 1.27, 'takeaway'),
+(102, 63, 4, 1, 1.80, 'takeaway'),
+(103, 63, 14, 3, 0.40, 'takeaway'),
+(104, 63, 19, 2, 0.10, 'takeaway'),
+(105, 63, 28, 1, 1.20, 'takeaway'),
+(106, 63, 26, 1, 0.66, 'takeaway');
 
 -- --------------------------------------------------------
 
@@ -906,6 +924,7 @@ CREATE TABLE `raw_materials` (
   `cost_per_unit` decimal(10,2) DEFAULT 0.00,
   `min_stock` decimal(10,4) DEFAULT 5.0000,
   `is_cooking_supply` tinyint(1) DEFAULT 0,
+  `category` enum('ingredient','packaging','supply') DEFAULT 'ingredient',
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -913,64 +932,64 @@ CREATE TABLE `raw_materials` (
 -- Volcado de datos para la tabla `raw_materials`
 --
 
-INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_unit`, `min_stock`, `is_cooking_supply`, `updated_at`) VALUES
-(5, 'Harina de Trigo Panadera', 'kg', 138.5500, 1.10, 50.0000, 0, '2025-11-29 01:31:10'),
-(6, 'Levadura Instantánea', 'kg', 5.8000, 5.00, 1.0000, 0, '2025-11-29 00:55:23'),
-(7, 'Azúcar Refinada', 'kg', 20.0000, 1.50, 5.0000, 0, '2025-11-29 00:43:23'),
-(8, 'Sal', 'kg', 19.6000, 0.50, 2.0000, 0, '2025-11-29 00:55:23'),
-(9, 'Aceite de Oliva (Masa)', 'lt', 17.7500, 6.00, 2.0000, 0, '2025-11-29 01:12:04'),
-(10, 'Pan de Hamburguesa', 'und', 100.0000, 0.30, 24.0000, 0, '2025-11-29 02:37:20'),
-(11, 'Pan de Perro Caliente', 'und', 50.0000, 0.25, 24.0000, 0, '2025-11-29 01:00:13'),
-(12, 'Queso Mozzarella (Bloque)', 'kg', 24.0000, 6.50, 10.0000, 0, '2025-11-29 01:05:28'),
-(13, 'Queso Duro (Tequeños)', 'kg', 22.7500, 5.50, 10.0000, 0, '2025-11-29 01:32:36'),
-(14, 'Queso Amarillo (Laminado)', 'kg', 12.0000, 7.00, 2.0000, 0, '2025-11-29 01:04:34'),
-(15, 'Queso Parmesano', 'kg', 6.0000, 12.00, 1.0000, 0, '2025-11-29 01:05:47'),
-(16, 'Pepperoni', 'kg', 6.0000, 9.00, 3.0000, 0, '2025-11-29 01:02:36'),
-(17, 'Jamón de Pierna', 'kg', 35.0000, 6.00, 5.0000, 0, '2025-11-29 01:31:37'),
-(18, 'Tocineta (Bacon)', 'kg', 8.0000, 8.50, 3.0000, 0, '2025-11-29 01:08:52'),
-(19, 'Carne Molida Premium', 'kg', 22.0000, 5.50, 10.0000, 0, '2025-11-29 03:18:12'),
-(20, 'Pechuga de Pollo', 'kg', 8.0000, 4.50, 5.0000, 0, '2025-11-29 01:02:15'),
-(21, 'Huevos', 'und', 117.1000, 0.15, 30.0000, 0, '2025-11-29 01:11:10'),
-(22, 'Tomate Manzano', 'kg', 18.0000, 2.00, 5.0000, 0, '2025-11-29 01:11:43'),
-(23, 'Cebolla Blanca', 'kg', 25.0000, 1.50, 5.0000, 0, '2025-11-29 01:30:46'),
-(24, 'Pimentón Rojo/Verde', 'kg', 6.0000, 2.50, 3.0000, 0, '2025-11-29 01:02:59'),
-(25, 'Lechuga Americana', 'kg', 6.0000, 3.00, 3.0000, 0, '2025-11-29 00:52:02'),
-(26, 'Champiñones (Hongos)', 'kg', 3.0000, 6.00, 2.0000, 0, '2025-11-29 00:45:44'),
-(27, 'Maíz Dulce (Lata)', 'kg', 8.0000, 3.50, 5.0000, 0, '2025-11-29 00:57:11'),
-(28, 'Ajo (Pelado)', 'kg', 3.0800, 4.00, 1.0000, 0, '2025-11-29 03:18:12'),
-(29, 'Salsa Napolitana Base', 'lt', 15.0000, 2.00, 10.0000, 0, '2025-11-29 01:08:04'),
-(30, 'Ketchup (Galón)', 'lt', 8.0000, 3.00, 4.0000, 0, '2025-11-29 00:51:31'),
-(31, 'Mayonesa (Galón)', 'lt', 21.8000, 4.00, 4.0000, 0, '2025-11-29 01:29:45'),
-(32, 'Mostaza (Galón)', 'lt', 7.8000, 2.50, 2.0000, 0, '2025-11-29 01:10:47'),
-(33, 'Salsa de Ajo (Casera)', 'lt', 6.0000, 2.00, 5.0000, 0, '2025-11-29 01:07:38'),
-(34, 'Salsa BBQ', 'lt', 6.0000, 3.50, 2.0000, 0, '2025-11-29 01:07:20'),
-(35, 'Caja Pizza Pequeña (10)', 'und', 200.0000, 0.40, 50.0000, 1, '2025-11-29 00:44:38'),
-(36, 'Caja Pizza Mediana (12)', 'und', 200.0000, 0.60, 50.0000, 1, '2025-11-29 00:44:24'),
-(37, 'Caja Pizza Familiar (16)', 'und', 200.0000, 0.90, 50.0000, 1, '2025-11-29 00:44:08'),
-(38, 'Papel Parafinado (Hamburguesa)', 'und', 200.0000, 0.05, 100.0000, 1, '2025-11-29 01:01:21'),
-(39, 'Bolsa Plástica Delivery', 'und', 100.0000, 0.10, 50.0000, 1, '2025-11-29 00:43:45'),
-(40, 'Servilletas', 'und', 2400.0000, 0.01, 200.0000, 1, '2025-11-29 01:08:36'),
-(41, 'Envase Salsa Pequeño (1oz)', 'und', 500.0000, 0.03, 100.0000, 1, '2025-11-29 03:23:45'),
-(42, 'Vasos Plásticos', 'und', 500.0000, 0.05, 50.0000, 1, '2025-11-29 00:53:48'),
-(43, 'Pitillos/Pajillas', 'und', 500.0000, 0.01, 100.0000, 1, '2025-11-29 01:03:19'),
-(44, 'Aceite Vegetal (Freidora)', 'lt', 30.0000, 2.00, 20.0000, 1, '2025-11-29 00:42:26'),
-(45, 'Gas (Bombona)', 'und', 42.0000, 15.00, 1.0000, 1, '2025-11-29 00:48:31'),
-(46, 'Detergente Líquido', 'lt', 20.0000, 1.50, 2.0000, 1, '2025-11-29 00:46:24'),
-(47, 'Esponjas/Fibras', 'und', 24.0000, 0.50, 5.0000, 1, '2025-11-29 00:48:07'),
-(48, 'Harina de Maíz Precocida', 'kg', 28.5000, 1.50, 20.0000, 0, '2025-11-29 01:56:13'),
-(49, 'Papas (Patatas)', 'kg', 21.0000, 1.20, 10.0000, 0, '2025-11-29 01:13:11'),
-(50, 'Plátano Maduro', 'kg', 20.0000, 1.00, 15.0000, 0, '2025-11-29 01:12:13'),
-(51, 'Yuca (Mandioca)', 'kg', 29.0000, 0.80, 20.0000, 0, '2025-11-29 01:11:10'),
-(52, 'Salchicha (Paquete/Unidad)', 'und', 144.0000, 0.15, 50.0000, 0, '2025-11-29 01:06:59'),
-(53, 'Repollo (Col)', 'kg', 12.0000, 1.00, 5.0000, 0, '2025-11-29 01:06:05'),
-(54, 'Papitas Rayadas (Lluvia)', 'kg', 12.0000, 4.50, 5.0000, 0, '2025-11-29 01:01:40'),
-(55, 'Mostaza (Salsa Base)', 'lt', 8.0000, 2.50, 2.0000, 0, '2025-11-29 00:59:07'),
-(56, 'Cilantro/Perejil', 'kg', 2.9200, 3.00, 1.0000, 0, '2025-11-29 01:12:48'),
-(57, 'Maíz Dulce (Grano)', 'kg', 7.2000, 3.50, 5.0000, 0, '2025-11-29 01:12:39'),
-(58, 'Mortadela (Barra)', 'kg', 12.0000, 4.50, 5.0000, 0, '2025-11-29 00:58:12'),
-(67, 'Piña en Almibar', 'kg', 6.0000, 3.50, 5.0000, 0, '2025-11-29 01:29:01'),
-(68, 'Aceitunas Negras', 'kg', 8.0000, 6.00, 2.0000, 0, '2025-11-29 01:30:09'),
-(69, 'Oregano Seco', 'kg', 8.0000, 10.00, 0.5000, 0, '2025-11-29 01:31:54');
+INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_unit`, `min_stock`, `is_cooking_supply`, `category`, `updated_at`) VALUES
+(5, 'Harina de Trigo Panadera', 'kg', 138.5500, 1.10, 50.0000, 0, 'ingredient', '2025-11-29 01:31:10'),
+(6, 'Levadura Instantánea', 'kg', 5.8000, 5.00, 1.0000, 0, 'ingredient', '2025-11-29 00:55:23'),
+(7, 'Azúcar Refinada', 'kg', 20.0000, 1.50, 5.0000, 0, 'ingredient', '2025-11-29 00:43:23'),
+(8, 'Sal', 'kg', 19.6000, 0.50, 2.0000, 0, 'ingredient', '2025-11-29 00:55:23'),
+(9, 'Aceite de Oliva (Masa)', 'lt', 17.7500, 6.00, 2.0000, 0, 'ingredient', '2025-11-29 01:12:04'),
+(10, 'Pan de Hamburguesa', 'und', 100.0000, 0.30, 24.0000, 0, 'ingredient', '2025-11-29 02:37:20'),
+(11, 'Pan de Perro Caliente', 'und', 50.0000, 0.25, 24.0000, 0, 'ingredient', '2025-11-29 01:00:13'),
+(12, 'Queso Mozzarella (Bloque)', 'kg', 24.0000, 6.50, 10.0000, 0, 'ingredient', '2025-11-29 01:05:28'),
+(13, 'Queso Duro (Tequeños)', 'kg', 22.7500, 5.50, 10.0000, 0, 'ingredient', '2025-11-29 01:32:36'),
+(14, 'Queso Amarillo (Laminado)', 'kg', 12.0000, 7.00, 2.0000, 0, 'ingredient', '2025-11-29 01:04:34'),
+(15, 'Queso Parmesano', 'kg', 6.0000, 12.00, 1.0000, 0, 'ingredient', '2025-11-29 01:05:47'),
+(16, 'Pepperoni', 'kg', 6.0000, 9.00, 3.0000, 0, 'ingredient', '2025-11-29 01:02:36'),
+(17, 'Jamón de Pierna', 'kg', 35.0000, 6.00, 5.0000, 0, 'ingredient', '2025-11-29 01:31:37'),
+(18, 'Tocineta (Bacon)', 'kg', 8.0000, 8.50, 3.0000, 0, 'ingredient', '2025-11-29 01:08:52'),
+(19, 'Carne Molida Premium', 'kg', 22.0000, 5.50, 10.0000, 0, 'ingredient', '2025-11-29 03:18:12'),
+(20, 'Pechuga de Pollo', 'kg', 8.0000, 4.50, 5.0000, 0, 'ingredient', '2025-11-29 01:02:15'),
+(21, 'Huevos', 'und', 117.1000, 0.15, 30.0000, 0, 'ingredient', '2025-11-29 01:11:10'),
+(22, 'Tomate Manzano', 'kg', 18.0000, 2.00, 5.0000, 0, 'ingredient', '2025-11-29 01:11:43'),
+(23, 'Cebolla Blanca', 'kg', 25.0000, 1.50, 5.0000, 0, 'ingredient', '2025-11-29 01:30:46'),
+(24, 'Pimentón Rojo/Verde', 'kg', 6.0000, 2.50, 3.0000, 0, 'ingredient', '2025-11-29 01:02:59'),
+(25, 'Lechuga Americana', 'kg', 6.0000, 3.00, 3.0000, 0, 'ingredient', '2025-11-29 00:52:02'),
+(26, 'Champiñones (Hongos)', 'kg', 3.0000, 6.00, 2.0000, 0, 'ingredient', '2025-11-29 00:45:44'),
+(27, 'Maíz Dulce (Lata)', 'kg', 8.0000, 3.50, 5.0000, 0, 'ingredient', '2025-11-29 00:57:11'),
+(28, 'Ajo (Pelado)', 'kg', 3.0800, 4.00, 1.0000, 0, 'ingredient', '2025-11-29 03:18:12'),
+(29, 'Salsa Napolitana Base', 'lt', 15.0000, 2.00, 10.0000, 0, 'ingredient', '2025-11-29 01:08:04'),
+(30, 'Ketchup (Galón)', 'lt', 8.0000, 3.00, 4.0000, 0, 'ingredient', '2025-11-29 00:51:31'),
+(31, 'Mayonesa (Galón)', 'lt', 21.8000, 4.00, 4.0000, 0, 'ingredient', '2025-11-29 01:29:45'),
+(32, 'Mostaza (Galón)', 'lt', 7.8000, 2.50, 2.0000, 0, 'ingredient', '2025-11-29 01:10:47'),
+(33, 'Salsa de Ajo (Casera)', 'lt', 6.0000, 2.00, 5.0000, 0, 'ingredient', '2025-11-29 01:07:38'),
+(34, 'Salsa BBQ', 'lt', 6.0000, 3.50, 2.0000, 0, 'ingredient', '2025-11-29 01:07:20'),
+(35, 'Caja Pizza Pequeña (10)', 'und', 200.0000, 0.40, 50.0000, 1, 'packaging', '2025-11-29 06:01:19'),
+(36, 'Caja Pizza Mediana (12)', 'und', 200.0000, 0.60, 50.0000, 1, 'packaging', '2025-11-29 06:01:19'),
+(37, 'Caja Pizza Familiar (16)', 'und', 200.0000, 0.90, 50.0000, 1, 'packaging', '2025-11-29 06:01:19'),
+(38, 'Papel Parafinado (Hamburguesa)', 'und', 200.0000, 0.05, 100.0000, 1, 'packaging', '2025-11-29 06:01:19'),
+(39, 'Bolsa Plástica Delivery', 'und', 100.0000, 0.10, 50.0000, 1, 'packaging', '2025-11-29 06:01:19'),
+(40, 'Servilletas', 'und', 2400.0000, 0.01, 200.0000, 1, 'ingredient', '2025-11-29 01:08:36'),
+(41, 'Envase Salsa Pequeño (1oz)', 'und', 500.0000, 0.03, 100.0000, 1, 'packaging', '2025-11-29 06:01:19'),
+(42, 'Vasos Plásticos', 'und', 500.0000, 0.05, 50.0000, 1, 'ingredient', '2025-11-29 00:53:48'),
+(43, 'Pitillos/Pajillas', 'und', 500.0000, 0.01, 100.0000, 1, 'ingredient', '2025-11-29 01:03:19'),
+(44, 'Aceite Vegetal (Freidora)', 'lt', 30.0000, 2.00, 20.0000, 1, 'ingredient', '2025-11-29 00:42:26'),
+(45, 'Gas (Bombona)', 'und', 42.0000, 15.00, 1.0000, 1, 'ingredient', '2025-11-29 00:48:31'),
+(46, 'Detergente Líquido', 'lt', 20.0000, 1.50, 2.0000, 1, 'ingredient', '2025-11-29 00:46:24'),
+(47, 'Esponjas/Fibras', 'und', 24.0000, 0.50, 5.0000, 1, 'ingredient', '2025-11-29 00:48:07'),
+(48, 'Harina de Maíz Precocida', 'kg', 28.5000, 1.50, 20.0000, 0, 'ingredient', '2025-11-29 01:56:13'),
+(49, 'Papas (Patatas)', 'kg', 21.0000, 1.20, 10.0000, 0, 'ingredient', '2025-11-29 01:13:11'),
+(50, 'Plátano Maduro', 'kg', 20.0000, 1.00, 15.0000, 0, 'ingredient', '2025-11-29 01:12:13'),
+(51, 'Yuca (Mandioca)', 'kg', 29.0000, 0.80, 20.0000, 0, 'ingredient', '2025-11-29 01:11:10'),
+(52, 'Salchicha (Paquete/Unidad)', 'und', 144.0000, 0.15, 50.0000, 0, 'ingredient', '2025-11-29 01:06:59'),
+(53, 'Repollo (Col)', 'kg', 12.0000, 1.00, 5.0000, 0, 'ingredient', '2025-11-29 01:06:05'),
+(54, 'Papitas Rayadas (Lluvia)', 'kg', 12.0000, 4.50, 5.0000, 0, 'ingredient', '2025-11-29 01:01:40'),
+(55, 'Mostaza (Salsa Base)', 'lt', 8.0000, 2.50, 2.0000, 0, 'ingredient', '2025-11-29 00:59:07'),
+(56, 'Cilantro/Perejil', 'kg', 2.9200, 3.00, 1.0000, 0, 'ingredient', '2025-11-29 01:12:48'),
+(57, 'Maíz Dulce (Grano)', 'kg', 7.2000, 3.50, 5.0000, 0, 'ingredient', '2025-11-29 01:12:39'),
+(58, 'Mortadela (Barra)', 'kg', 12.0000, 4.50, 5.0000, 0, 'ingredient', '2025-11-29 00:58:12'),
+(67, 'Piña en Almibar', 'kg', 6.0000, 3.50, 5.0000, 0, 'ingredient', '2025-11-29 01:29:01'),
+(68, 'Aceitunas Negras', 'kg', 8.0000, 6.00, 2.0000, 0, 'ingredient', '2025-11-29 01:30:09'),
+(69, 'Oregano Seco', 'kg', 8.0000, 10.00, 0.5000, 0, 'ingredient', '2025-11-29 01:31:54');
 
 -- --------------------------------------------------------
 
@@ -1188,6 +1207,13 @@ ALTER TABLE `cart`
   ADD KEY `product_id` (`product_id`);
 
 --
+-- Indices de la tabla `cart_item_modifiers`
+--
+ALTER TABLE `cart_item_modifiers`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `cart_id` (`cart_id`);
+
+--
 -- Indices de la tabla `cash_sessions`
 --
 ALTER TABLE `cash_sessions`
@@ -1347,6 +1373,12 @@ ALTER TABLE `vault_movements`
 --
 ALTER TABLE `cart`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=117;
+
+--
+-- AUTO_INCREMENT de la tabla `cart_item_modifiers`
+--
+ALTER TABLE `cart_item_modifiers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
