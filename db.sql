@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 29-11-2025 a las 08:36:39
+-- Tiempo de generación: 30-11-2025 a las 12:16:22
 -- Versión del servidor: 10.11.11-MariaDB
 -- Versión de PHP: 8.4.12
 
@@ -32,15 +32,8 @@ CREATE TABLE `cart` (
   `user_id` int(11) NOT NULL,
   `product_id` int(11) NOT NULL,
   `quantity` int(11) NOT NULL,
-  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway'
+  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'dine_in'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_spanish_ci;
-
---
--- Volcado de datos para la tabla `cart`
---
-
-INSERT INTO `cart` (`id`, `user_id`, `product_id`, `quantity`, `consumption_type`) VALUES
-(123, 4, 88, 1, 'takeaway');
 
 -- --------------------------------------------------------
 
@@ -51,20 +44,14 @@ INSERT INTO `cart` (`id`, `user_id`, `product_id`, `quantity`, `consumption_type
 CREATE TABLE `cart_item_modifiers` (
   `id` int(11) NOT NULL,
   `cart_id` int(11) NOT NULL,
-  `modifier_type` enum('add','remove') NOT NULL,
-  `raw_material_id` int(11) NOT NULL,
+  `modifier_type` enum('add','remove','info') NOT NULL,
+  `raw_material_id` int(11) DEFAULT NULL,
   `quantity_adjustment` decimal(10,4) DEFAULT 0.0000,
-  `price_adjustment` decimal(10,2) DEFAULT 0.00
+  `price_adjustment` decimal(10,2) DEFAULT 0.00,
+  `note` varchar(255) DEFAULT NULL,
+  `sub_item_index` int(11) DEFAULT 0,
+  `is_takeaway` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `cart_item_modifiers`
---
-
-INSERT INTO `cart_item_modifiers` (`id`, `cart_id`, `modifier_type`, `raw_material_id`, `quantity_adjustment`, `price_adjustment`) VALUES
-(1, 123, 'add', 52, 0.0500, 0.50),
-(2, 123, 'add', 12, 0.0500, 1.00),
-(3, 123, 'add', 18, 0.0500, 1.00);
 
 -- --------------------------------------------------------
 
@@ -303,7 +290,7 @@ CREATE TABLE `orders` (
   `user_id` int(11) NOT NULL,
   `total_price` decimal(10,2) NOT NULL,
   `status` enum('pending','paid','preparing','ready','delivered','cancelled') DEFAULT 'pending',
-  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway',
+  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'dine_in',
   `shipping_address` text NOT NULL,
   `shipping_method` varchar(100) DEFAULT NULL,
   `tracking_number` varchar(100) DEFAULT NULL,
@@ -352,7 +339,8 @@ INSERT INTO `orders` (`id`, `user_id`, `total_price`, `status`, `consumption_typ
 (60, 4, 3.87, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 12:39:13', '2025-11-29 04:53:08'),
 (61, 4, 3.82, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 15:37:37', '2025-11-29 04:53:10'),
 (62, 4, 3.27, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 21:43:03', '2025-11-29 04:53:58'),
-(63, 4, 5.06, 'delivered', 'takeaway', 'Tienda Física', NULL, '', '2025-11-24 23:44:45', '2025-11-29 04:53:59');
+(63, 4, 5.06, 'delivered', 'takeaway', 'Tienda Física', NULL, '', '2025-11-24 23:44:45', '2025-11-29 04:53:59'),
+(65, 4, 17.00, 'paid', 'dine_in', 'Tienda Física', NULL, NULL, '2025-11-30 06:06:23', '2025-11-30 06:06:23');
 
 -- --------------------------------------------------------
 
@@ -366,7 +354,7 @@ CREATE TABLE `order_items` (
   `product_id` int(11) NOT NULL,
   `quantity` int(11) NOT NULL,
   `price` decimal(10,2) NOT NULL,
-  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'takeaway'
+  `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'dine_in'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_spanish_ci;
 
 --
@@ -447,7 +435,8 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (103, 63, 14, 3, 0.40, 'takeaway'),
 (104, 63, 19, 2, 0.10, 'takeaway'),
 (105, 63, 28, 1, 1.20, 'takeaway'),
-(106, 63, 26, 1, 0.66, 'takeaway');
+(106, 63, 26, 1, 0.66, 'takeaway'),
+(108, 65, 88, 1, 17.00, 'dine_in');
 
 -- --------------------------------------------------------
 
@@ -458,12 +447,26 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 CREATE TABLE `order_item_modifiers` (
   `id` int(11) NOT NULL,
   `order_item_id` int(11) NOT NULL,
-  `modifier_type` enum('add','remove') NOT NULL,
+  `modifier_type` enum('add','remove','info') NOT NULL,
   `raw_material_id` int(11) DEFAULT NULL,
   `quantity_adjustment` decimal(10,4) DEFAULT 0.0000,
   `price_adjustment_usd` decimal(10,2) DEFAULT 0.00,
-  `note` varchar(255) DEFAULT NULL
+  `note` varchar(255) DEFAULT NULL,
+  `sub_item_index` int(11) DEFAULT 0,
+  `is_takeaway` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `order_item_modifiers`
+--
+
+INSERT INTO `order_item_modifiers` (`id`, `order_item_id`, `modifier_type`, `raw_material_id`, `quantity_adjustment`, `price_adjustment_usd`, `note`, `sub_item_index`, `is_takeaway`) VALUES
+(1, 108, 'info', NULL, 0.0000, 0.00, NULL, 0, 0),
+(2, 108, 'add', 42, 0.0500, 1.00, NULL, 0, 0),
+(3, 108, 'info', NULL, 0.0000, 0.00, NULL, 1, 1),
+(4, 108, 'add', 12, 0.0500, 1.00, NULL, 1, 0),
+(5, 108, 'info', NULL, 0.0000, 0.00, NULL, 2, 0),
+(6, 108, 'remove', 16, 0.0000, 0.00, NULL, 2, 0);
 
 -- --------------------------------------------------------
 
@@ -661,8 +664,8 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (51, 'Galletas Charmy', 'Galletas con relleno de crema ', 0.18, 54.00, 12, 'simple', 'bar', 'uploads/product_images/67ccf0888adb5_17414841411356361203726346495725.jpg', '2025-03-09 01:36:08', 20.00, '2025-11-29 03:41:03'),
 (52, 'Oka loka chicle en polvo ', 'Chicle en polvo ', 0.20, 60.00, 12, 'simple', 'bar', 'uploads/product_images/67ccf10c05bdb_1741484263919300001115409146628.jpg', '2025-03-09 01:38:20', 20.00, '2025-11-29 03:41:03'),
 (53, 'Caramelos Chaos', 'Caramelos de menta', 0.04, 12.00, 100, 'simple', 'bar', 'uploads/product_images/67cd5297dd2b2_images.jpg', '2025-03-09 02:42:06', 20.00, '2025-11-29 03:41:03'),
-(57, 'Pizza Margarita (Mediana)', 'Salsa Napolitana y Queso Mozzarella', 6.00, 1800.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(58, 'Pizza Pepperoni (Mediana)', 'Margarita con doble Pepperoni', 7.50, 2250.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(57, 'Pizza Margarita (Mediana)', 'Salsa Napolitana y Queso Mozzarella', 6.00, 1800.00, -1, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(58, 'Pizza Pepperoni (Mediana)', 'Margarita con doble Pepperoni', 7.50, 2250.00, -1, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (59, 'Pizza Familiar Full Equipo', 'Jamón, Pepperoni, Maíz, Pimentón, Cebolla', 12.00, 3600.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (60, 'Hamburguesa Clásica', 'Carne 150g, Queso Amarillo, Vegetales y Salsas', 4.50, 1350.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (61, 'Hamburguesa Doble Carne', 'Doble Carne, Doble Queso, Tocineta', 6.50, 1950.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
@@ -675,7 +678,7 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (68, 'Papita de Yuca', 'Masa de Yuca rellena de Queso', 1.50, 450.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (69, 'Perro Caliente Normal', 'Salchicha, Repollo, Papitas, Salsas', 1.50, 450.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (70, 'Calzone Relleno', 'Masa de Pizza cerrada con Jamón y Queso', 5.00, 1500.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(71, 'Coca-Cola 2 Litros', 'Refresco botella grande', 2.50, 750.00, 20, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(71, 'Coca-Cola 2 Litros', 'Refresco botella grande', 2.50, 750.00, 19, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (72, 'Malta Polar', 'Lata fría', 1.00, 300.00, 50, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (78, 'Pizza Hawaiana', 'Jamón, Piña y extra Queso', 8.00, 2400.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
 (79, 'Pizza Vegetariana', 'Pimentón, Cebolla, Maíz, Champiñones y Aceitunas', 7.00, 2100.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
@@ -803,6 +806,30 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (173, 88, 'product', 57, 1.0000),
 (174, 88, 'product', 58, 1.0000),
 (175, 88, 'raw', 36, 2.0000);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `product_valid_extras`
+--
+
+CREATE TABLE `product_valid_extras` (
+  `id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `raw_material_id` int(11) NOT NULL,
+  `price_override` decimal(10,2) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_spanish_ci;
+
+--
+-- Volcado de datos para la tabla `product_valid_extras`
+--
+
+INSERT INTO `product_valid_extras` (`id`, `product_id`, `raw_material_id`, `price_override`) VALUES
+(1, 78, 17, 1.00),
+(2, 78, 57, 1.00),
+(3, 78, 16, 1.00),
+(4, 71, 42, 1.00),
+(5, 57, 12, 1.00);
 
 -- --------------------------------------------------------
 
@@ -946,7 +973,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (9, 'Aceite de Oliva (Masa)', 'lt', 17.7500, 6.00, 2.0000, 0, 'ingredient', '2025-11-29 01:12:04'),
 (10, 'Pan de Hamburguesa', 'und', 100.0000, 0.30, 24.0000, 0, 'ingredient', '2025-11-29 02:37:20'),
 (11, 'Pan de Perro Caliente', 'und', 50.0000, 0.25, 24.0000, 0, 'ingredient', '2025-11-29 01:00:13'),
-(12, 'Queso Mozzarella (Bloque)', 'kg', 24.0000, 6.50, 10.0000, 0, 'ingredient', '2025-11-29 01:05:28'),
+(12, 'Queso Mozzarella (Bloque)', 'kg', 23.9500, 6.50, 10.0000, 0, 'ingredient', '2025-11-30 06:06:23'),
 (13, 'Queso Duro (Tequeños)', 'kg', 22.7500, 5.50, 10.0000, 0, 'ingredient', '2025-11-29 01:32:36'),
 (14, 'Queso Amarillo (Laminado)', 'kg', 12.0000, 7.00, 2.0000, 0, 'ingredient', '2025-11-29 01:04:34'),
 (15, 'Queso Parmesano', 'kg', 6.0000, 12.00, 1.0000, 0, 'ingredient', '2025-11-29 01:05:47'),
@@ -976,7 +1003,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (39, 'Bolsa Plástica Delivery', 'und', 100.0000, 0.10, 50.0000, 1, 'packaging', '2025-11-29 06:01:19'),
 (40, 'Servilletas', 'und', 2400.0000, 0.01, 200.0000, 1, 'ingredient', '2025-11-29 01:08:36'),
 (41, 'Envase Salsa Pequeño (1oz)', 'und', 500.0000, 0.03, 100.0000, 1, 'packaging', '2025-11-29 06:01:19'),
-(42, 'Vasos Plásticos', 'und', 500.0000, 0.05, 50.0000, 1, 'ingredient', '2025-11-29 00:53:48'),
+(42, 'Vasos Plásticos', 'und', 499.9500, 0.05, 50.0000, 1, 'ingredient', '2025-11-30 06:06:23'),
 (43, 'Pitillos/Pajillas', 'und', 500.0000, 0.01, 100.0000, 1, 'ingredient', '2025-11-29 01:03:19'),
 (44, 'Aceite Vegetal (Freidora)', 'lt', 30.0000, 2.00, 20.0000, 1, 'ingredient', '2025-11-29 00:42:26'),
 (45, 'Gas (Bombona)', 'und', 42.0000, 15.00, 1.0000, 1, 'ingredient', '2025-11-29 00:48:31'),
@@ -1113,7 +1140,8 @@ INSERT INTO `transactions` (`id`, `cash_session_id`, `type`, `amount`, `currency
 (63, 10, 'income', 500.00, 'VES', 1.00, 0.00, 2, 'adjustment', NULL, 'Fondo Inicial de Caja', 4, '2025-11-24 23:40:21'),
 (64, 10, 'income', 1.00, 'USD', 1.00, 1.00, 1, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45'),
 (65, 10, 'income', 500.00, 'VES', 300.00, 1.67, 2, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45'),
-(66, 10, 'income', 718.00, 'VES', 300.00, 2.39, 5, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45');
+(66, 10, 'income', 718.00, 'VES', 300.00, 2.39, 5, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45'),
+(67, 12, 'income', 17.00, 'USD', 1.00, 17.00, 1, 'order', 65, 'Cobro Venta #65', 4, '2025-11-30 06:06:23');
 
 -- --------------------------------------------------------
 
@@ -1316,6 +1344,14 @@ ALTER TABLE `product_components`
   ADD KEY `idx_prod_component` (`product_id`);
 
 --
+-- Indices de la tabla `product_valid_extras`
+--
+ALTER TABLE `product_valid_extras`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `product_id` (`product_id`),
+  ADD KEY `raw_material_id` (`raw_material_id`);
+
+--
 -- Indices de la tabla `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
@@ -1378,13 +1414,13 @@ ALTER TABLE `vault_movements`
 -- AUTO_INCREMENT de la tabla `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=124;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=138;
 
 --
 -- AUTO_INCREMENT de la tabla `cart_item_modifiers`
 --
 ALTER TABLE `cart_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
@@ -1426,19 +1462,19 @@ ALTER TABLE `menu_roles`
 -- AUTO_INCREMENT de la tabla `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=64;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=66;
 
 --
 -- AUTO_INCREMENT de la tabla `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=107;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=109;
 
 --
 -- AUTO_INCREMENT de la tabla `order_item_modifiers`
 --
 ALTER TABLE `order_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT de la tabla `payment_methods`
@@ -1469,6 +1505,12 @@ ALTER TABLE `products`
 --
 ALTER TABLE `product_components`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=176;
+
+--
+-- AUTO_INCREMENT de la tabla `product_valid_extras`
+--
+ALTER TABLE `product_valid_extras`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_orders`
@@ -1504,7 +1546,7 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT de la tabla `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=67;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
@@ -1553,6 +1595,13 @@ ALTER TABLE `orders`
 ALTER TABLE `order_items`
   ADD CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `product_valid_extras`
+--
+ALTER TABLE `product_valid_extras`
+  ADD CONSTRAINT `product_valid_extras_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `product_valid_extras_ibfk_2` FOREIGN KEY (`raw_material_id`) REFERENCES `raw_materials` (`id`) ON DELETE CASCADE;
 
 --
 -- Filtros para la tabla `purchase_orders`
