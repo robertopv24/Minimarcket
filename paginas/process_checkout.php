@@ -12,12 +12,14 @@ $userId = $_SESSION['user_id'] ?? null;
 // 1. Validar Sesión de Caja
 $sessionId = $cashRegisterManager->hasOpenSession($userId);
 if (!$userId || !$sessionId) {
-    die("Error: No tienes una caja abierta.");
+    die("Error: No tienes una caja abierta. <a href='apertura_caja.php'>Abrir Caja</a>");
 }
 
-// 2. Obtener datos del carrito y formulario
+// 2. Obtener datos del carrito
 $cartItems = $cartManager->getCart($userId);
-if (empty($cartItems)) die("El carrito está vacío.");
+if (empty($cartItems)) {
+    die("Error: El carrito está vacío. <a href='tienda.php'>Volver</a>");
+}
 
 $totals = $cartManager->calculateTotal($cartItems);
 $totalOrderAmount = $totals['total_usd'];
@@ -27,20 +29,11 @@ $rawPayments = $_POST['payments'] ?? [];
 
 // 3. Estructurar Pagos
 $processedPayments = [];
-$totalPaidCheck = 0;
 $rate = $config->get('exchange_rate');
 
 foreach ($rawPayments as $methodId => $amount) {
     if ($amount > 0) {
-        // Obtener moneda del método (Consultamos rápido para asegurar)
-        // Nota: Idealmente transactionManager debería tener un método para esto,
-        // pero aquí lo hacemos simple asumiendo que el ID coincide con lo que enviamos.
-        // En producción, valida que $methodId exista.
-
-        // Determinar moneda basándonos en el TransactionManager o una consulta rápida
-        // (Aquí asumimos que viene del frontend bien, pero validamos moneda en TransactionManager)
-
-        // Hack rápido: Recuperar info del método desde DB
+        // Consultar moneda del método para ser precisos
         $stmt = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
         $stmt->execute([$methodId]);
         $currency = $stmt->fetchColumn();
@@ -57,24 +50,19 @@ foreach ($rawPayments as $methodId => $amount) {
 try {
     $db->beginTransaction();
 
-    // 4. Crear la Orden (OrderManager)
-    // Modificamos createOrder para aceptar estado 'paid' directo si es venta en tienda
-    $orderItems = [];
-    foreach ($cartItems as $item) {
-        $orderItems[] = [
-            'product_id' => $item['product_id'],
-            'quantity' => $item['quantity'],
-            'price' => $item['price_usd']
-        ];
+    // 4. CREAR LA ORDEN (OrderManager)
+    // El OrderManager se encarga de copiar todos los detalles granulares (is_takeaway, index)
+    // desde el carrito a la orden.
+    $orderId = $orderManager->createOrder($userId, $cartItems, $address);
+
+    if (!$orderId) {
+        throw new Exception("Error al guardar la orden en base de datos.");
     }
 
-    // Nota: createOrder devuelve el ID
-    $orderId = $orderManager->createOrder($userId, $orderItems, $address); // Se crea como pending
-
-    // Actualizar estado a PAID inmediatamente
+    // Actualizar estado a PAID inmediatamente (Venta de mostrador)
     $orderManager->updateOrderStatus($orderId, 'paid');
 
-    // 5. Registrar Transacciones de Dinero (TransactionManager)
+    // 5. REGISTRAR PAGOS (TransactionManager)
     $paymentSuccess = $transactionManager->processOrderPayments(
         $orderId,
         $processedPayments,
@@ -84,28 +72,39 @@ try {
     );
 
     if (!$paymentSuccess) {
-        throw new Exception("Error al procesar los pagos contables.");
+        throw new Exception("Error al procesar la transacción financiera.");
     }
 
-    // 6. Vaciar Carrito y Restar Stock
-    // (El OrderManager ya debería restar stock, si no, hay que asegurarse)
-    // En tu versión actual OrderManager NO resta stock, lo hacía carrito.php
-    // Vamos a restar stock aquí manualmente para asegurar.
-    foreach ($cartItems as $item) {
-        $prod = $productManager->getProductById($item['product_id']);
-        $newStock = $prod['stock'] - $item['quantity'];
-        $productManager->updateProductStock($item['product_id'], $newStock);
-    }
+    // 6. DESCUENTO DE INVENTARIO INTELIGENTE
+    // Aquí ocurre la magia: OrderManager leerá el campo 'is_takeaway' de cada ítem
+    // y decidirá si descuenta el empaque o no.
+    $orderManager->deductStockFromSale($orderId);
 
+    // 7. LIMPIEZA FINAL
+    // Borramos el carrito porque ya se convirtió en orden
     $cartManager->emptyCart($userId);
 
     $db->commit();
 
-    // Redirigir a éxito
-    header("Location: tienda.php?success_order=" . $orderId);
+    // 8. REDIRECCIÓN AL TICKET
+    // Abrimos el ticket en una pestaña nueva (usando JS en la redirección o target _blank en el link anterior)
+    // Aquí redirigimos a una página de éxito que abre el ticket.
 
-} catch (Exception $e) {
-    $db->rollBack();
-    die("Error crítico procesando la venta: " . $e->getMessage());
-}
+    header("Location: ticket.php?id=" . $orderId . "&print=true");
+    exit;
+
+  } catch (Exception $e) {
+      // Verificar si hay transacción activa antes de hacer rollback
+      if ($db->inTransaction()) {
+          $db->rollBack();
+      }
+
+      // Mostrar error amigable pero técnico
+      echo "<div style='padding:20px; font-family:sans-serif; color:#721c24; background-color:#f8d7da; border:1px solid #f5c6cb; margin:20px;'>";
+      echo "<h3>🚫 Error al Procesar Venta</h3>";
+      echo "<p><strong>Detalle:</strong> " . $e->getMessage() . "</p>";
+      echo "<a href='checkout.php' style='font-weight:bold;'>Volver al pago</a>";
+      echo "</div>";
+      exit;
+  }
 ?>

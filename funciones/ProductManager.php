@@ -213,5 +213,47 @@ class ProductManager {
 
         return ($minStock === null) ? 0 : $minStock;
     }
+
+    // =========================================================
+        // GESTIÓN DE EXTRAS VÁLIDOS (CONFIGURACIÓN)
+        // =========================================================
+
+        public function getValidExtras($productId) {
+            $sql = "SELECT pve.*, rm.name, rm.cost_per_unit
+                    FROM product_valid_extras pve
+                    JOIN raw_materials rm ON pve.raw_material_id = rm.id
+                    WHERE pve.product_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$productId]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        public function addValidExtra($productId, $rawMaterialId, $priceOverride = null) {
+            // Verificar si ya existe para no duplicar
+            $check = $this->db->prepare("SELECT id FROM product_valid_extras WHERE product_id = ? AND raw_material_id = ?");
+            $check->execute([$productId, $rawMaterialId]);
+
+            if ($check->fetch()) {
+                // Si existe, actualizamos el precio
+                $sql = "UPDATE product_valid_extras SET price_override = ? WHERE product_id = ? AND raw_material_id = ?";
+                $stmt = $this->db->prepare($sql);
+                return $stmt->execute([$priceOverride, $productId, $rawMaterialId]);
+            } else {
+                // Si no, insertamos
+                $sql = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override) VALUES (?, ?, ?)";
+                $stmt = $this->db->prepare($sql);
+                return $stmt->execute([$productId, $rawMaterialId, $priceOverride]);
+            }
+        }
+
+        public function removeValidExtra($extraId) {
+            $stmt = $this->db->prepare("DELETE FROM product_valid_extras WHERE id = ?");
+            return $stmt->execute([$extraId]);
+        }
+
+
+
+
+
 }
 ?>

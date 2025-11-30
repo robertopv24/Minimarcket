@@ -8,17 +8,22 @@ class OrderManager {
     }
 
     /**
-     * 1. CREAR ORDEN Y TRANSFERIR DETALLES (AJUSTADO)
-     * Ahora guarda modificadores y tipo de consumo por ítem.
+     * 1. CREAR ORDEN (CON PROTECCIÓN DE TRANSACCIÓN)
+     * Transfiere la configuración exacta a la orden, respetando transacciones externas.
      */
     public function createOrder($user_id, $items, $shipping_address, $shipping_method = null) {
+        // Detectar si ya estamos dentro de una transacción (ej: desde process_checkout.php)
+        $inTransaction = $this->db->inTransaction();
+
         try {
-            $this->db->beginTransaction();
+            // Solo iniciamos transacción si NO hay una activa
+            if (!$inTransaction) {
+                $this->db->beginTransaction();
+            }
 
             // Calcular el total de la orden
             $total_price = 0;
             foreach ($items as $item) {
-                // Usamos unit_price_final si existe (calculado en CartManager), sino el precio base
                 $price = $item['unit_price_final'] ?? $item['price'];
                 $total_price += $price * $item['quantity'];
             }
@@ -28,49 +33,57 @@ class OrderManager {
             $stmt->execute([$user_id, $total_price, $shipping_address, $shipping_method]);
             $order_id = $this->db->lastInsertId();
 
-            // Preparar consultas para Ítems y Modificadores
-            // Nota: Agregamos 'consumption_type' al insert
+            // Preparar consultas para Ítems
             $stmtItem = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, consumption_type) VALUES (?, ?, ?, ?, ?)");
 
-            // SQL para copiar modificadores desde el carrito a la orden
+            // SQL PARA COPIAR MODIFICADORES (CORREGIDO: Column Count Match)
+            // Seleccionamos '?' como primer valor para inyectar el order_item_id
             $sqlCopyMods = "INSERT INTO order_item_modifiers
-                            (order_item_id, modifier_type, raw_material_id, quantity_adjustment, price_adjustment_usd)
-                            SELECT ?, modifier_type, raw_material_id, quantity_adjustment, price_adjustment
+                            (order_item_id, modifier_type, raw_material_id, quantity_adjustment, price_adjustment_usd, note, sub_item_index, is_takeaway)
+                            SELECT ?, modifier_type, raw_material_id, quantity_adjustment, price_adjustment, note, sub_item_index, is_takeaway
                             FROM cart_item_modifiers
                             WHERE cart_id = ?";
+
             $stmtCopy = $this->db->prepare($sqlCopyMods);
 
             foreach ($items as $item) {
                 $price = $item['unit_price_final'] ?? $item['price'];
-                $cType = $item['consumption_type'] ?? 'takeaway'; // Default para llevar
+                // El tipo global se puede dejar como dine_in, la verdad granular está en los modificadores
+                $cType = $item['consumption_type'] ?? 'dine_in';
 
                 // Insertar Item
                 $stmtItem->execute([$order_id, $item['product_id'], $item['quantity'], $price, $cType]);
                 $order_item_id = $this->db->lastInsertId();
 
-                // Copiar sus modificadores (Si el ítem tiene ID de carrito)
+                // Copiar sus modificadores si existen en el carrito
                 if (isset($item['id'])) {
+                    // Pasamos el ID del nuevo item de orden Y el ID del carrito original
                     $stmtCopy->execute([$order_item_id, $item['id']]);
                 }
             }
 
-            $this->db->commit();
+            // Solo hacemos commit si NOSOTROS iniciamos la transacción
+            if (!$inTransaction) {
+                $this->db->commit();
+            }
             return $order_id;
 
         } catch (PDOException $e) {
-            $this->db->rollBack();
-            error_log("Error en createOrder: " . $e->getMessage());
-            return false;
+            // Solo hacemos rollback si NOSOTROS iniciamos la transacción
+            if (!$inTransaction) {
+                $this->db->rollBack();
+            }
+            // Re-lanzamos la excepción para que el padre (process_checkout) maneje el error global
+            throw $e;
         }
     }
 
     /**
-     * 2. DESCUENTO DE INVENTARIO INTELIGENTE (NUEVO)
-     * Se debe llamar al confirmar el pago en process_checkout.php
+     * 2. DESCUENTO DE INVENTARIO INTELIGENTE
+     * Lee el campo booleano para decidir si descontar empaque o no.
      */
     public function deductStockFromSale($orderId) {
-        // Obtener productos de la orden con su tipo de consumo
-        $sql = "SELECT oi.id as order_item_id, oi.product_id, oi.quantity, oi.consumption_type, p.product_type
+        $sql = "SELECT oi.id as order_item_id, oi.product_id, oi.quantity, p.product_type
                 FROM order_items oi
                 JOIN products p ON oi.product_id = p.id
                 WHERE oi.order_id = ?";
@@ -85,70 +98,110 @@ class OrderManager {
                 // Producto Simple (Refresco): Descuento directo
                 $this->updateStock('products', $item['product_id'], $qtySold);
             } else {
-                // Producto Preparado/Combo: Descuento de Receta con Reglas
-                $this->processRecipeDeduction($item['order_item_id'], $item['product_id'], $qtySold, $item['consumption_type']);
+                // Producto Preparado/Combo: Descuento con Lógica Granular
+                $this->processRecipeDeduction($item['order_item_id'], $item['product_id'], $qtySold);
             }
         }
     }
 
-    // Lógica interna para procesar la receta (Privada)
-    private function processRecipeDeduction($orderItemId, $productId, $qtySold, $consumptionType) {
-        // A. Obtener Modificadores (Qué quitó el cliente)
-        $stmtMods = $this->db->prepare("SELECT modifier_type, raw_material_id, quantity_adjustment FROM order_item_modifiers WHERE order_item_id = ?");
+    // Lógica interna para procesar la receta y el booleano
+    private function processRecipeDeduction($orderItemId, $productId, $qtySold) {
+        // 1. Obtener Modificadores y ESTADO BOOLEANO
+        $stmtMods = $this->db->prepare("SELECT modifier_type, raw_material_id, sub_item_index, is_takeaway FROM order_item_modifiers WHERE order_item_id = ?");
         $stmtMods->execute([$orderItemId]);
         $modifiers = $stmtMods->fetchAll(PDO::FETCH_ASSOC);
 
-        $removedIngredients = [];
+        // Mapear configuración por índice
+        $takeawayMap = [];      // [index => true/false]
+        $removedIngredients = []; // [index => [id1, id2]]
+
         foreach ($modifiers as $mod) {
-            if ($mod['modifier_type'] == 'remove') $removedIngredients[] = $mod['raw_material_id'];
+            $idx = $mod['sub_item_index'];
+
+            // Si es un registro de tipo INFO, contiene el booleano de estado
+            if ($mod['modifier_type'] == 'info') {
+                $takeawayMap[$idx] = ($mod['is_takeaway'] == 1);
+            }
+            // Si es REMOVE, guardamos qué ingrediente se quitó en este índice
+            if ($mod['modifier_type'] == 'remove') {
+                $removedIngredients[$idx][] = $mod['raw_material_id'];
+            }
         }
 
-        // B. Obtener Receta Base
+        // 2. Obtener Receta Base del Producto
         $stmtRecipe = $this->db->prepare("SELECT * FROM product_components WHERE product_id = ?");
         $stmtRecipe->execute([$productId]);
         $components = $stmtRecipe->fetchAll(PDO::FETCH_ASSOC);
 
-        // C. Descontar Receta Base (Aplicando Filtros)
-        foreach ($components as $comp) {
-            // Regla 1: Si se removió, no descontar
-            if ($comp['component_type'] == 'raw' && in_array($comp['component_id'], $removedIngredients)) continue;
+        // 3. Iterar por componentes de la receta
+        $componentIndex = 0;
 
-            // Regla 2: Si es 'Comer aquí' y es Empaque, no descontar
-            if ($consumptionType == 'dine_in' && $comp['component_type'] == 'raw') {
-                $stmtCheck = $this->db->prepare("SELECT category FROM raw_materials WHERE id = ?");
-                $stmtCheck->execute([$comp['component_id']]);
-                $cat = $stmtCheck->fetchColumn();
-                if ($cat == 'packaging') continue;
+        foreach ($components as $comp) {
+            // Cantidad total de veces que este componente aparece en la venta total
+            // Ajuste de bucle:
+            // Si es un producto dentro de combo (Ej: 2 Pizzas), iteramos 2 veces por cada combo vendido.
+            // Si es un ingrediente directo (Harina), iteramos 1 vez por cada producto vendido.
+
+            $instancesPerUnit = ($comp['component_type'] == 'product') ? $comp['quantity'] : 1;
+            $totalLoops = $instancesPerUnit * $qtySold;
+
+            // Ajuste especial: Si es ingrediente de producto simple preparado, el loop es qtySold.
+            if ($comp['component_type'] != 'product') {
+                $totalLoops = $qtySold;
             }
 
-            $totalNeeded = $comp['quantity'] * $qtySold;
+            for ($i = 0; $i < $totalLoops; $i++) {
+                // Calcular índice virtual para buscar configuración
+                $currentIndex = ($comp['component_type'] == 'product') ? ($componentIndex + $i) : $i;
 
-            if ($comp['component_type'] == 'raw') {
-                $this->updateStock('raw_materials', $comp['component_id'], $totalNeeded);
-            } elseif ($comp['component_type'] == 'manufactured') {
-                $this->updateStock('manufactured_products', $comp['component_id'], $totalNeeded);
-            } elseif ($comp['component_type'] == 'product') {
-                $this->updateStock('products', $comp['component_id'], $totalNeeded);
+                // Obtener configuración para esta instancia específica
+                $isTakeaway = $takeawayMap[$currentIndex] ?? false; // Default Dine In
+                $itemsRemoved = $removedIngredients[$currentIndex] ?? [];
+
+                // VALIDACIONES DE DESCUENTO:
+
+                // A. Si se removió explícitamente (Sin Cebolla)
+                if ($comp['component_type'] == 'raw' && in_array($comp['component_id'], $itemsRemoved)) {
+                    continue;
+                }
+
+                // B. Lógica de Empaque: Si es MESA y es Packaging -> NO DESCONTAR
+                if (!$isTakeaway && $comp['component_type'] == 'raw') {
+                    $stmtCheck = $this->db->prepare("SELECT category FROM raw_materials WHERE id = ?");
+                    $stmtCheck->execute([$comp['component_id']]);
+                    $cat = $stmtCheck->fetchColumn();
+                    if ($cat == 'packaging') continue;
+                }
+
+                // Cantidad a descontar
+                // Si es un producto (Pizza del combo), descontamos 1 unidad de stock.
+                // Si es un ingrediente (Harina), descontamos la cantidad definida en la receta.
+                $qtyToDeduct = ($comp['component_type'] == 'product') ? 1 : $comp['quantity'];
+
+                if ($comp['component_type'] == 'raw') $this->updateStock('raw_materials', $comp['component_id'], $qtyToDeduct);
+                elseif ($comp['component_type'] == 'manufactured') $this->updateStock('manufactured_products', $comp['component_id'], $qtyToDeduct);
+                elseif ($comp['component_type'] == 'product') $this->updateStock('products', $comp['component_id'], $qtyToDeduct);
+            }
+
+            // Avanzar índice global solo si es un componente principal (producto dentro de combo)
+            if ($comp['component_type'] == 'product') {
+                $componentIndex += ($comp['quantity'] * $qtySold);
             }
         }
 
-        // D. Descontar Extras
+        // 4. Descontar Extras (Modifiers 'add')
         foreach ($modifiers as $mod) {
             if ($mod['modifier_type'] == 'add') {
-                $qtyExtra = $mod['quantity_adjustment'] * $qtySold;
-                $this->updateStock('raw_materials', $mod['raw_material_id'], $qtyExtra);
+                $this->updateStock('raw_materials', $mod['raw_material_id'], 0.050); // 50g estándar
             }
         }
     }
 
-    // Helper para actualizar stock
     private function updateStock($table, $id, $qty) {
         $field = ($table == 'raw_materials') ? 'stock_quantity' : 'stock';
         $sql = "UPDATE {$table} SET {$field} = {$field} - ? WHERE id = ?";
         $this->db->prepare($sql)->execute([$qty, $id]);
     }
-
-    // --- FUNCIONES EXISTENTES (MANTENIDAS) ---
 
     public function updateOrderStatus($id, $status, $tracking_number = null) {
         $stmt = $this->db->prepare("UPDATE orders SET status = ?, tracking_number = ?, updated_at = NOW() WHERE id = ?");
@@ -163,22 +216,29 @@ class OrderManager {
     }
 
     public function getOrderItems($order_id) {
-        $stmt = $this->db->prepare("SELECT oi.*, p.name, p.price_usd FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE order_id = ?");
-        $stmt->execute([$order_id]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+            // CORRECCIÓN: Agregamos p.product_type al SELECT
+            $stmt = $this->db->prepare("
+                SELECT oi.*, p.name, p.price_usd, p.product_type
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                WHERE order_id = ?
+            ");
+            $stmt->execute([$order_id]);
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
 
-    // Nuevo: Para ver detalles en el ticket
     public function getItemModifiers($orderItemId) {
         $sql = "SELECT m.*, rm.name as ingredient_name
                 FROM order_item_modifiers m
-                JOIN raw_materials rm ON m.raw_material_id = rm.id
-                WHERE m.order_item_id = ?";
+                LEFT JOIN raw_materials rm ON m.raw_material_id = rm.id
+                WHERE m.order_item_id = ?
+                ORDER BY m.sub_item_index ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$orderItemId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    // Funciones auxiliares para reportes y compatibilidad
     public function getOrdersBySearchAndFilter($search = '', $filter = '') {
         $sql = "SELECT orders.*, users.name AS customer_name FROM orders JOIN users ON orders.user_id = users.id WHERE 1";
         if (!empty($search)) {

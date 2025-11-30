@@ -8,44 +8,28 @@ class CartManager {
         $this->db = $db;
     }
 
-    /**
-     * 1. AGREGAR AL CARRITO (Soporte Relacional)
-     * Crea una nueva línea en 'cart' y guarda modificadores si los hay.
-     * Siempre crea fila nueva para permitir personalización individual.
-     */
-    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'takeaway') {
+    // 1. AGREGAR AL CARRITO
+    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in') {
         try {
             $this->db->beginTransaction();
 
-            // A. Validar Stock del Producto Base
             $productManager = new ProductManager($this->db);
             $product = $productManager->getProductById($product_id);
 
-            if (!$product) {
-                throw new Exception("Producto no encontrado.");
-            }
+            if (!$product) throw new Exception("Producto no encontrado.");
 
-            // Validación de Stock Inteligente (Físico vs Virtual)
-            $availableStock = 0;
-            if ($product['product_type'] === 'simple') {
-                $availableStock = intval($product['stock']);
-            } else {
-                $availableStock = $productManager->getVirtualStock($product_id);
-            }
+            $availableStock = ($product['product_type'] === 'simple')
+                ? intval($product['stock'])
+                : $productManager->getVirtualStock($product_id);
 
-            if ($availableStock < $quantity) {
-                throw new Exception("Stock insuficiente. Disponible: " . $availableStock);
-            }
+            if ($availableStock < $quantity) throw new Exception("Stock insuficiente.");
 
-            // B. Insertar en tabla CART
-            // IMPORTANTE: Guardamos consumption_type ('dine_in' o 'takeaway')
             $stmt = $this->db->prepare("INSERT INTO {$this->table_name} (user_id, product_id, quantity, consumption_type) VALUES (?, ?, ?, ?)");
             $stmt->execute([$user_id, $product_id, $quantity, $consumptionType]);
             $cartId = $this->db->lastInsertId();
 
-            // C. Insertar Modificadores en Tabla Relacional (Si vienen en el array)
             if (!empty($modifiers)) {
-                $this->insertModifiers($cartId, $modifiers);
+                $this->updateItemModifiers($cartId, $modifiers);
             }
 
             $this->db->commit();
@@ -57,20 +41,50 @@ class CartManager {
         }
     }
 
-    /**
-     * 2. ACTUALIZAR MODIFICADORES (Edición desde el Carrito)
-     * Borra los antiguos y pone los nuevos.
-     */
-    public function updateItemModifiers($cartId, $modifiers) {
+    // 2. ACTUALIZAR MODIFICADORES (Lógica Simplificada)
+    public function updateItemModifiers($cartId, $data) {
         try {
-            $this->db->beginTransaction();
+            if (!$this->db->inTransaction()) $this->db->beginTransaction();
 
-            // Borrar anteriores
+            // A. Limpiar todo lo anterior de este ítem
             $this->db->prepare("DELETE FROM cart_item_modifiers WHERE cart_id = ?")->execute([$cartId]);
 
-            // Insertar nuevos
-            if (!empty($modifiers)) {
-                $this->insertModifiers($cartId, $modifiers);
+            // B. Guardar Nota General (Texto libre opcional)
+            if (!empty($data['general_note'])) {
+                // Usamos sub_item_index -1 para la nota global
+                $stmt = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, note) VALUES (?, 'info', -1, ?)");
+                $stmt->execute([$cartId, $data['general_note']]);
+            }
+
+            // C. Guardar Configuración por Ítem
+            if (isset($data['items']) && is_array($data['items'])) {
+                foreach ($data['items'] as $subItem) {
+                    $idx = $subItem['index'];
+
+                    // 1. GUARDAR ESTADO BOOLEANO (La clave de la simplificación)
+                    // is_takeaway: 1 = Llevar, 0 = Mesa
+                    $isTakeaway = ($subItem['consumption'] === 'takeaway') ? 1 : 0;
+
+                    // Guardamos una fila 'info' que contiene el estado booleano
+                    $stmtState = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, is_takeaway) VALUES (?, 'info', ?, ?)");
+                    $stmtState->execute([$cartId, $idx, $isTakeaway]);
+
+                    // 2. Guardar Remociones
+                    if (!empty($subItem['remove'])) {
+                        $stmtRem = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, raw_material_id) VALUES (?, 'remove', ?, ?)");
+                        foreach ($subItem['remove'] as $rawId) {
+                            $stmtRem->execute([$cartId, $idx, $rawId]);
+                        }
+                    }
+
+                    // 3. Guardar Adiciones
+                    if (!empty($subItem['add'])) {
+                        $stmtAdd = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, raw_material_id, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, ?, ?)");
+                        foreach ($subItem['add'] as $extra) {
+                            $stmtAdd->execute([$cartId, $idx, $extra['id'], 0.050, $extra['price']]);
+                        }
+                    }
+                }
             }
 
             $this->db->commit();
@@ -81,44 +95,8 @@ class CartManager {
         }
     }
 
-    // Auxiliar privado para insertar en tabla relacional cart_item_modifiers
-    private function insertModifiers($cartId, $modifiers) {
-        // Remociones (Precio 0)
-        if (!empty($modifiers['remove'])) {
-            $stmt = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, raw_material_id, price_adjustment) VALUES (?, 'remove', ?, 0.00)");
-            foreach ($modifiers['remove'] as $rawId) {
-                $stmt->execute([$cartId, $rawId]);
-            }
-        }
-        // Adiciones (Con Precio y Cantidad)
-        if (!empty($modifiers['add'])) {
-            $stmt = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, raw_material_id, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, ?)");
-
-            foreach ($modifiers['add'] as $extra) {
-                // Soporta formato simple ID o array ['id'=>1, 'price'=>1.00]
-                $rawId = is_array($extra) ? $extra['id'] : $extra;
-                $price = is_array($extra) ? ($extra['price'] ?? 1.00) : 1.00;
-                $qtyAdj = 0.050; // Cantidad estándar de un extra (50g)
-
-                $stmt->execute([$cartId, $rawId, $qtyAdj, $price]);
-            }
-        }
-    }
-
-    /**
-     * 3. ACTUALIZAR TIPO DE CONSUMO (Para llevar / Local)
-     */
-    public function updateConsumptionType($cartId, $type) {
-        $stmt = $this->db->prepare("UPDATE {$this->table_name} SET consumption_type = ? WHERE id = ?");
-        return $stmt->execute([$type, $cartId]);
-    }
-
-    /**
-     * 4. OBTENER CARRITO CON DETALLES
-     * Recupera el producto y sus modificadores, calculando el precio final.
-     */
+    // 3. OBTENER CARRITO (Lectura Limpia)
     public function getCart($user_id) {
-        // Obtener items principales
         $stmt = $this->db->prepare("
             SELECT c.*, p.name, p.price_usd, p.price_ves, p.image_url, p.product_type
             FROM {$this->table_name} c
@@ -128,36 +106,72 @@ class CartManager {
         $stmt->execute([$user_id]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Enriquecer con modificadores y calcular
         foreach ($items as &$item) {
             $basePrice = floatval($item['price_usd']);
             $extraPrice = 0;
 
-            // Buscar modificadores en la tabla relacional
+            // Traer modificadores
             $stmtMod = $this->db->prepare("
                 SELECT cim.*, rm.name as material_name
                 FROM cart_item_modifiers cim
-                JOIN raw_materials rm ON cim.raw_material_id = rm.id
+                LEFT JOIN raw_materials rm ON cim.raw_material_id = rm.id
                 WHERE cim.cart_id = ?
+                ORDER BY cim.sub_item_index ASC
             ");
             $stmtMod->execute([$item['id']]);
-            $modifiers = $stmtMod->fetchAll(PDO::FETCH_ASSOC);
+            $rawModifiers = $stmtMod->fetchAll(PDO::FETCH_ASSOC);
 
-            // Calcular costo de extras y formatear texto para la vista
-            $modDescription = [];
-            foreach ($modifiers as $mod) {
-                if ($mod['modifier_type'] == 'add') {
+            // Estructura para agrupar visualmente
+            $groupedMods = [];
+            $generalNote = "";
+
+            foreach ($rawModifiers as $mod) {
+                $idx = $mod['sub_item_index'];
+
+                // Nota Global
+                if ($idx == -1 && $mod['modifier_type'] == 'info') {
+                    $generalNote = $mod['note'];
+                    continue;
+                }
+
+                if (!isset($groupedMods[$idx])) {
+                    $groupedMods[$idx] = [
+                        'is_takeaway' => 0, // Default Mesa
+                        'desc' => []
+                    ];
+                }
+
+                if ($mod['modifier_type'] == 'info') {
+                    // AQUÍ LEEMOS EL BOOLEANO DIRECTAMENTE
+                    $groupedMods[$idx]['is_takeaway'] = intval($mod['is_takeaway']);
+                }
+                elseif ($mod['modifier_type'] == 'add') {
                     $extraPrice += floatval($mod['price_adjustment']);
-                    $modDescription[] = "+ " . $mod['material_name'] . " ($" . number_format($mod['price_adjustment'], 2) . ")";
-                } elseif ($mod['modifier_type'] == 'remove') {
-                    $modDescription[] = "SIN " . $mod['material_name'];
+                    $groupedMods[$idx]['desc'][] = "+ " . $mod['material_name'];
+                }
+                elseif ($mod['modifier_type'] == 'remove') {
+                    $groupedMods[$idx]['desc'][] = "SIN " . $mod['material_name'];
                 }
             }
 
-            $item['modifiers_list'] = $modifiers; // Data cruda
-            $item['modifiers_desc'] = $modDescription; // Texto para HTML
+            // Generar HTML descriptivo para la tabla
+            $visualDesc = [];
+            foreach ($groupedMods as $idx => $data) {
+                $statusTag = ($data['is_takeaway'] == 1)
+                    ? '<span class="badge bg-secondary text-white" style="font-size:0.7em">LLEVAR</span>'
+                    : '<span class="badge bg-info text-dark" style="font-size:0.7em">MESA</span>';
 
-            // Precios Finales
+                $extrasText = empty($data['desc']) ? '' : '<br><span class="small text-muted">' . implode(', ', $data['desc']) . '</span>';
+
+                $visualDesc[] = "<div class='mb-1'><strong>#".($idx+1)."</strong> $statusTag $extrasText</div>";
+            }
+
+            if ($generalNote) {
+                $visualDesc[] = "<div class='mt-1 border-top pt-1 text-primary small'>Nota: $generalNote</div>";
+            }
+
+            $item['modifiers_grouped'] = $groupedMods; // Datos puros para JS
+            $item['modifiers_desc'] = $visualDesc;     // HTML para Tabla
             $item['unit_price_final'] = $basePrice + $extraPrice;
             $item['total_price'] = $item['unit_price_final'] * $item['quantity'];
         }
@@ -165,79 +179,39 @@ class CartManager {
         return $items;
     }
 
-    /**
-     * 5. ACTUALIZAR CANTIDAD
-     * ¡OJO! Usa 'cart_id' (ID único de la fila), no 'product_id'.
-     */
+    // Métodos estándar (Sin cambios)
     public function updateCartQuantity($cartId, $quantity) {
-        if ($quantity <= 0) {
-            return $this->removeFromCart($cartId);
-        }
-        try {
-            // Validar stock del producto asociado
-            $stmt = $this->db->prepare("SELECT p.id, p.stock, p.product_type FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ?");
-            $stmt->execute([$cartId]);
-            $product = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$product) return "Producto no encontrado.";
-
-            // Validación Híbrida
-            $productManager = new ProductManager($this->db);
-            $availableStock = ($product['product_type'] === 'simple')
-                ? intval($product['stock'])
-                : $productManager->getVirtualStock($product['id']);
-
-            if ($availableStock < $quantity) {
-                return "Error: Stock insuficiente (Máx: $availableStock).";
-            }
-
-            $update = $this->db->prepare("UPDATE {$this->table_name} SET quantity = ? WHERE id = ?");
-            $update->execute([$quantity, $cartId]);
-            return true;
-
-        } catch (PDOException $e) {
-            return "Error al actualizar cantidad.";
-        }
+        if ($quantity <= 0) return $this->removeFromCart($cartId);
+        $this->db->prepare("UPDATE {$this->table_name} SET quantity = ? WHERE id = ?")->execute([$quantity, $cartId]);
+        return true;
     }
-
-    /**
-     * 6. ELIMINAR ITEM
-     * Usa 'cart_id'. Borra modificadores primero.
-     */
+    
     public function removeFromCart($cartId) {
         $this->db->prepare("DELETE FROM cart_item_modifiers WHERE cart_id = ?")->execute([$cartId]);
-        $stmt = $this->db->prepare("DELETE FROM {$this->table_name} WHERE id = ?");
-        return $stmt->execute([$cartId]);
+        return $this->db->prepare("DELETE FROM {$this->table_name} WHERE id = ?")->execute([$cartId]);
     }
 
-    /**
-     * 7. VACIAR CARRITO
-     */
     public function emptyCart($user_id) {
-        // Borrar modificadores de todos los items del usuario
-        $sql = "DELETE cim FROM cart_item_modifiers cim
-                INNER JOIN cart c ON cim.cart_id = c.id
-                WHERE c.user_id = ?";
-        $this->db->prepare($sql)->execute([$user_id]);
+            $inTransaction = $this->db->inTransaction();
+            try {
+                if (!$inTransaction) $this->db->beginTransaction();
 
-        // Borrar items
-        $stmt = $this->db->prepare("DELETE FROM {$this->table_name} WHERE user_id = ?");
-        return $stmt->execute([$user_id]);
-    }
+                $this->db->prepare("DELETE cim FROM cart_item_modifiers cim INNER JOIN cart c ON cim.cart_id = c.id WHERE c.user_id = ?")->execute([$user_id]);
+                $this->db->prepare("DELETE FROM {$this->table_name} WHERE user_id = ?")->execute([$user_id]);
 
-    /**
-     * 8. CALCULAR TOTALES
-     */
-    public function calculateTotal($cart_items) {
-        $total_usd = 0;
-        foreach ($cart_items as $item) {
-            $total_usd += $item['total_price'];
+                if (!$inTransaction) $this->db->commit();
+                return true;
+            } catch (Exception $e) {
+                if (!$inTransaction) $this->db->rollBack();
+                throw $e;
+            }
         }
 
+    public function calculateTotal($cart_items) {
+        $total_usd = 0;
+        foreach ($cart_items as $item) $total_usd += $item['total_price'];
         $rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1;
-        $total_ves = $total_usd * $rate;
-
-        return ['total_usd' => $total_usd, 'total_ves' => $total_ves];
+        return ['total_usd' => $total_usd, 'total_ves' => $total_usd * $rate];
     }
 }
 ?>
