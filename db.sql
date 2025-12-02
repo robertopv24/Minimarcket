@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 30-11-2025 a las 12:16:22
+-- Tiempo de generación: 02-12-2025 a las 07:39:39
 -- Versión del servidor: 10.11.11-MariaDB
 -- Versión de PHP: 8.4.12
 
@@ -89,7 +89,7 @@ INSERT INTO `cash_sessions` (`id`, `user_id`, `opening_balance_usd`, `opening_ba
 (9, 4, 5.00, 500.00, 6.00, 890.00, 6.00, 900.00, 'closed', '2025-11-24 21:35:45', '2025-11-24 21:46:30'),
 (10, 4, 5.00, 500.00, 6.00, 990.00, 6.00, 1000.00, 'closed', '2025-11-24 23:40:21', '2025-11-24 23:48:05'),
 (11, 7, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2025-11-25 00:12:55', NULL),
-(12, 4, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2025-11-29 04:43:44', NULL);
+(12, 4, 0.00, 0.00, 196.00, 2500.00, 196.00, 2500.00, 'closed', '2025-11-29 04:43:44', '2025-12-02 07:11:31');
 
 -- --------------------------------------------------------
 
@@ -109,7 +109,7 @@ CREATE TABLE `company_vault` (
 --
 
 INSERT INTO `company_vault` (`id`, `balance_usd`, `balance_ves`, `last_updated`) VALUES
-(1, 133.00, 17709.00, '2025-11-24 23:48:05');
+(1, 329.00, 20209.00, '2025-12-02 07:11:31');
 
 -- --------------------------------------------------------
 
@@ -131,7 +131,7 @@ CREATE TABLE `global_config` (
 --
 
 INSERT INTO `global_config` (`id`, `config_key`, `config_value`, `description`, `created_at`, `updated_at`) VALUES
-(1, 'site_name', 'Mi Plataforma Web', 'Nombre de la plataforma', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
+(1, 'site_name', 'PASTELERIA & PIZZERIA J&Y', 'Nombre de la plataforma', '2025-02-21 12:14:27', '2025-12-01 21:44:01'),
 (2, 'site_url', 'https://www.miplataforma.com', 'URL de la web', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
 (3, 'default_language', 'es', 'Idioma predeterminado del sistema', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
 (4, 'timezone', 'America/Caracas', 'Zona horaria del sistema', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
@@ -340,7 +340,18 @@ INSERT INTO `orders` (`id`, `user_id`, `total_price`, `status`, `consumption_typ
 (61, 4, 3.82, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 15:37:37', '2025-11-29 04:53:10'),
 (62, 4, 3.27, 'delivered', 'takeaway', 'Tienda Física', NULL, NULL, '2025-11-24 21:43:03', '2025-11-29 04:53:58'),
 (63, 4, 5.06, 'delivered', 'takeaway', 'Tienda Física', NULL, '', '2025-11-24 23:44:45', '2025-11-29 04:53:59'),
-(65, 4, 17.00, 'paid', 'dine_in', 'Tienda Física', NULL, NULL, '2025-11-30 06:06:23', '2025-11-30 06:06:23');
+(65, 4, 17.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-11-30 06:06:23', '2025-11-30 15:31:54'),
+(66, 4, 15.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-11-30 15:32:27', '2025-11-30 15:33:44'),
+(67, 4, 24.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-11-30 15:34:33', '2025-12-01 21:40:07'),
+(68, 4, 8.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-01 21:37:11', '2025-12-01 21:41:02'),
+(69, 4, 15.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-01 21:44:40', '2025-12-02 01:25:41'),
+(70, 4, 47.00, 'delivered', 'dine_in', 'Tienda Física', NULL, '', '2025-12-02 00:43:21', '2025-12-02 01:25:27'),
+(71, 4, 15.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-02 05:19:43', '2025-12-02 06:58:44'),
+(72, 4, 8.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-02 05:48:00', '2025-12-02 06:59:05'),
+(73, 4, 15.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-02 05:57:28', '2025-12-02 06:59:08'),
+(74, 4, 15.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-02 06:06:20', '2025-12-02 06:59:15'),
+(75, 4, 15.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2025-12-02 06:38:04', '2025-12-02 06:59:26'),
+(76, 4, 17.00, 'delivered', 'dine_in', 'Tienda Física', NULL, '', '2025-12-02 07:01:32', '2025-12-02 07:12:39');
 
 -- --------------------------------------------------------
 
@@ -436,7 +447,22 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (104, 63, 19, 2, 0.10, 'takeaway'),
 (105, 63, 28, 1, 1.20, 'takeaway'),
 (106, 63, 26, 1, 0.66, 'takeaway'),
-(108, 65, 88, 1, 17.00, 'dine_in');
+(108, 65, 88, 1, 17.00, 'dine_in'),
+(109, 66, 88, 1, 15.00, 'dine_in'),
+(110, 67, 90, 1, 9.00, 'dine_in'),
+(111, 67, 88, 1, 15.00, 'dine_in'),
+(112, 68, 89, 1, 8.00, 'dine_in'),
+(113, 69, 88, 1, 15.00, 'dine_in'),
+(114, 70, 87, 1, 15.00, 'dine_in'),
+(115, 70, 88, 1, 15.00, 'dine_in'),
+(116, 70, 89, 1, 8.00, 'dine_in'),
+(117, 70, 90, 1, 9.00, 'dine_in'),
+(118, 71, 88, 1, 15.00, 'dine_in'),
+(119, 72, 89, 1, 8.00, 'dine_in'),
+(120, 73, 88, 1, 15.00, 'dine_in'),
+(121, 74, 88, 1, 15.00, 'dine_in'),
+(122, 75, 88, 1, 15.00, 'dine_in'),
+(123, 76, 88, 1, 17.00, 'dine_in');
 
 -- --------------------------------------------------------
 
@@ -466,7 +492,13 @@ INSERT INTO `order_item_modifiers` (`id`, `order_item_id`, `modifier_type`, `raw
 (3, 108, 'info', NULL, 0.0000, 0.00, NULL, 1, 1),
 (4, 108, 'add', 12, 0.0500, 1.00, NULL, 1, 0),
 (5, 108, 'info', NULL, 0.0000, 0.00, NULL, 2, 0),
-(6, 108, 'remove', 16, 0.0000, 0.00, NULL, 2, 0);
+(6, 108, 'remove', 16, 0.0000, 0.00, NULL, 2, 0),
+(8, 123, 'info', NULL, 0.0000, 0.00, NULL, 0, 0),
+(9, 123, 'add', 42, 0.0500, 1.00, NULL, 0, 0),
+(10, 123, 'info', NULL, 0.0000, 0.00, NULL, 1, 0),
+(11, 123, 'add', 12, 0.0500, 1.00, NULL, 1, 0),
+(12, 123, 'info', NULL, 0.0000, 0.00, NULL, 2, 1),
+(13, 123, 'remove', 16, 0.0000, 0.00, NULL, 2, 0);
 
 -- --------------------------------------------------------
 
@@ -664,22 +696,22 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (51, 'Galletas Charmy', 'Galletas con relleno de crema ', 0.18, 54.00, 12, 'simple', 'bar', 'uploads/product_images/67ccf0888adb5_17414841411356361203726346495725.jpg', '2025-03-09 01:36:08', 20.00, '2025-11-29 03:41:03'),
 (52, 'Oka loka chicle en polvo ', 'Chicle en polvo ', 0.20, 60.00, 12, 'simple', 'bar', 'uploads/product_images/67ccf10c05bdb_1741484263919300001115409146628.jpg', '2025-03-09 01:38:20', 20.00, '2025-11-29 03:41:03'),
 (53, 'Caramelos Chaos', 'Caramelos de menta', 0.04, 12.00, 100, 'simple', 'bar', 'uploads/product_images/67cd5297dd2b2_images.jpg', '2025-03-09 02:42:06', 20.00, '2025-11-29 03:41:03'),
-(57, 'Pizza Margarita (Mediana)', 'Salsa Napolitana y Queso Mozzarella', 6.00, 1800.00, -1, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(58, 'Pizza Pepperoni (Mediana)', 'Margarita con doble Pepperoni', 7.50, 2250.00, -1, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(57, 'Pizza Margarita (Mediana)', 'Salsa Napolitana y Queso Mozzarella', 6.00, 1800.00, -10, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(58, 'Pizza Pepperoni (Mediana)', 'Margarita con doble Pepperoni', 7.50, 2250.00, -10, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (59, 'Pizza Familiar Full Equipo', 'Jamón, Pepperoni, Maíz, Pimentón, Cebolla', 12.00, 3600.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(60, 'Hamburguesa Clásica', 'Carne 150g, Queso Amarillo, Vegetales y Salsas', 4.50, 1350.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(60, 'Hamburguesa Clásica', 'Carne 150g, Queso Amarillo, Vegetales y Salsas', 4.50, 1350.00, -4, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (61, 'Hamburguesa Doble Carne', 'Doble Carne, Doble Queso, Tocineta', 6.50, 1950.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(62, 'Tumbarrancho Clásico', 'Arepa rebozada, Mortadela, Queso de Mano, Repollo, Salsa', 2.50, 750.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(63, 'Tequeyoyo (Unidad)', 'Relleno de Queso, Jamón y Plátano', 1.50, 450.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(62, 'Tumbarrancho Clásico', 'Arepa rebozada, Mortadela, Queso de Mano, Repollo, Salsa', 2.50, 750.00, -6, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(63, 'Tequeyoyo (Unidad)', 'Relleno de Queso, Jamón y Plátano', 1.50, 450.00, -6, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (64, 'Pastelito de Carne', 'Masa de Trigo y Carne Molida', 1.00, 300.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (65, 'Pastelito de Papa con Queso', 'Clásico Maracucho', 1.00, 300.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (66, 'Empanada de Carne (Maíz)', 'Masa de Maíz frita', 1.20, 360.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(67, 'Ración Tequeños (5 und)', '5 Tequeños full queso con salsa tártara', 4.00, 1200.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(67, 'Ración Tequeños (5 und)', '5 Tequeños full queso con salsa tártara', 4.00, 1200.00, -5, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (68, 'Papita de Yuca', 'Masa de Yuca rellena de Queso', 1.50, 450.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (69, 'Perro Caliente Normal', 'Salchicha, Repollo, Papitas, Salsas', 1.50, 450.00, 0, 'prepared', 'kitchen', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (70, 'Calzone Relleno', 'Masa de Pizza cerrada con Jamón y Queso', 5.00, 1500.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(71, 'Coca-Cola 2 Litros', 'Refresco botella grande', 2.50, 750.00, 19, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
-(72, 'Malta Polar', 'Lata fría', 1.00, 300.00, 50, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(71, 'Coca-Cola 2 Litros', 'Refresco botella grande', 2.50, 750.00, 9, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
+(72, 'Malta Polar', 'Lata fría', 1.00, 300.00, 40, 'simple', 'bar', NULL, '2025-11-29 00:13:32', 20.00, '2025-11-29 03:41:03'),
 (78, 'Pizza Hawaiana', 'Jamón, Piña y extra Queso', 8.00, 2400.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
 (79, 'Pizza Vegetariana', 'Pimentón, Cebolla, Maíz, Champiñones y Aceitunas', 7.00, 2100.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
 (80, 'Pizza 4 Quesos', 'Mozzarella, Parmesano, Amarillo y Duro', 9.00, 2700.00, 0, 'prepared', 'pizza', NULL, '2025-11-29 01:23:58', 20.00, '2025-11-29 03:41:03'),
@@ -973,7 +1005,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (9, 'Aceite de Oliva (Masa)', 'lt', 17.7500, 6.00, 2.0000, 0, 'ingredient', '2025-11-29 01:12:04'),
 (10, 'Pan de Hamburguesa', 'und', 100.0000, 0.30, 24.0000, 0, 'ingredient', '2025-11-29 02:37:20'),
 (11, 'Pan de Perro Caliente', 'und', 50.0000, 0.25, 24.0000, 0, 'ingredient', '2025-11-29 01:00:13'),
-(12, 'Queso Mozzarella (Bloque)', 'kg', 23.9500, 6.50, 10.0000, 0, 'ingredient', '2025-11-30 06:06:23'),
+(12, 'Queso Mozzarella (Bloque)', 'kg', 23.9000, 6.50, 10.0000, 0, 'ingredient', '2025-12-02 07:01:32'),
 (13, 'Queso Duro (Tequeños)', 'kg', 22.7500, 5.50, 10.0000, 0, 'ingredient', '2025-11-29 01:32:36'),
 (14, 'Queso Amarillo (Laminado)', 'kg', 12.0000, 7.00, 2.0000, 0, 'ingredient', '2025-11-29 01:04:34'),
 (15, 'Queso Parmesano', 'kg', 6.0000, 12.00, 1.0000, 0, 'ingredient', '2025-11-29 01:05:47'),
@@ -1003,7 +1035,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (39, 'Bolsa Plástica Delivery', 'und', 100.0000, 0.10, 50.0000, 1, 'packaging', '2025-11-29 06:01:19'),
 (40, 'Servilletas', 'und', 2400.0000, 0.01, 200.0000, 1, 'ingredient', '2025-11-29 01:08:36'),
 (41, 'Envase Salsa Pequeño (1oz)', 'und', 500.0000, 0.03, 100.0000, 1, 'packaging', '2025-11-29 06:01:19'),
-(42, 'Vasos Plásticos', 'und', 499.9500, 0.05, 50.0000, 1, 'ingredient', '2025-11-30 06:06:23'),
+(42, 'Vasos Plásticos', 'und', 499.9000, 0.05, 50.0000, 1, 'ingredient', '2025-12-02 07:01:32'),
 (43, 'Pitillos/Pajillas', 'und', 500.0000, 0.01, 100.0000, 1, 'ingredient', '2025-11-29 01:03:19'),
 (44, 'Aceite Vegetal (Freidora)', 'lt', 30.0000, 2.00, 20.0000, 1, 'ingredient', '2025-11-29 00:42:26'),
 (45, 'Gas (Bombona)', 'und', 42.0000, 15.00, 1.0000, 1, 'ingredient', '2025-11-29 00:48:31'),
@@ -1141,7 +1173,26 @@ INSERT INTO `transactions` (`id`, `cash_session_id`, `type`, `amount`, `currency
 (64, 10, 'income', 1.00, 'USD', 1.00, 1.00, 1, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45'),
 (65, 10, 'income', 500.00, 'VES', 300.00, 1.67, 2, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45'),
 (66, 10, 'income', 718.00, 'VES', 300.00, 2.39, 5, 'order', 63, 'Cobro Venta #63', 4, '2025-11-24 23:44:45'),
-(67, 12, 'income', 17.00, 'USD', 1.00, 17.00, 1, 'order', 65, 'Cobro Venta #65', 4, '2025-11-30 06:06:23');
+(67, 12, 'income', 17.00, 'USD', 1.00, 17.00, 1, 'order', 65, 'Cobro Venta #65', 4, '2025-11-30 06:06:23'),
+(68, 12, 'income', 15.00, 'USD', 1.00, 15.00, 1, 'order', 66, 'Cobro Venta #66', 4, '2025-11-30 15:32:27'),
+(69, 12, 'income', 24.00, 'USD', 1.00, 24.00, 1, 'order', 67, 'Cobro Venta #67', 4, '2025-11-30 15:34:33'),
+(70, 12, 'income', 8.00, 'USD', 1.00, 8.00, 1, 'order', 68, 'Cobro Venta #68', 4, '2025-12-01 21:37:11'),
+(71, 12, 'income', 15.00, 'USD', 1.00, 15.00, 1, 'order', 69, 'Cobro Venta #69', 4, '2025-12-01 21:44:40'),
+(72, 12, 'income', 47.00, 'USD', 1.00, 47.00, 1, 'order', 70, 'Cobro Venta #70', 4, '2025-12-02 00:43:21'),
+(73, 12, 'income', 15.00, 'USD', 1.00, 15.00, 1, 'order', 71, 'Cobro Venta #71', 4, '2025-12-02 05:19:43'),
+(74, 12, 'income', 10.00, 'USD', 1.00, 10.00, 1, 'order', 72, 'Cobro Venta #72', 4, '2025-12-02 05:48:00'),
+(76, 12, 'expense', 600.00, 'VES', 300.00, 2.00, 2, 'order', 72, 'Vuelto Venta #72', 4, '2025-12-02 05:48:00'),
+(77, 12, 'income', 20.00, 'USD', 1.00, 20.00, 1, 'order', 73, 'Cobro Venta #73', 4, '2025-12-02 05:57:28'),
+(78, 12, 'expense', 5.00, 'USD', 1.00, 5.00, 1, 'order', 73, 'Vuelto Venta #73', 4, '2025-12-02 05:57:28'),
+(79, 12, 'expense', 5.00, 'USD', 1.00, 5.00, 1, 'order', 73, 'Vuelto Venta #73', 4, '2025-12-02 05:57:28'),
+(80, 12, 'income', 5000.00, 'VES', 300.00, 16.67, 2, 'order', 74, 'Cobro Venta #74', 4, '2025-12-02 06:06:20'),
+(82, 12, 'expense', 500.00, 'VES', 300.00, 1.67, 2, 'order', 74, 'Vuelto Venta #74', 4, '2025-12-02 06:06:20'),
+(83, 12, 'income', 20.00, 'USD', 300.00, 20.00, 1, 'order', 75, 'Cobro Venta #75', 4, '2025-12-02 06:38:04'),
+(84, 12, 'expense', 1500.00, 'VES', 300.00, 5.00, 2, 'order', 75, 'Vuelto Venta #75', 4, '2025-12-02 06:38:04'),
+(85, 12, 'income', 15.00, 'USD', 300.00, 15.00, 1, 'order', 76, 'Cobro Venta #76', 4, '2025-12-02 07:01:32'),
+(86, 12, 'income', 200.00, 'VES', 300.00, 0.67, 2, 'order', 76, 'Cobro Venta #76', 4, '2025-12-02 07:01:32'),
+(87, 12, 'income', 500.00, 'VES', 300.00, 1.67, 4, 'order', 76, 'Cobro Venta #76', 4, '2025-12-02 07:01:32'),
+(88, 12, 'expense', 100.00, 'VES', 300.00, 0.33, 2, 'order', 76, 'Vuelto Venta #76', 4, '2025-12-02 07:01:32');
 
 -- --------------------------------------------------------
 
@@ -1226,7 +1277,9 @@ INSERT INTO `vault_movements` (`id`, `type`, `origin`, `amount`, `currency`, `de
 (26, 'deposit', 'session_close', 890.00, 'VES', 'Cierre de Caja #9', 9, 4, '2025-11-24 21:46:30'),
 (27, 'withdrawal', 'owner_withdrawal', 100.00, 'USD', 'me los bebi', NULL, 4, '2025-11-24 22:02:01'),
 (28, 'deposit', 'session_close', 6.00, 'USD', 'Cierre de Caja #10', 10, 4, '2025-11-24 23:48:05'),
-(29, 'deposit', 'session_close', 990.00, 'VES', 'Cierre de Caja #10', 10, 4, '2025-11-24 23:48:05');
+(29, 'deposit', 'session_close', 990.00, 'VES', 'Cierre de Caja #10', 10, 4, '2025-11-24 23:48:05'),
+(30, 'deposit', 'session_close', 196.00, 'USD', 'Cierre de Caja #12', 12, 4, '2025-12-02 07:11:31'),
+(31, 'deposit', 'session_close', 2500.00, 'VES', 'Cierre de Caja #12', 12, 4, '2025-12-02 07:11:31');
 
 --
 -- Índices para tablas volcadas
@@ -1414,13 +1467,13 @@ ALTER TABLE `vault_movements`
 -- AUTO_INCREMENT de la tabla `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=138;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=153;
 
 --
 -- AUTO_INCREMENT de la tabla `cart_item_modifiers`
 --
 ALTER TABLE `cart_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
@@ -1462,19 +1515,19 @@ ALTER TABLE `menu_roles`
 -- AUTO_INCREMENT de la tabla `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=66;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
 
 --
 -- AUTO_INCREMENT de la tabla `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=109;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=124;
 
 --
 -- AUTO_INCREMENT de la tabla `order_item_modifiers`
 --
 ALTER TABLE `order_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `payment_methods`
@@ -1546,7 +1599,7 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT de la tabla `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=89;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
@@ -1558,7 +1611,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT de la tabla `vault_movements`
 --
 ALTER TABLE `vault_movements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- Restricciones para tablas volcadas
