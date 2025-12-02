@@ -9,31 +9,30 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $userId = $_SESSION['user_id'] ?? null;
 
-// 1. Validar Sesión de Caja
+// 1. Validaciones Iniciales
 $sessionId = $cashRegisterManager->hasOpenSession($userId);
 if (!$userId || !$sessionId) {
     die("Error: No tienes una caja abierta. <a href='apertura_caja.php'>Abrir Caja</a>");
 }
 
-// 2. Obtener datos del carrito
 $cartItems = $cartManager->getCart($userId);
 if (empty($cartItems)) {
     die("Error: El carrito está vacío. <a href='tienda.php'>Volver</a>");
 }
 
+// 2. Preparar Datos
 $totals = $cartManager->calculateTotal($cartItems);
 $totalOrderAmount = $totals['total_usd'];
 $customerName = $_POST['customer_name'] ?? 'Cliente General';
 $address = $_POST['shipping_address'] ?? 'Tienda';
-$rawPayments = $_POST['payments'] ?? [];
-
-// 3. Estructurar Pagos
-$processedPayments = [];
 $rate = $config->get('exchange_rate');
+
+// 3. Estructurar Array de Pagos
+$rawPayments = $_POST['payments'] ?? [];
+$processedPayments = [];
 
 foreach ($rawPayments as $methodId => $amount) {
     if ($amount > 0) {
-        // Consultar moneda del método para ser precisos
         $stmt = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
         $stmt->execute([$methodId]);
         $currency = $stmt->fetchColumn();
@@ -41,70 +40,76 @@ foreach ($rawPayments as $methodId => $amount) {
         $processedPayments[] = [
             'method_id' => $methodId,
             'amount' => $amount,
-            'currency' => $currency,
-            'rate' => ($currency == 'VES') ? $rate : 1
+            'currency' => $currency
         ];
     }
 }
 
 try {
+    // --- INICIO TRANSACCIÓN MAESTRA ---
     $db->beginTransaction();
 
-    // 4. CREAR LA ORDEN (OrderManager)
-    // El OrderManager se encarga de copiar todos los detalles granulares (is_takeaway, index)
-    // desde el carrito a la orden.
+    // A. CREAR LA ORDEN
     $orderId = $orderManager->createOrder($userId, $cartItems, $address);
+    if (!$orderId) throw new Exception("Error al crear la orden.");
 
-    if (!$orderId) {
-        throw new Exception("Error al guardar la orden en base de datos.");
-    }
-
-    // Actualizar estado a PAID inmediatamente (Venta de mostrador)
     $orderManager->updateOrderStatus($orderId, 'paid');
 
-    // 5. REGISTRAR PAGOS (TransactionManager)
-    $paymentSuccess = $transactionManager->processOrderPayments(
-        $orderId,
-        $processedPayments,
-        $totalOrderAmount,
-        $userId,
-        $sessionId
-    );
+    // B. REGISTRAR PAGOS (INGRESOS)
+    // El Manager ya no calcula vueltos, solo registra lo que entró.
+    $transactionManager->processOrderPayments($orderId, $processedPayments, $userId, $sessionId);
 
-    if (!$paymentSuccess) {
-        throw new Exception("Error al procesar la transacción financiera.");
+    // C. CALCULAR Y REGISTRAR VUELTO (MANUAL)
+    // 1. Calcular cuánto pagó realmente en USD
+    $realPaidUsd = 0;
+    foreach ($processedPayments as $p) {
+        if ($p['currency'] == 'VES') $realPaidUsd += ($p['amount'] / $rate);
+        else $realPaidUsd += $p['amount'];
     }
 
-    // 6. DESCUENTO DE INVENTARIO INTELIGENTE
-    // Aquí ocurre la magia: OrderManager leerá el campo 'is_takeaway' de cada ítem
-    // y decidirá si descuenta el empaque o no.
-    $orderManager->deductStockFromSale($orderId);
+    $changeDue = $realPaidUsd - $totalOrderAmount;
 
-    // 7. LIMPIEZA FINAL
-    // Borramos el carrito porque ya se convirtió en orden
+    // 2. Si hay vuelto y se seleccionó método, llamar al Manager
+    if ($changeDue > 0.01 && !empty($_POST['change_method_id'])) {
+        $changeMethodId = $_POST['change_method_id'];
+
+        // Obtener moneda del método de vuelto
+        $stmtM = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
+        $stmtM->execute([$changeMethodId]);
+        $changeCurrency = $stmtM->fetchColumn();
+
+        // Calcular monto nominal (Ej: $1 vuelto en Bs = 60 Bs)
+        $changeAmountNominal = ($changeCurrency == 'VES') ? ($changeDue * $rate) : $changeDue;
+
+        // LLAMADA LIMPIA AL MANAGER
+        $transactionManager->registerOrderChange(
+            $orderId,
+            $changeAmountNominal,
+            $changeCurrency,
+            $changeMethodId,
+            $userId,
+            $sessionId
+        );
+    }
+
+    // D. INVENTARIO Y LIMPIEZA
+    $orderManager->deductStockFromSale($orderId);
     $cartManager->emptyCart($userId);
 
     $db->commit();
-
-    // 8. REDIRECCIÓN AL TICKET
-    // Abrimos el ticket en una pestaña nueva (usando JS en la redirección o target _blank en el link anterior)
-    // Aquí redirigimos a una página de éxito que abre el ticket.
+    // --- FIN TRANSACCIÓN ---
 
     header("Location: ticket.php?id=" . $orderId . "&print=true");
     exit;
 
-  } catch (Exception $e) {
-      // Verificar si hay transacción activa antes de hacer rollback
-      if ($db->inTransaction()) {
-          $db->rollBack();
-      }
+} catch (Exception $e) {
+    if ($db->inTransaction()) $db->rollBack();
 
-      // Mostrar error amigable pero técnico
-      echo "<div style='padding:20px; font-family:sans-serif; color:#721c24; background-color:#f8d7da; border:1px solid #f5c6cb; margin:20px;'>";
-      echo "<h3>🚫 Error al Procesar Venta</h3>";
-      echo "<p><strong>Detalle:</strong> " . $e->getMessage() . "</p>";
-      echo "<a href='checkout.php' style='font-weight:bold;'>Volver al pago</a>";
-      echo "</div>";
-      exit;
-  }
+    echo "<div style='padding:20px; background:#f8d7da; color:#721c24; margin:20px; border:1px solid #f5c6cb;'>";
+    echo "<h3>🚫 Error al Procesar</h3>";
+    echo "<p>" . $e->getMessage() . "</p>";
+    echo "<a href='checkout.php' style='font-weight:bold;'>Volver</a>";
+    echo "</div>";
+    exit;
+}
 ?>
