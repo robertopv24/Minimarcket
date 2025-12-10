@@ -37,33 +37,39 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="card-body">
                     <form method="post" action="process_supplier.php">
+                        <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
                         <input type="hidden" name="action" value="edit">
                         <input type="hidden" name="id" value="<?= $supplier['id'] ?>">
 
                         <div class="mb-3">
                             <label class="form-label fw-bold">Nombre Empresa</label>
-                            <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($supplier['name']) ?>" required>
+                            <input type="text" name="name" class="form-control"
+                                value="<?= htmlspecialchars($supplier['name']) ?>" required>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Contacto</label>
-                                <input type="text" name="contact_person" class="form-control" value="<?= htmlspecialchars($supplier['contact_person']) ?>">
+                                <input type="text" name="contact_person" class="form-control"
+                                    value="<?= htmlspecialchars($supplier['contact_person']) ?>">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Teléfono</label>
-                                <input type="text" name="phone" class="form-control" value="<?= htmlspecialchars($supplier['phone']) ?>">
+                                <input type="text" name="phone" class="form-control"
+                                    value="<?= htmlspecialchars($supplier['phone']) ?>">
                             </div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($supplier['email']) ?>">
+                            <input type="email" name="email" class="form-control"
+                                value="<?= htmlspecialchars($supplier['email']) ?>">
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Dirección</label>
-                            <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($supplier['address']) ?></textarea>
+                            <textarea name="address" class="form-control"
+                                rows="2"><?= htmlspecialchars($supplier['address']) ?></textarea>
                         </div>
 
                         <div class="d-grid gap-2">
@@ -81,7 +87,7 @@ require_once '../templates/menu.php';
                     <h5 class="mb-0"><i class="fa fa-history"></i> Historial de Compras</h5>
                 </div>
                 <div class="card-body p-0">
-                    <?php if($history): ?>
+                    <?php if ($history): ?>
                         <div class="table-responsive">
                             <table class="table table-sm table-striped mb-0">
                                 <thead class="table-light">
@@ -92,11 +98,13 @@ require_once '../templates/menu.php';
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach($history as $order): ?>
+                                    <?php foreach ($history as $order): ?>
                                         <tr>
-                                            <td><a href="edit_purchase_order.php?id=<?= $order['id'] ?>">#<?= $order['id'] ?></a><br><small><?= date('d/m/y', strtotime($order['order_date'])) ?></small></td>
+                                            <td><a
+                                                    href="edit_purchase_order.php?id=<?= $order['id'] ?>">#<?= $order['id'] ?></a><br><small><?= date('d/m/y', strtotime($order['order_date'])) ?></small>
+                                            </td>
                                             <td>
-                                                <?php if($order['status'] == 'received'): ?>
+                                                <?php if ($order['status'] == 'received'): ?>
                                                     <span class="badge bg-success">Recibido</span>
                                                 <?php else: ?>
                                                     <span class="badge bg-warning text-dark">Pendiente</span>
@@ -115,7 +123,8 @@ require_once '../templates/menu.php';
                     <?php endif; ?>
                 </div>
                 <div class="card-footer bg-white text-center">
-                    <a href="add_purchase_order.php" class="btn btn-sm btn-outline-primary">Nueva Compra a este Proveedor</a>
+                    <a href="add_purchase_order.php" class="btn btn-sm btn-outline-primary">Nueva Compra a este
+                        Proveedor</a>
                 </div>
             </div>
         </div>

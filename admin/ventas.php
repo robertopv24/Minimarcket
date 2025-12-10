@@ -29,18 +29,20 @@ $ventas = $orderManager->getOrdersBySearchAndFilter($search, $filter);
         <a href="../paginas/tienda.php" class="btn btn-success"><i class="fa fa-plus"></i> Nueva Venta (POS)</a>
     </div>
 
-    <div class="card mb-4 bg-secondary">
+    <div class="card mb-4 bg-light">
         <div class="card-body">
             <form method="GET" action="">
                 <div class="row g-2">
                     <div class="col-md-5">
-                        <input type="text" name="search" class="form-control" placeholder="Buscar por ID o Cliente..." value="<?= htmlspecialchars($search) ?>">
+                        <input type="text" name="search" class="form-control" placeholder="Buscar por ID o Cliente..."
+                            value="<?= htmlspecialchars($search) ?>">
                     </div>
                     <div class="col-md-4">
                         <select name="filter" class="form-select">
                             <option value="">Todos los estados</option>
                             <option value="paid" <?= ($filter === 'paid') ? 'selected' : '' ?>>Pagado (Paid)</option>
-                            <option value="pending" <?= ($filter === 'pending') ? 'selected' : '' ?>>Pendiente (Pending)</option>
+                            <option value="pending" <?= ($filter === 'pending') ? 'selected' : '' ?>>Pendiente (Pending)
+                            </option>
                             <option value="cancelled" <?= ($filter === 'cancelled') ? 'selected' : '' ?>>Cancelado</option>
                         </select>
                     </div>
@@ -69,24 +71,24 @@ $ventas = $orderManager->getOrdersBySearchAndFilter($search, $filter);
                 <?php if (!empty($ventas)): ?>
                     <?php foreach ($ventas as $venta): ?>
                         <?php
-                            // Lógica visual para el estado
-                            $badgeClass = match($venta['status']) {
-                                'paid', 'delivered' => 'bg-success',
-                                'pending' => 'bg-warning text-dark',
-                                'cancelled' => 'bg-danger',
-                                default => 'bg-secondary'
-                            };
+                        // Lógica visual para el estado
+                        $badgeClass = match ($venta['status']) {
+                            'paid', 'delivered' => 'bg-success',
+                            'pending' => 'bg-warning text-dark',
+                            'cancelled' => 'bg-danger',
+                            default => 'bg-secondary'
+                        };
 
-                            // --- CONSULTA RÁPIDA DE PAGOS ---
-                            // Buscamos en la tabla 'transactions' cómo se pagó esta orden
-                            $stmt = $db->prepare("SELECT pm.name, t.amount, t.currency
+                        // --- CONSULTA RÁPIDA DE PAGOS ---
+                        // Buscamos en la tabla 'transactions' cómo se pagó esta orden
+                        $stmt = $db->prepare("SELECT pm.name, t.amount, t.currency
                                                   FROM transactions t
                                                   JOIN payment_methods pm ON t.payment_method_id = pm.id
                                                   WHERE t.reference_type = 'order'
                                                   AND t.reference_id = ?
                                                   AND t.type = 'income'"); // Solo ingresos, no vueltos
-                            $stmt->execute([$venta['id']]);
-                            $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        $stmt->execute([$venta['id']]);
+                        $pagos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         ?>
                         <tr>
                             <td class="fw-bold">#<?= htmlspecialchars($venta['id']) ?></td>
@@ -103,11 +105,11 @@ $ventas = $orderManager->getOrdersBySearchAndFilter($search, $filter);
                                     <span class="text-muted small">Sin registro contable</span>
                                 <?php else: ?>
                                     <ul class="list-unstyled mb-0 small">
-                                        <?php foreach($pagos as $pago): ?>
+                                        <?php foreach ($pagos as $pago): ?>
                                             <li>
                                                 <i class="fa fa-check-circle text-success"></i>
                                                 <?= $pago['name'] ?>:
-                                                <strong><?= number_format($pago['amount'], 2) ?> <?= $pago['currency'] ?></strong>
+                                                <strong><?= number_format($pago['amount'], 2) ?>                 <?= $pago['currency'] ?></strong>
                                             </li>
                                         <?php endforeach; ?>
                                     </ul>
@@ -122,10 +124,12 @@ $ventas = $orderManager->getOrdersBySearchAndFilter($search, $filter);
 
                             <td class="text-end">
                                 <div class="btn-group">
-                                    <a href="ver_venta.php?id=<?= $venta['id'] ?>" class="btn btn-sm btn-info" title="Ver Detalles">
+                                    <a href="ver_venta.php?id=<?= $venta['id'] ?>" class="btn btn-sm btn-info"
+                                        title="Ver Detalles">
                                         <i class="fa fa-eye"></i>
                                     </a>
-                                    <a href="editar_venta.php?id=<?= $venta['id'] ?>" class="btn btn-sm btn-warning" title="Editar Estado">
+                                    <a href="editar_venta.php?id=<?= $venta['id'] ?>" class="btn btn-sm btn-warning"
+                                        title="Editar Estado">
                                         <i class="fa fa-edit"></i>
                                     </a>
                                 </div>

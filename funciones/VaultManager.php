@@ -1,23 +1,30 @@
 <?php
-class VaultManager {
+class VaultManager
+{
     private $db;
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->db = $db;
     }
 
     // Obtener saldo actual
-    public function getBalance() {
+    public function getBalance()
+    {
         $stmt = $this->db->query("SELECT * FROM company_vault WHERE id = 1");
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     // Mover dinero (Entrada o Salida)
-    public function registerMovement($type, $origin, $amount, $currency, $description, $userId, $refId = null) {
+    public function registerMovement($type, $origin, $amount, $currency, $description, $userId, $refId = null, $useTransaction = true)
+    {
         try {
-            if ($amount <= 0) return false;
+            if ($amount <= 0)
+                return false;
 
-            $this->db->beginTransaction();
+            if ($useTransaction) {
+                $this->db->beginTransaction();
+            }
 
             // 1. Registrar el movimiento en el historial
             $sql = "INSERT INTO vault_movements (type, origin, amount, currency, description, reference_id, created_by, created_at)
@@ -41,24 +48,36 @@ class VaultManager {
             $stmtUpd = $this->db->prepare($updateSql);
             $stmtUpd->execute([$amount]);
 
-            $this->db->commit();
+            if ($useTransaction) {
+                $this->db->commit();
+            }
             return true;
 
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($useTransaction) {
+                $this->db->rollBack();
+            }
             error_log("Error Vault: " . $e->getMessage());
             return $e->getMessage(); // Retornamos el error
         }
     }
 
     // Transferir automáticamente desde un Cierre de Caja
-    public function transferFromSession($sessionId, $amountUsd, $amountVes, $userId) {
+    public function transferFromSession($sessionId, $amountUsd, $amountVes, $userId)
+    {
         if ($amountUsd > 0) {
             $this->registerMovement('deposit', 'session_close', $amountUsd, 'USD', "Cierre de Caja #$sessionId", $userId, $sessionId);
         }
         if ($amountVes > 0) {
             $this->registerMovement('deposit', 'session_close', $amountVes, 'VES', "Cierre de Caja #$sessionId", $userId, $sessionId);
         }
+    }
+
+    // Obtener todos los movimientos (Historial completo)
+    public function getAllMovements()
+    {
+        $stmt = $this->db->query("SELECT * FROM vault_movements ORDER BY created_at DESC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
 ?>

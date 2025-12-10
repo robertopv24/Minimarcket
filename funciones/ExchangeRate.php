@@ -1,15 +1,18 @@
 <?php
-require_once '../funciones/config.php';
+require_once __DIR__ . '/Config.php';
 
-class ExchangeRate {
+class ExchangeRate
+{
     private $pdo;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->pdo = Database::getInstance();
     }
 
     // Obtener la tasa de cambio más reciente
-    public function getLatestRate() {
+    public function getLatestRate()
+    {
         try {
             $stmt = $this->pdo->query("SELECT rate FROM exchange_rate ORDER BY updated_at DESC LIMIT 1");
             $rate = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -21,7 +24,8 @@ class ExchangeRate {
     }
 
     // Agregar una nueva tasa de cambio
-    public function addRate($newRate) {
+    public function addRate($newRate)
+    {
         if ($newRate <= 0) {
             return false; // Evita valores negativos o inválidos
         }
@@ -37,7 +41,8 @@ class ExchangeRate {
     }
 
     // Actualizar la tasa de cambio más reciente
-    public function updateRate($newRate) {
+    public function updateRate($newRate)
+    {
         if ($newRate <= 0) {
             return false;
         }
@@ -61,7 +66,8 @@ class ExchangeRate {
     }
 
     // Obtener historial de tasas de cambio
-    public function getRateHistory($limit = 10) {
+    public function getRateHistory($limit = 10)
+    {
         try {
             // Debido a problemas al enlazar parámetros para LIMIT, se recomienda concatenar el valor (siempre sanitizado)
             $limit = intval($limit);

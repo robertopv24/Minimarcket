@@ -13,7 +13,8 @@ if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id
 }
 
 // Obtener todas las órdenes
-$purchaseOrders = $purchaseOrderManager->getAllPurchaseOrders();
+$search = $_GET['search'] ?? '';
+$purchaseOrders = $purchaseOrderManager->searchPurchaseOrders($search);
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -27,6 +28,25 @@ require_once '../templates/menu.php';
         </a>
     </div>
 
+    <!-- Barra de Búsqueda -->
+    <div class="card mb-4 bg-light">
+        <div class="card-body py-3">
+            <form method="GET" action="" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                        <input type="text" name="search" class="form-control"
+                            placeholder="Buscar por proveedor o ID de orden..."
+                            value="<?= htmlspecialchars($search) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="card shadow">
         <div class="card-body p-0">
             <?php if ($purchaseOrders): ?>
@@ -37,7 +57,8 @@ require_once '../templates/menu.php';
                                 <th>ID</th>
                                 <th>Fecha Compra</th>
                                 <th>Proveedor</th>
-                                <th>Entrega Estimada</th> <th>Total (USD)</th>
+                                <th>Entrega Estimada</th>
+                                <th>Total (USD)</th>
                                 <th>Pago (Tesorería)</th>
                                 <th>Estado</th>
                                 <th class="text-end">Acciones</th>
@@ -46,23 +67,23 @@ require_once '../templates/menu.php';
                         <tbody>
                             <?php foreach ($purchaseOrders as $order): ?>
                                 <?php
-                                    $supplier = $supplierManager->getSupplierById($order['supplier_id']);
+                                $supplier = $supplierManager->getSupplierById($order['supplier_id']);
 
-                                    // Info Financiera
-                                    $stmt = $db->prepare("SELECT pm.name, t.amount, t.currency
+                                // Info Financiera
+                                $stmt = $db->prepare("SELECT pm.name, t.amount, t.currency
                                                           FROM transactions t
                                                           JOIN payment_methods pm ON t.payment_method_id = pm.id
                                                           WHERE t.reference_type = 'purchase' AND t.reference_id = ?");
-                                    $stmt->execute([$order['id']]);
-                                    $pago = $stmt->fetch(PDO::FETCH_ASSOC);
+                                $stmt->execute([$order['id']]);
+                                $pago = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                                    // Estilos
-                                    $badgeClass = match($order['status']) {
-                                        'received' => 'bg-success',
-                                        'pending' => 'bg-warning text-dark',
-                                        'canceled' => 'bg-danger',
-                                        default => 'bg-secondary'
-                                    };
+                                // Estilos
+                                $badgeClass = match ($order['status']) {
+                                    'received' => 'bg-success',
+                                    'pending' => 'bg-warning text-dark',
+                                    'canceled' => 'bg-danger',
+                                    default => 'bg-secondary'
+                                };
                                 ?>
                                 <tr>
                                     <td class="fw-bold">#<?= $order['id'] ?></td>
@@ -97,18 +118,22 @@ require_once '../templates/menu.php';
 
                                     <td class="text-end">
                                         <div class="btn-group">
-                                            <?php if($order['status'] !== 'received'): ?>
-                                                <a href="add_purchase_receipt.php?order_id=<?= $order['id'] ?>" class="btn btn-sm btn-success" title="Registrar Recepción de Mercancía">
+                                            <?php if ($order['status'] !== 'received'): ?>
+                                                <a href="add_purchase_receipt.php?order_id=<?= $order['id'] ?>"
+                                                    class="btn btn-sm btn-success" title="Registrar Recepción de Mercancía">
                                                     <i class="fa fa-box-open"></i>
                                                 </a>
                                             <?php endif; ?>
 
-                                            <a href="edit_purchase_order.php?id=<?= $order['id'] ?>" class="btn btn-sm btn-primary" title="Ver Detalles">
+                                            <a href="edit_purchase_order.php?id=<?= $order['id'] ?>"
+                                                class="btn btn-sm btn-primary" title="Ver Detalles">
                                                 <i class="fa fa-eye"></i>
                                             </a>
 
-                                            <?php if($order['status'] !== 'received'): ?>
-                                                <a href="delete_purchase_order.php?id=<?= $order['id'] ?>" class="btn btn-sm btn-danger" title="Eliminar" onclick="return confirm('¿Eliminar esta orden?');">
+                                            <?php if ($order['status'] !== 'received'): ?>
+                                                <a href="delete_purchase_order.php?id=<?= $order['id'] ?>"
+                                                    class="btn btn-sm btn-danger" title="Eliminar"
+                                                    onclick="return confirm('¿Eliminar esta orden?');">
                                                     <i class="fa fa-trash"></i>
                                                 </a>
                                             <?php endif; ?>

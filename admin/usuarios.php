@@ -15,7 +15,8 @@ require_once '../templates/header.php';
 require_once '../templates/menu.php';
 
 // Obtener lista de usuarios
-$usuarios = $userManager->getAllUsers();
+$search = $_GET['search'] ?? '';
+$usuarios = $userManager->searchUsers($search);
 ?>
 
 <div class="container mt-5">
@@ -24,6 +25,25 @@ $usuarios = $userManager->getAllUsers();
         <a href="agregar_usuario.php" class="btn btn-success">
             <i class="fa fa-user-plus"></i> Nuevo Usuario
         </a>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="card mb-4 bg-light">
+        <div class="card-body py-3">
+            <form method="GET" action="" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                        <input type="text" name="search" class="form-control"
+                            placeholder="Buscar por nombre, email o teléfono..."
+                            value="<?= htmlspecialchars($search) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="card shadow">
@@ -43,22 +63,23 @@ $usuarios = $userManager->getAllUsers();
                     <tbody>
                         <?php foreach ($usuarios as $usuario): ?>
                             <?php
-                                // Definir estilo según el rol
-                                $roleBadge = match($usuario['role']) {
-                                    'admin' => '<span class="badge bg-danger"><i class="fa fa-user-shield me-1"></i>ADMINISTRADOR</span>',
-                                    'user' => '<span class="badge bg-primary"><i class="fa fa-cash-register me-1"></i>CAJERO / USUARIO</span>',
-                                    default => '<span class="badge bg-secondary">INVITADO</span>'
-                                };
+                            // Definir estilo según el rol
+                            $roleBadge = match ($usuario['role']) {
+                                'admin' => '<span class="badge bg-danger"><i class="fa fa-user-shield me-1"></i>ADMINISTRADOR</span>',
+                                'user' => '<span class="badge bg-primary"><i class="fa fa-cash-register me-1"></i>CAJERO / USUARIO</span>',
+                                default => '<span class="badge bg-secondary">INVITADO</span>'
+                            };
 
-                                // Avatar por defecto si no hay imagen (usamos iniciales o icono)
-                                $initial = strtoupper(substr($usuario['name'], 0, 1));
+                            // Avatar por defecto si no hay imagen (usamos iniciales o icono)
+                            $initial = strtoupper(substr($usuario['name'], 0, 1));
                             ?>
                             <tr>
                                 <td class="fw-bold text-muted">#<?= $usuario['id'] ?></td>
 
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; font-weight: bold;">
+                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3"
+                                            style="width: 40px; height: 40px; font-weight: bold;">
                                             <?= $initial ?>
                                         </div>
                                         <div>
@@ -71,7 +92,7 @@ $usuarios = $userManager->getAllUsers();
                                 <td><?= $roleBadge ?></td>
 
                                 <td>
-                                    <?php if(!empty($usuario['phone'])): ?>
+                                    <?php if (!empty($usuario['phone'])): ?>
                                         <i class="fa fa-phone text-success me-2"></i><?= htmlspecialchars($usuario['phone']) ?>
                                     <?php else: ?>
                                         <span class="text-muted small">Sin teléfono</span>
@@ -87,16 +108,20 @@ $usuarios = $userManager->getAllUsers();
 
                                 <td class="text-end">
                                     <div class="btn-group">
-                                        <a href="editar_usuario.php?id=<?= $usuario['id'] ?>" class="btn btn-sm btn-warning" title="Editar">
+                                        <a href="editar_usuario.php?id=<?= $usuario['id'] ?>" class="btn btn-sm btn-warning"
+                                            title="Editar">
                                             <i class="fa fa-edit"></i>
                                         </a>
 
-                                        <?php if($usuario['id'] != $_SESSION['user_id']): ?>
-                                            <a href="eliminar_usuario.php?id=<?= $usuario['id'] ?>" class="btn btn-sm btn-danger" title="Eliminar" onclick="return confirm('¿Estás seguro de eliminar a este usuario?');">
+                                        <?php if ($usuario['id'] != $_SESSION['user_id']): ?>
+                                            <a href="eliminar_usuario.php?id=<?= $usuario['id'] ?>"
+                                                class="btn btn-sm btn-danger" title="Eliminar"
+                                                onclick="return confirm('¿Estás seguro de eliminar a este usuario?');">
                                                 <i class="fa fa-trash"></i>
                                             </a>
                                         <?php else: ?>
-                                            <button class="btn btn-sm btn-secondary" disabled title="No puedes borrarte a ti mismo"><i class="fa fa-trash"></i></button>
+                                            <button class="btn btn-sm btn-secondary" disabled
+                                                title="No puedes borrarte a ti mismo"><i class="fa fa-trash"></i></button>
                                         <?php endif; ?>
                                     </div>
                                 </td>

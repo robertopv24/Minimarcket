@@ -15,22 +15,32 @@ require_once '../templates/header.php';
 require_once '../templates/menu.php';
 
 // Obtener Historial
-$sql = "SELECT cs.*, u.name as cashier_name,
-        (cs.closing_balance_usd - cs.calculated_usd) as diff_usd,
-        (cs.closing_balance_ves - cs.calculated_ves) as diff_ves
-        FROM cash_sessions cs
-        JOIN users u ON cs.user_id = u.id
-        WHERE cs.status = 'closed'
-        ORDER BY cs.closed_at DESC LIMIT 50";
-
-$stmt = $db->query($sql);
-$sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$search = $_GET['search'] ?? '';
+$sessions = $cashRegisterManager->searchSessions($search);
 ?>
 
 <div class="container mt-5 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>📑 Auditoría de Cierres de Caja</h2>
         <a href="caja_chica.php" class="btn btn-secondary">Volver a Tesorería</a>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="card mb-4 bg-light">
+        <div class="card-body py-3">
+            <form method="GET" action="" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                        <input type="text" name="search" class="form-control"
+                            placeholder="Buscar por cajero o ID de cierre..." value="<?= htmlspecialchars($search) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="card shadow">
@@ -43,16 +53,19 @@ $sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <th>Cajero</th>
                             <th>Cierre</th>
                             <th class="bg-secondary">Diferencia (Cuadre)</th>
-                            <th>Acciones</th> </tr>
+                            <th>Acciones</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <?php if (!empty($sessions)): ?>
                             <?php foreach ($sessions as $s):
                                 // Semáforo de colores
                                 $diffColor = 'text-muted';
-                                if ($s['diff_usd'] < -0.5 || $s['diff_ves'] < -1) $diffColor = 'text-danger fw-bold';
-                                elseif ($s['diff_usd'] > 0.5 || $s['diff_ves'] > 1) $diffColor = 'text-success fw-bold';
-                            ?>
+                                if ($s['diff_usd'] < -0.5 || $s['diff_ves'] < -1)
+                                    $diffColor = 'text-danger fw-bold';
+                                elseif ($s['diff_usd'] > 0.5 || $s['diff_ves'] > 1)
+                                    $diffColor = 'text-success fw-bold';
+                                ?>
                                 <tr>
                                     <td class="fw-bold">#<?= $s['id'] ?></td>
                                     <td class="text-start">
@@ -73,7 +86,8 @@ $sessions = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     </td>
 
                                     <td>
-                                        <a href="ver_cierre.php?id=<?= $s['id'] ?>" class="btn btn-sm btn-primary" title="Ver Desglose Completo">
+                                        <a href="ver_cierre.php?id=<?= $s['id'] ?>" class="btn btn-sm btn-primary"
+                                            title="Ver Desglose Completo">
                                             <i class="fa fa-eye"></i> Ver Detalle
                                         </a>
                                     </td>

@@ -1,29 +1,50 @@
 <?php
 
-class ProductionManager {
+class ProductionManager
+{
     private $db;
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->db = $db;
     }
 
-    public function getAllManufactured() {
-        $sql = "SELECT * FROM manufactured_products ORDER BY name ASC";
-        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    public function searchManufacturedProducts($query = '')
+    {
+        $sql = "SELECT * FROM manufactured_products";
+        $params = [];
+
+        if (!empty($query)) {
+            $sql .= " WHERE name LIKE ?";
+            $params = ["%$query%"];
+        }
+
+        $sql .= " ORDER BY name ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function createManufacturedProduct($name, $unit) {
+    public function getAllManufactured()
+    {
+        return $this->searchManufacturedProducts();
+    }
+
+    public function createManufacturedProduct($name, $unit)
+    {
         $stmt = $this->db->prepare("INSERT INTO manufactured_products (name, unit, stock) VALUES (?, ?, 0)");
         return $stmt->execute([$name, $unit]);
     }
 
-    public function deleteManufacturedProduct($id) {
+    public function deleteManufacturedProduct($id)
+    {
         $this->db->prepare("DELETE FROM production_recipes WHERE manufactured_product_id = ?")->execute([$id]);
         $stmt = $this->db->prepare("DELETE FROM manufactured_products WHERE id = ?");
         return $stmt->execute([$id]);
     }
 
-    public function getRecipe($manufacturedId) {
+    public function getRecipe($manufacturedId)
+    {
         $sql = "SELECT pr.*, rm.name as material_name, rm.unit as material_unit
                 FROM production_recipes pr
                 JOIN raw_materials rm ON pr.raw_material_id = rm.id
@@ -33,7 +54,8 @@ class ProductionManager {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function addIngredientToRecipe($manufId, $rawId, $qty) {
+    public function addIngredientToRecipe($manufId, $rawId, $qty)
+    {
         $check = $this->db->prepare("SELECT id FROM production_recipes WHERE manufactured_product_id = ? AND raw_material_id = ?");
         $check->execute([$manufId, $rawId]);
 
@@ -46,13 +68,15 @@ class ProductionManager {
         }
     }
 
-    public function removeIngredientFromRecipe($recipeId) {
+    public function removeIngredientFromRecipe($recipeId)
+    {
         $stmt = $this->db->prepare("DELETE FROM production_recipes WHERE id = ?");
         return $stmt->execute([$recipeId]);
     }
 
     // --- VERSIÓN SIMPLIFICADA (SIN MANO DE OBRA) ---
-    public function registerProduction($manufId, $qtyProduced, $userId) {
+    public function registerProduction($manufId, $qtyProduced, $userId)
+    {
         try {
             $this->db->beginTransaction();
 

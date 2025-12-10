@@ -31,15 +31,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $profit_margin = $_POST['profit_margin']; // <--- NUEVO CAMPO
 
     // Procesar imagen
+    // Procesar imagen
     $rutaImagen = null; // null indica que no se actualiza la imagen
     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-        $nombreImagen = uniqid() . '_' . basename($_FILES['imagen']['name']);
-        $rutaDestino = '../uploads/product_images/' . $nombreImagen;
+        require_once '../funciones/UploadHelper.php'; // Ensure helper is loaded
+        $uploadedPath = UploadHelper::uploadImage($_FILES['imagen']);
 
-        if (move_uploaded_file($_FILES['imagen']['tmp_name'], $rutaDestino)) {
-            $rutaImagen = 'uploads/product_images/' . $nombreImagen;
+        if ($uploadedPath) {
+            $rutaImagen = $uploadedPath;
         } else {
-            $mensaje = '<div class="alert alert-warning">Error al subir la nueva imagen.</div>';
+            $mensaje = '<div class="alert alert-warning">Error de seguridad o formato al subir la imagen.</div>';
         }
     }
 
@@ -71,28 +72,35 @@ require_once '../templates/menu.php';
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">Nombre</label>
-                            <input type="text" class="form-control" name="nombre" value="<?= htmlspecialchars($producto['name']) ?>" required>
+                            <input type="text" class="form-control" name="nombre"
+                                value="<?= htmlspecialchars($producto['name']) ?>" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Descripción</label>
-                            <textarea class="form-control" name="descripcion" rows="3"><?= htmlspecialchars($producto['description']) ?></textarea>
+                            <textarea class="form-control" name="descripcion"
+                                rows="3"><?= htmlspecialchars($producto['description']) ?></textarea>
                         </div>
 
                         <div class="card border-warning mb-3">
-                            <div class="card-header bg-transparent border-warning text-warning-dark fw-bold">Ajuste de Precios y Rentabilidad</div>
+                            <div class="card-header bg-transparent border-warning text-warning-dark fw-bold">Ajuste de
+                                Precios y Rentabilidad</div>
                             <div class="card-body text-dark">
                                 <div class="row g-2">
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Precio ($)</label>
-                                        <input type="number" class="form-control" id="precio_usd" name="precio_usd" step="0.01" value="<?= $producto['price_usd'] ?>" required>
+                                        <input type="number" class="form-control" id="precio_usd" name="precio_usd"
+                                            step="0.01" value="<?= $producto['price_usd'] ?>" required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Precio (Bs)</label>
-                                        <input type="number" class="form-control" id="precio_ves" name="precio_ves" step="0.01" value="<?= $producto['price_ves'] ?>" required>
+                                        <input type="number" class="form-control" id="precio_ves" name="precio_ves"
+                                            step="0.01" value="<?= $producto['price_ves'] ?>" required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold text-success">Margen (%)</label>
-                                        <input type="number" class="form-control border-success fw-bold" name="profit_margin" step="0.01" value="<?= $producto['profit_margin'] ?>" required>
+                                        <input type="number" class="form-control border-success fw-bold"
+                                            name="profit_margin" step="0.01" value="<?= $producto['profit_margin'] ?>"
+                                            required>
                                     </div>
                                 </div>
                             </div>
@@ -102,13 +110,15 @@ require_once '../templates/menu.php';
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label class="form-label">Stock</label>
-                            <input type="number" class="form-control" name="stock" value="<?= $producto['stock'] ?>" required>
+                            <input type="number" class="form-control" name="stock" value="<?= $producto['stock'] ?>"
+                                required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Imagen Actual</label>
                             <div class="mb-2">
                                 <?php if (!empty($producto['image_url']) && file_exists("../" . $producto['image_url'])): ?>
-                                    <img src="../<?= htmlspecialchars($producto['image_url']) ?>" class="img-thumbnail" width="150">
+                                    <img src="../<?= htmlspecialchars($producto['image_url']) ?>" class="img-thumbnail"
+                                        width="150">
                                 <?php else: ?>
                                     <span class="text-muted">Sin imagen</span>
                                 <?php endif; ?>
@@ -131,7 +141,7 @@ require_once '../templates/menu.php';
 <script>
     // Calculadora automática al editar
     const rate = <?= $config->get('exchange_rate') ?? 1 ?>;
-    document.getElementById('precio_usd').addEventListener('input', function(e) {
+    document.getElementById('precio_usd').addEventListener('input', function (e) {
         const usd = parseFloat(e.target.value) || 0;
         document.getElementById('precio_ves').value = (usd * rate).toFixed(2);
     });

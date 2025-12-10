@@ -53,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$materials = $rawMaterialManager->getAllMaterials();
+$search = $_GET['search'] ?? '';
+$materials = $rawMaterialManager->searchMaterials($search);
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -65,6 +66,24 @@ require_once '../templates/menu.php';
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCreate">
             <i class="fa fa-plus-circle"></i> Nuevo Insumo
         </button>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="card mb-4 bg-light">
+        <div class="card-body py-3">
+            <form method="GET" action="" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                        <input type="text" name="search" class="form-control" placeholder="Buscar insumo por nombre..."
+                            value="<?= htmlspecialchars($search) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <?= $mensaje ?>
@@ -87,7 +106,7 @@ require_once '../templates/menu.php';
                         <?php foreach ($materials as $m):
                             $lowStock = $m['stock_quantity'] <= $m['min_stock'];
                             $typeLabel = $m['is_cooking_supply'] ? '<span class="badge bg-warning text-dark">Indirecto (Aceite/Gas)</span>' : '<span class="badge bg-info text-dark">Ingrediente</span>';
-                        ?>
+                            ?>
                             <tr>
                                 <td class="fw-bold"><?= htmlspecialchars($m['name']) ?></td>
                                 <td><?= $typeLabel ?></td>
@@ -106,13 +125,16 @@ require_once '../templates/menu.php';
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-end">
-                                    <button class="btn btn-sm btn-success me-1" onclick="openAddStock(<?= $m['id'] ?>, '<?= $m['name'] ?>', '<?= $m['unit'] ?>')" title="Registrar Compra">
+                                    <button class="btn btn-sm btn-success me-1"
+                                        onclick="openAddStock(<?= $m['id'] ?>, '<?= $m['name'] ?>', '<?= $m['unit'] ?>')"
+                                        title="Registrar Compra">
                                         <i class="fa fa-plus"></i> Stock
                                     </button>
                                     <form method="POST" class="d-inline" onsubmit="return confirm('¿Borrar este insumo?');">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="id" value="<?= $m['id'] ?>">
-                                        <button type="submit" class="btn btn-sm btn-danger"><i class="fa fa-trash"></i></button>
+                                        <button type="submit" class="btn btn-sm btn-danger"><i
+                                                class="fa fa-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
@@ -164,11 +186,12 @@ require_once '../templates/menu.php';
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Costo Inicial ($)</label>
-                            <input type="number" step="0.01" name="cost" class="form-control" placeholder="0.00" required>
+                            <input type="number" step="0.000001" name="cost" class="form-control" placeholder="0.00"
+                                required>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Alerta Stock Mínimo</label>
-                            <input type="number" step="0.01" name="min_stock" class="form-control" value="5">
+                            <input type="number" step="0.000001" name="min_stock" class="form-control" value="5">
                         </div>
                     </div>
                 </div>
@@ -195,12 +218,13 @@ require_once '../templates/menu.php';
 
                     <div class="mb-3">
                         <label class="form-label">Cantidad a Ingresar (<span id="stockUnit"></span>)</label>
-                        <input type="number" step="0.001" name="quantity" class="form-control" required>
+                        <input type="number" step="0.000001" name="quantity" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Nuevo Costo Unitario ($)</label>
-                        <input type="number" step="0.01" name="cost" class="form-control" placeholder="Precio de la factura actual" required>
+                        <input type="number" step="0.000001" name="cost" class="form-control"
+                            placeholder="Precio de la factura actual" required>
                         <div class="form-text">El sistema promediará este costo con el inventario existente.</div>
                     </div>
                 </div>

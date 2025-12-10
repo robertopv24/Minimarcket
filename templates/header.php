@@ -20,7 +20,7 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
 
 
 
-  ?>
+?>
 
 
 
@@ -34,35 +34,37 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo  $GLOBALS['site_name']; ?></title>
+    <title><?php echo $GLOBALS['site_name']; ?></title>
 
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta content="" name="keywords">
     <meta content="" name="description">
 
 
-        <!-- Favicon -->
-        <link href="../img/favicon.ico" rel="icon">
+    <!-- Favicon -->
+    <link href="../img/favicon.ico" rel="icon">
 
-        <!-- Google Web Fonts -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Roboto:wght@500;700&display=swap"
+        rel="stylesheet">
 
-        <!-- Icon Font Stylesheet -->
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
 
-        <!-- Libraries Stylesheet -->
-        <link href="../lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
-        <link href="../lib/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet" />
+    <!-- Libraries Stylesheet -->
+    <link href="../lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+    <link href="../lib/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet" />
 
-        <!-- Customized Bootstrap Stylesheet -->
-        <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
 
-        <!-- Template Stylesheet -->
-        <link href="../css/style.css" rel="stylesheet">
-    </head>
+    <!-- Template Stylesheet - DISABLED: Conflicts with modern_theme.css (dark mode vs light mode) -->
+    <link href="../css/style.css" rel="stylesheet">
+    <!-- <link href="../css/modern_theme.css" rel="stylesheet"> -->
+</head>
 
 
 <body>
@@ -83,7 +85,8 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
                 <div class="navbar-nav align-items-center ms-auto">
                     <!-- Logo del sitio, usando la constante SITE_NAME definida en config.php -->
                     <a href="index.html" class="navbar-brand mx-8 mb-8">
-                        <h3 class="text-primary"><? echo $GLOBALS['site_name']; ?></h3> <!-- Mostrar el nombre del sitio desde la configuración -->
+                        <h3 class="text-primary"><? echo $GLOBALS['site_name']; ?></h3>
+                        <!-- Mostrar el nombre del sitio desde la configuración -->
                     </a>
                 </div>
 
@@ -92,8 +95,11 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
                     <?php if ($user_role): ?>
                         <div class="nav-item dropdown">
                             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                                <img class="rounded-circle me-lg-2" src="../uploads/profile_pics/<?php echo $profile_pic; ?>" alt="" style="width: 40px; height: 40px;">
-                                <span class="d-none d-lg-inline-flex"><?php echo ucfirst($user_role); ?></span> <!-- Muestra el rol del usuario (Admin, User, etc.) -->
+                                <img class="rounded-circle me-lg-2"
+                                    src="../uploads/profile_pics/<?php echo $profile_pic; ?>" alt=""
+                                    style="width: 40px; height: 40px;">
+                                <span class="d-none d-lg-inline-flex"><?php echo ucfirst($user_role); ?></span>
+                                <!-- Muestra el rol del usuario (Admin, User, etc.) -->
                             </a>
                             <div class="dropdown-menu dropdown-menu-end bg-secondary border-0 rounded-0 rounded-bottom m-0">
                                 <?php if ($user_role === 'admin'): ?>
@@ -119,13 +125,15 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
                         <!-- Mostrar el menú para visitantes -->
                         <div class="nav-item dropdown">
                             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
-                                <img class="rounded-circle me-lg-2" src="img/user.jpg" alt="" style="width: 40px; height: 40px;">
-                                <span class="d-none d-lg-inline-flex">Visitante</span> <!-- Mostrar que el usuario es visitante -->
+                                <img class="rounded-circle me-lg-2" src="img/user.jpg" alt=""
+                                    style="width: 40px; height: 40px;">
+                                <span class="d-none d-lg-inline-flex">Visitante</span>
+                                <!-- Mostrar que el usuario es visitante -->
                             </a>
                             <div class="dropdown-menu dropdown-menu-end bg-secondary border-0 rounded-0 rounded-bottom m-0">
 
-                                  <a href="../paginas/register.php" class="nav-item nav-link ">Regístrate</a>
-                                  <a href="../paginas/login.php" class="nav-item nav-link ">Inicia Sesión</a>
+                                <a href="../paginas/register.php" class="nav-item nav-link ">Regístrate</a>
+                                <a href="../paginas/login.php" class="nav-item nav-link ">Inicia Sesión</a>
 
 
 

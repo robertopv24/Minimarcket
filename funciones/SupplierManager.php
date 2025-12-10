@@ -1,14 +1,17 @@
 <?php
 // SupplierManager.php
 
-class SupplierManager {
+class SupplierManager
+{
     private $db;
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->db = $db;
     }
 
-    public function addSupplier($name, $contactPerson, $email, $phone, $address) {
+    public function addSupplier($name, $contactPerson, $email, $phone, $address)
+    {
         try {
             $stmt = $this->db->prepare("INSERT INTO suppliers (name, contact_person, email, phone, address) VALUES (?, ?, ?, ?, ?)");
             return $stmt->execute([$name, $contactPerson, $email, $phone, $address]);
@@ -18,7 +21,8 @@ class SupplierManager {
         }
     }
 
-    public function updateSupplier($id, $name, $contactPerson, $email, $phone, $address) {
+    public function updateSupplier($id, $name, $contactPerson, $email, $phone, $address)
+    {
         try {
             $stmt = $this->db->prepare("UPDATE suppliers SET name = ?, contact_person = ?, email = ?, phone = ?, address = ? WHERE id = ?");
             return $stmt->execute([$name, $contactPerson, $email, $phone, $address, $id]);
@@ -28,7 +32,8 @@ class SupplierManager {
         }
     }
 
-    public function deleteSupplier($id) {
+    public function deleteSupplier($id)
+    {
         try {
             $stmt = $this->db->prepare("DELETE FROM suppliers WHERE id = ?");
             return $stmt->execute([$id]);
@@ -38,7 +43,13 @@ class SupplierManager {
         }
     }
 
-    public function getSupplierById($id) {
+    /**
+     * Obtener proveedor por ID
+     * @param int $id
+     * @return array|false Datos del proveedor o false si falla/no existe
+     */
+    public function getSupplierById($id)
+    {
         try {
             $stmt = $this->db->prepare("SELECT * FROM suppliers WHERE id = ?");
             $stmt->execute([$id]);
@@ -49,14 +60,31 @@ class SupplierManager {
         }
     }
 
-    public function getAllSuppliers() {
+    public function searchSuppliers($query = '')
+    {
         try {
-            $stmt = $this->db->query("SELECT * FROM suppliers");
+            $sql = "SELECT * FROM suppliers";
+            $params = [];
+
+            if (!empty($query)) {
+                $sql .= " WHERE name LIKE ? OR contact_person LIKE ? OR email LIKE ?";
+                $term = "%$query%";
+                $params = [$term, $term, $term];
+            }
+
+            $sql .= " ORDER BY name ASC";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log("Error al obtener todos los proveedores: " . $e->getMessage());
-            return false;
+            error_log("Error al buscar proveedores: " . $e->getMessage());
+            return [];
         }
+    }
+
+    public function getAllSuppliers()
+    {
+        return $this->searchSuppliers();
     }
 }
 ?>

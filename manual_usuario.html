@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario - Minimarcket</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .sidebar {
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            background-color: #343a40;
+            padding-top: 20px;
+        }
+
+        .sidebar a {
+            color: #cfd2d6;
+            text-decoration: none;
+            display: block;
+            padding: 10px 20px;
+        }
+
+        .sidebar a:hover,
+        .sidebar a.active {
+            background-color: #495057;
+            color: white;
+            border-left: 4px solid #0d6efd;
+        }
+
+        .section-title {
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            color: #212529;
+        }
+
+        .step-box {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .role-badge {
+            font-size: 0.8em;
+            vertical-align: middle;
+        }
+
+        .alert-tip {
+            border-left: 4px solid #198754;
+            background-color: #d1e7dd;
+            color: #0f5132;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar Navigation -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <h4 class="text-center text-white mb-4"><i class="fa fa-shopping-cart"></i> Minimarcket</h4>
+                <a href="#inicio" class="active"><i class="fa fa-home me-2"></i> Inicio</a>
+                <a href="#acceso"><i class="fa fa-key me-2"></i> Acceso y Seguridad</a>
+                <a href="#admin"><i class="fa fa-cogs me-2"></i> Panel Administrativo</a>
+                <a href="#inventario"><i class="fa fa-boxes me-2"></i> Gestión de Inventario</a>
+                <a href="#pos"><i class="fa fa-cash-register me-2"></i> Punto de Venta (Caja)</a>
+                <a href="#problemas"><i class="fa fa-life-ring me-2"></i> Solución de Problemas</a>
+            </nav>
+
+            <!-- Main Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+
+                <!-- Inicio -->
+                <section id="inicio">
+                    <div class="p-5 mb-4 bg-white rounded-3 shadow-sm border">
+                        <div class="container-fluid py-3">
+                            <h1 class="display-5 fw-bold text-primary">Sistema de Gestión Minimarcket</h1>
+                            <p class="col-md-8 fs-4">Bienvenido al manual oficial de usuario.</p>
+                            <p>Este sistema integral le permite gestionar ventas, inventarios, compras y finanzas en un
+                                entorno seguro y eficiente, optimizado para operaciones en múltiples monedas (USD/VES).
+                            </p>
+                            <hr>
+                            <div class="row text-center mt-4">
+                                <div class="col-md-4">
+                                    <div class="card h-100 border-primary">
+                                        <div class="card-body">
+                                            <i class="fa fa-user-shield fa-3x text-primary mb-3"></i>
+                                            <h5>Seguridad Avanzada</h5>
+                                            <p class="text-muted">Protección CSRF, sesiones seguras y control de acceso
+                                                estricto.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card h-100 border-success">
+                                        <div class="card-body">
+                                            <i class="fa fa-sync fa-3x text-success mb-3"></i>
+                                            <h5>Inventario Real</h5>
+                                            <p class="text-muted">Actualización automática de stock con compras y
+                                                ventas.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card h-100 border-info">
+                                        <div class="card-body">
+                                            <i class="fa fa-chart-line fa-3x text-info mb-3"></i>
+                                            <h5>Finanzas Claras</h5>
+                                            <p class="text-muted">Reportes de caja, ganancias y manejo de tasa de
+                                                cambio.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Acceso y Seguridad -->
+                <section id="acceso">
+                    <h2 class="section-title">1. Acceso y Seguridad</h2>
+
+                    <div class="step-box">
+                        <h4><i class="fa fa-sign-in-alt text-primary"></i> Inicio de Sesión</h4>
+                        <p>El sistema requiere autenticación para todas las operaciones.</p>
+                        <ol>
+                            <li>Ingrese a la pantalla de Login.</li>
+                            <li>Introduzca su correo electrónico y contraseña asignada.</li>
+                            <li><strong>Nota de Seguridad:</strong> El sistema bloqueará su cuenta temporalmente tras 5
+                                intentos fallidos consecutivos para prevenir accesos no autorizados.</li>
+                        </ol>
+                        <div class="alert alert-warning">
+                            <i class="fa fa-exclamation-triangle"></i> <strong>Importante:</strong> Nunca comparta sus
+                            credenciales. Cada acción en el sistema (venta, anulación, compra) queda registrada bajo su
+                            usuario.
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <h4><i class="fa fa-user-tag text-info"></i> Roles de Usuario</h4>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Rol</th>
+                                    <th>Permisos</th>
+                                    <th>Acceso Principal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="badge bg-danger">Administrador</span></td>
+                                    <td>Acceso total. Puede gestionar usuarios, proveedores, inventario, finanzas y ver
+                                        reportes globales.</td>
+                                    <td>Panel Administrativo (`/admin`)</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="badge bg-primary">Usuario (Cajero)</span></td>
+                                    <td>Acceso limitado a ventas. Puede abrir/cerrar caja y facturar. No puede alterar
+                                        inventario ni ver costos.</td>
+                                    <td>Tienda / POS (`/paginas`)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Panel Administrativo -->
+                <section id="admin">
+                    <h2 class="section-title">2. Panel Administrativo <span class="badge bg-danger role-badge">Solo
+                            Admin</span></h2>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="step-box h-100">
+                                <h5><i class="fa fa-box"></i> Gestión de Productos</h5>
+                                <p>Defina qué vende su negocio.</p>
+                                <ul>
+                                    <li><strong>Productos Simples:</strong> Mercancía que se compra y se revende (ej:
+                                        Refrescos).</li>
+                                    <li><strong>Productos Manufacturados:</strong> Productos que usted prepara (ej:
+                                        Pizza). Requieren definir una <em>Receta</em> para descontar ingredientes.</li>
+                                    <li><strong>Materias Primas:</strong> Insumos que no se venden directamente (ej:
+                                        Harina, Queso).</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="step-box h-100">
+                                <h5><i class="fa fa-truck"></i> Proveedores</h5>
+                                <p>Mantenga su base de datos de proveedores actualizada.</p>
+                                <ul>
+                                    <li>Registre nombre, contacto y dirección.</li>
+                                    <li>Visualice el historial de compras por proveedor para negociar mejores precios.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 step-box">
+                        <h5><i class="fa fa-money-bill-wave text-success"></i> Gestión de Compras (Reabastecimiento)
+                        </h5>
+                        <p>El flujo de compras está diseñado para garantizar la integridad del inventario.</p>
+
+                        <div class="row text-center align-items-center mt-3">
+                            <div class="col-md-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">1. Crear Orden<br><small>Seleccionar Proveedor y
+                                            Productos</small></div>
+                                </div>
+                            </div>
+                            <div class="col-md-1"><i class="fa fa-arrow-right"></i></div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-dark">
+                                    <div class="card-body">2. Pendiente<br><small>La orden espera llegada de
+                                            mercancía</small></div>
+                                </div>
+                            </div>
+                            <div class="col-md-1"><i class="fa fa-arrow-right"></i></div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body">3. Recepción<br><small><strong>Stock aumenta</strong> y
+                                            precios se actualizan</small></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-tip mt-3 p-3 rounded">
+                            <strong><i class="fa fa-magic"></i> Automatización:</strong> Al registrar la recepción, el
+                            sistema recalcula automáticamente el precio de venta en Bolívares y Dólares basándose en el
+                            costo de la nueva mercancía y el margen de ganancia configurado.
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Gestión de Inventario -->
+                <section id="inventario">
+                    <h2 class="section-title">3. Gestión de Inventario</h2>
+                    <div class="step-box">
+                        <p>El control de existencias es automático, pero requiere supervisión.</p>
+                        <ul>
+                            <li><strong>Entradas:</strong> Solo a través de "Recepción de Compras".</li>
+                            <li><strong>Salidas:</strong> Automáticas a través de "Ventas" en Caja.</li>
+                            <li><strong>Alertas:</strong> El sistema no permite facturar productos sin stock suficiente,
+                                mostrando una alerta inmediata al cajero.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Punto de Venta (POS) -->
+                <section id="pos">
+                    <h2 class="section-title">4. Punto de Venta (Caja)</h2>
+
+                    <div class="step-box">
+                        <h4><i class="fa fa-door-open text-primary"></i> Paso 1: Apertura de Caja</h4>
+                        <p>Antes de poder realizar cualquier venta, el sistema obliga a abrir un "Turno".</p>
+                        <ol>
+                            <li>Vaya al menú "Apertura de Caja".</li>
+                            <li>Cuente el dinero físico en la caja (Base).</li>
+                            <li>Ingrese el monto. Esto creará una sesión única para su turno.</li>
+                        </ol>
+                    </div>
+
+                    <div class="step-box">
+                        <h4><i class="fa fa-shopping-basket text-success"></i> Paso 2: Procesar Venta</h4>
+                        <ol>
+                            <li>En la "Tienda", use el buscador o navegue el catálogo.</li>
+                            <li>Haga clic en "Agregar" en los productos deseados.</li>
+                            <li>Vaya al icono del <strong>Carrito</strong>.</li>
+                            <li>Verifique los ítems. Si el cliente paga en Divisas, el sistema calculará el cambio
+                                necesario.</li>
+                            <li>Seleccione los métodos de pago (soporta pagos mixtos: parte en $ y parte en Bs).</li>
+                            <li>Confirme la venta. Se generará un ticket y se descontará el inventario.</li>
+                        </ol>
+                    </div>
+
+                    <div class="step-box">
+                        <h4><i class="fa fa-door-closed text-danger"></i> Paso 3: Cierre de Caja</h4>
+                        <p>Al finalizar su turno:</p>
+                        <ol>
+                            <li>Vaya a "Cierre de Caja".</li>
+                            <li>El sistema le mostrará cuánto <em>debería</em> haber en caja según las ventas
+                                registradas.</li>
+                            <li>Ingrese el monto real contado.</li>
+                            <li>El sistema registrará el cierre y calculará si hubo <strong>Sobrante</strong> o
+                                <strong>Faltante</strong>.</li>
+                        </ol>
+                    </div>
+                </section>
+
+                <!-- Solución de Problemas -->
+                <section id="problemas">
+                    <h2 class="section-title">5. Solución de Problemas</h2>
+                    <div class="accordion" id="accordionProblem">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#c1">
+                                    Error: "Token CSRF Inválido" o "Sesión Expirada"
+                                </button>
+                            </h2>
+                            <div id="c1" class="accordion-collapse collapse show" data-bs-parent="#accordionProblem">
+                                <div class="accordion-body">
+                                    Esto ocurre por seguridad cuando deja un formulario abierto por mucho tiempo sin
+                                    actividad. <strong>Solución:</strong> Simplemente recargue la página (F5) e intente
+                                    de nuevo.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#c2">
+                                    No puedo agregar productos al carrito
+                                </button>
+                            </h2>
+                            <div id="c2" class="accordion-collapse collapse" data-bs-parent="#accordionProblem">
+                                <div class="accordion-body">
+                                    Verifique si tiene una <strong>Caja Abierta</strong>. El sistema bloquea las ventas
+                                    si no hay un turno activo para registrar el dinero. Vaya a "Apertura de Caja".
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <footer class="mt-5 text-center text-muted border-top pt-3 pb-5">
+                    <small>Minimarcket System v2.0 - Documentación Generada automáticamente.</small>
+                </footer>
+
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

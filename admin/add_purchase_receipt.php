@@ -49,11 +49,13 @@ require_once '../templates/menu.php';
                         <p class="text-muted">Confirma la llegada de la mercancía al almacén.</p>
 
                         <form method="post" action="process_purchase_receipt.php">
+                            <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
                             <input type="hidden" name="action" value="add">
 
                             <div class="mb-4">
                                 <label for="purchase_order_id" class="form-label fw-bold">Orden de Compra</label>
-                                <select name="purchase_order_id" id="purchase_order_id" class="form-select form-select-lg" required>
+                                <select name="purchase_order_id" id="purchase_order_id" class="form-select form-select-lg"
+                                    required>
                                     <option value="">Seleccione orden...</option>
                                     <?php foreach ($pendingOrders as $order):
                                         $supplier = $supplierManager->getSupplierById($order['supplier_id']);
@@ -61,9 +63,10 @@ require_once '../templates/menu.php';
 
                                         // LOGICA INTELIGENTE: Si el ID coincide con la URL, lo marcamos SELECTED
                                         $isSelected = ($order['id'] == $preselectedOrderId) ? 'selected' : '';
-                                    ?>
+                                        ?>
                                         <option value="<?= $order['id'] ?>" <?= $isSelected ?>>
-                                            #<?= $order['id'] ?> - <?= $supplierName ?> (Total: $<?= number_format($order['total_amount'], 2) ?>)
+                                            #<?= $order['id'] ?> - <?= $supplierName ?> (Total:
+                                            $<?= number_format($order['total_amount'], 2) ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -71,7 +74,8 @@ require_once '../templates/menu.php';
 
                             <div class="mb-4">
                                 <label for="receipt_date" class="form-label fw-bold">Fecha de Recepción Real</label>
-                                <input type="date" name="receipt_date" id="receipt_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                                <input type="date" name="receipt_date" id="receipt_date" class="form-control"
+                                    value="<?= date('Y-m-d') ?>" required>
                             </div>
 
                             <div class="alert alert-info small border-info">

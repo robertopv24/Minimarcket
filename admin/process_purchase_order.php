@@ -13,6 +13,13 @@ if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validar CSRF
+    try {
+        Csrf::validateToken();
+    } catch (Exception $e) {
+        die("Error de seguridad: " . $e->getMessage());
+    }
+
     $action = $_POST['action'] ?? '';
 
     switch ($action) {
@@ -27,12 +34,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $userId = $_SESSION['user_id'];
 
                 // Validaciones básicas
-                if (empty($items)) throw new Exception("La orden debe tener al menos un producto.");
-                if ($paymentMethodId == 0) throw new Exception("Debes seleccionar un método de pago.");
+                if (empty($items))
+                    throw new Exception("La orden debe tener al menos un producto.");
+                if ($paymentMethodId == 0)
+                    throw new Exception("Debes seleccionar un método de pago.");
 
                 // Obtener tasa actual para registros
                 $currentRate = $GLOBALS['config']->get('exchange_rate');
-                if (!$currentRate) $currentRate = 1.00;
+                if (!$currentRate)
+                    $currentRate = 1.00;
 
                 // 1. CREAR ORDEN DE COMPRA (Inventario)
                 // Esto guarda en purchase_orders y purchase_order_items

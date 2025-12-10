@@ -1,68 +1,317 @@
-/********** Template CSS **********/
 :root {
-    --primary: #EB1616;
-    --secondary: #191C24;
-    --light: #6C7293;
-    --dark: #000000;
+    /* Modern Color Palette (Slate & Primary) */
+    --primary: #2563eb;
+    /* Modern Blue */
+    --primary-dark: #1e40af;
+    --secondary: #0f172a;
+    /* Slate 900 */
+    --surface: #1e293b;
+    /* Slate 800 */
+    --background: #020617;
+    /* Slate 950 */
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent: #ef4444;
+    /* Red for cleanup/danger */
+    --success: #10b981;
+
+    /* Dimensions */
+    --touch-target: 48px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
 }
 
-.back-to-top {
-    position: fixed;
-    display: none;
-    right: 45px;
-    bottom: 45px;
-    z-index: 99;
+body {
+    background-color: var(--background);
+    color: var(--text-main);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
 }
 
-
-/*** Spinner ***/
-#spinner {
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity .5s ease-out, visibility 0s linear .5s;
-    z-index: 99999;
+/* Glassmorphism Cards */
+.card,
+.card-product {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-#spinner.show {
-    transition: opacity .5s ease-out, visibility 0s linear 0s;
-    visibility: visible;
-    opacity: 1;
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
 }
 
+/* Typography */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 600;
+    color: var(--text-main);
+    letter-spacing: -0.025em;
+}
 
-/*** Button ***/
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* Dark Mode Compatibility Patch */
+.bg-light,
+.bg-white {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+}
+
+.bg-secondary {
+    background-color: var(--secondary) !important;
+    color: var(--text-main) !important;
+}
+
+/* Text Overrides - CAREFUL with Badges/Alerts */
+.text-dark,
+.text-body {
+    color: var(--text-main) !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.text-secondary {
+    color: var(--text-muted) !important;
+}
+
+/* EXCEPTION: Components with originally light backgrounds should keep dark text */
+.badge.bg-info,
+.badge.bg-warning,
+.badge.bg-light,
+.alert-warning,
+.alert-info,
+.alert-light,
+.card.bg-warning,
+.card.bg-info,
+.card.bg-light,
+.bg-warning .text-dark,
+.bg-info .text-dark {
+    color: #000 !important;
+}
+
+/* Force specific elements inside light-bg cards to be black too */
+.card.bg-warning h1,
+.card.bg-warning h2,
+.card.bg-warning h3,
+.card.bg-warning small,
+.card.bg-info h1,
+.card.bg-info h2,
+.card.bg-info h3,
+.card.bg-info small {
+    color: #000 !important;
+}
+
+.badge.text-dark {
+    color: #000 !important;
+}
+
+/* Fix Inputs */
+input,
+select,
+textarea,
+.form-control,
+.form-select,
+.input-group-text {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.form-control:focus {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3) !important;
+    border-color: var(--primary) !important;
+}
+
+/* Fix Tables - Transparent rows */
+.table,
+.table-light {
+    color: var(--text-main) !important;
+    background-color: transparent !important;
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+.table> :not(caption)>*>* {
+    background-color: transparent !important;
+    color: var(--text-main) !important;
+    box-shadow: none !important;
+}
+
+.table-light th,
+.table-light td,
+.table-light {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-main) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Fix Dark Charts Text (Partial Fix via CSS) */
+canvas {
+    filter: invert(0) grayscale(0) brightness(1.2);
+    /* Slight boost */
+}
+
+.table-hover>tbody>tr:hover>* {
+    color: var(--text-main) !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd)>* {
+    color: var(--text-main) !important;
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    box-shadow: none !important;
+}
+
+/* Fix Card Headers/Footers explicitly */
+.card-header,
+.card-footer {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Fix Modals & Accordions */
+.modal-content,
+.accordion-item {
+    background-color: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+}
+
+/* Modal header: Default to transparent (shows surface), but allow bg-* classes to override */
+.modal-header,
+.modal-footer,
+.accordion-header,
+.accordion-body {
+    background-color: transparent;
+    border-color: rgba(255, 255, 255, 0.05) !important;
+    color: var(--text-main) !important;
+}
+
+/* If modal header has specific bg class, ensure text is readable (usually white for dark bg or black for light bg) */
+.modal-header.bg-info,
+.modal-header.bg-success,
+.modal-header.bg-primary,
+.modal-header.bg-danger {
+    color: #fff !important;
+    /* Most colored headers look better with white text */
+}
+
+/* Accordion buttons override */
+.accordion-button {
+    background-color: var(--secondary) !important;
+    color: var(--text-main) !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: rgba(37, 99, 235, 0.2) !important;
+    /* Tinted Primary */
+    color: var(--primary) !important;
+}
+
+.accordion-button::after {
+    filter: invert(1);
+    /* Make the arrow white */
+}
+
+.close,
+.btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* List Groups (manufactura.php and others) */
+.list-group-item {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Touch Friendly Buttons */
 .btn {
-    transition: .5s;
-}
-
-.btn-square {
-    width: 38px;
-    height: 38px;
-}
-
-.btn-sm-square {
-    width: 32px;
-    height: 32px;
-}
-
-.btn-lg-square {
-    width: 48px;
-    height: 48px;
-}
-
-.btn-square,
-.btn-sm-square,
-.btn-lg-square {
-    padding: 0;
+    min-height: var(--touch-target);
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-weight: normal;
-    border-radius: 50px;
+    transition: all 0.2s;
+    text-transform: capitalize;
 }
 
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
 
-/*** Layout ***/
+.btn-primary:active,
+.btn-primary:hover {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: scale(0.98);
+}
+
+/* Small Buttons Override (for lists/admin actions) */
+.btn-sm,
+.btn-group-sm>.btn {
+    min-height: 32px !important;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Utility for Icon Buttons in Lists */
+.hover-scale {
+    transition: transform 0.2s;
+}
+
+.hover-scale:hover {
+    transform: scale(1.2);
+}
+
+.list-group-item .btn {
+    margin-left: 10px;
+}
+
+.btn-touch-lg {
+    min-height: 56px;
+    font-size: 1.1rem;
+    width: 100%;
+    border-radius: var(--radius-md);
+}
+
+/* Form Inputs */
+.form-control {
+    background-color: var(--surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+    border-radius: var(--radius-sm);
+    min-height: var(--touch-target);
+}
+
+.form-control:focus {
+    background-color: var(--surface);
+    color: var(--text-main);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
+}
+
+/* Sidebar & Layout (Responsive Fix) */
 .sidebar {
     position: fixed;
     top: 0;
@@ -72,27 +321,45 @@
     height: 100vh;
     overflow-y: auto;
     background: var(--secondary);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
     transition: 0.5s;
     z-index: 999;
+    /* Mobile First: Sidebar visible by default logic or hidden? 
+       Based on original template: Mobile = Hidden (-250px) */
+    margin-left: -250px;
 }
 
 .content {
-    margin-left: 250px;
+    margin-left: 0;
     min-height: 100vh;
-    background: var(--dark);
+    background: var(--background);
     transition: 0.5s;
+    width: 100%;
 }
 
+.sidebar.open {
+    margin-left: 0;
+}
+
+.content.open {
+    /* When sidebar opens on mobile, content might not shift or might shift */
+    margin-left: 250px;
+}
+
+/* Desktop View */
 @media (min-width: 992px) {
     .sidebar {
         margin-left: 0;
+        /* Always visible on Desktop */
     }
 
     .sidebar.open {
         margin-left: -250px;
+        /* Hide on toggle */
     }
 
     .content {
+        margin-left: 250px;
         width: calc(100% - 250px);
     }
 
@@ -102,188 +369,104 @@
     }
 }
 
-@media (max-width: 991.98px) {
-    .sidebar {
-        margin-left: -250px;
-    }
-
-    .sidebar.open {
-        margin-left: 0;
-    }
-
-    .content {
-        width: 100%;
-        margin-left: 0;
-    }
-}
-
-
-/*** Navbar ***/
-.sidebar .navbar .navbar-nav .nav-link {
-    padding: 7px 20px;
-    color: var(--light);
-    font-weight: 500;
-    border-left: 3px solid var(--secondary);
-    border-radius: 0 30px 30px 0;
-    outline: none;
-}
-
-.sidebar .navbar .navbar-nav .nav-link:hover,
-.sidebar .navbar .navbar-nav .nav-link.active {
-    color: var(--primary);
-    background: var(--dark);
-    border-color: var(--primary);
-}
-
-.sidebar .navbar .navbar-nav .nav-link i {
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--dark);
-    border-radius: 40px;
-}
-
-.sidebar .navbar .navbar-nav .nav-link:hover i,
-.sidebar .navbar .navbar-nav .nav-link.active i {
-    background: var(--secondary);
-}
-
-.sidebar .navbar .dropdown-toggle::after {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    border: none;
-    content: "\f107";
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    transition: .5s;
-}
-
-.sidebar .navbar .dropdown-toggle[aria-expanded=true]::after {
-    transform: rotate(-180deg);
-}
-
-.sidebar .navbar .dropdown-item {
-    padding-left: 25px;
-    border-radius: 0 30px 30px 0;
-    color: var(--light);
-}
-
-.sidebar .navbar .dropdown-item:hover,
-.sidebar .navbar .dropdown-item.active {
-    background: var(--dark);
-}
-
-.content .navbar .navbar-nav .nav-link {
-    margin-left: 25px;
-    padding: 12px 0;
-    color: var(--light);
-    outline: none;
-}
-
-.content .navbar .navbar-nav .nav-link:hover,
-.content .navbar .navbar-nav .nav-link.active {
-    color: var(--primary);
-}
-
-.content .navbar .sidebar-toggler,
-.content .navbar .navbar-nav .nav-link i {
-    width: 40px;
-    height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--dark);
-    border-radius: 40px;
-}
-
-.content .navbar .dropdown-item {
-    color: var(--light);
-}
-
-.content .navbar .dropdown-item:hover,
-.content .navbar .dropdown-item.active {
-    background: var(--dark);
-}
-
-.content .navbar .dropdown-toggle::after {
-    margin-left: 6px;
-    vertical-align: middle;
-    border: none;
-    content: "\f107";
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    transition: .5s;
-}
-
-.content .navbar .dropdown-toggle[aria-expanded=true]::after {
-    transform: rotate(-180deg);
-}
-
-@media (max-width: 575.98px) {
-    .content .navbar .navbar-nav .nav-link {
-        margin-left: 15px;
-    }
-}
-
-
-/*** Date Picker ***/
-.bootstrap-datetimepicker-widget.bottom {
-    top: auto !important;
-}
-
-.bootstrap-datetimepicker-widget .table * {
-    border-bottom-width: 0px;
-}
-
-.bootstrap-datetimepicker-widget .table th {
-    font-weight: 500;
-}
-
-.bootstrap-datetimepicker-widget.dropdown-menu {
-    padding: 10px;
-    border-radius: 2px;
-}
-
-.bootstrap-datetimepicker-widget table td.active,
-.bootstrap-datetimepicker-widget table td.active:hover {
-    background: var(--primary);
-}
-
-.bootstrap-datetimepicker-widget table td.today::before {
-    border-bottom-color: var(--primary);
-}
-
-
-/*** Testimonial ***/
-.progress .progress-bar {
-    width: 0px;
-    transition: 2s;
-}
-
-
-/*** Testimonial ***/
-.testimonial-carousel .owl-dots {
-    margin-top: 24px;
+.sidebar .nav-link {
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    margin: 4px 8px;
+    padding: 12px 16px;
     display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    align-items: center;
 }
 
-.testimonial-carousel .owl-dot {
-    position: relative;
-    display: inline-block;
-    margin: 0 5px;
-    width: 15px;
-    height: 15px;
-    border: 5px solid var(--primary);
-    border-radius: 15px;
-    transition: .5s;
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary);
 }
 
-.testimonial-carousel .owl-dot.active {
-    background: var(--dark);
-    border-color: var(--primary);
+.sidebar .nav-link i {
+    width: 24px;
+    margin-right: 12px;
+    text-align: center;
+}
+
+/* Product Grid */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1.5rem;
+}
+
+.product-image {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+/* Utilities */
+.shadow-soft {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.glass-header {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Back to Top Button */
+.back-to-top {
+    position: fixed;
+    display: none;
+    /* JS toggles this */
+    right: 30px;
+    bottom: 30px;
+    z-index: 99;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Global Responsive Fixes */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Ensure cards don't overflow on mobile */
+.container-fluid {
+    overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+    .btn-touch-lg {
+        font-size: 1rem;
+        min-height: 48px;
+    }
+
+    .table-responsive {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }

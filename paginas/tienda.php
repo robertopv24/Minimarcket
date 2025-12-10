@@ -2,6 +2,7 @@
 session_start();
 
 require_once '../templates/autoload.php';
+require_once '../templates/pos_check.php'; // SEGURIDAD POS
 
 // --- LÓGICA DE CONTROL DE CAJA ---
 $userId = $_SESSION['user_id'] ?? null;
@@ -50,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-$products = $productManager->getAllProducts();
+$search = $_GET['search'] ?? '';
+$products = (!empty($search)) ? $productManager->searchProducts($search) : $productManager->getAllProducts();
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -59,7 +61,37 @@ require_once '../templates/menu.php';
 <?= $cajaAlert ?>
 
 <div class="container mt-5">
-    <h2 class="text-center">Productos Disponibles</h2>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>🛍️ Catálogo de Productos</h2>
+        <a href="carrito.php" class="btn btn-primary position-relative">
+            <i class="fa fa-shopping-cart"></i> Ver Carrito
+            <?php
+            // Un pequeño badge si hay items (opcional, pero util)
+            $count = 0; // count($cartManager->getCartItems($userId)); 
+            // Nota: Podriamos implementar ese contador rapido
+            ?>
+        </a>
+    </div>
+
+    <!-- Barra de Búsqueda -->
+    <div class="card mb-4 bg-light">
+        <div class="card-body py-3">
+            <form method="GET" action="" class="row g-2 align-items-center">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fa fa-search"></i></span>
+                        <input type="text" name="search" class="form-control"
+                            placeholder="¿Qué se te antoja hoy? (Pizza, Bebida...)"
+                            value="<?= htmlspecialchars($search) ?>">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="row mt-4 align-items-center">
         <?php if (!empty($products)): ?>
@@ -67,18 +99,22 @@ require_once '../templates/menu.php';
                 <div class="col-md-3 my-3">
                     <div class="card h-100 shadow-sm bg-secondary">
                         <div class="text-center p-3">
-                            <img src="../<?= htmlspecialchars($product['image_url']) ?>"
-                                 class="card-img-top rounded"
-                                 alt="<?= htmlspecialchars($product['name']) ?>"
-                                 style="max-height: 150px; object-fit: contain;">
+                            <img src="../<?= htmlspecialchars($product['image_url']) ?>" class="card-img-top rounded"
+                                alt="<?= htmlspecialchars($product['name']) ?>" style="max-height: 150px; object-fit: contain;">
                         </div>
 
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-center"><?= htmlspecialchars($product['name']) ?></h5>
-                            <p class="card-text small text-center flex-grow-1"><?= htmlspecialchars($product['description']) ?></p>
+                            <p class="card-text small text-center flex-grow-1"><?= htmlspecialchars($product['description']) ?>
+                            </p>
 
+                            <?php
+                            $isSimple = ($product['product_type'] === 'simple');
+                            $displayStock = $isSimple ? $product['stock'] : $productManager->getVirtualStock($product['id']);
+                            $stockBadgeClass = ($displayStock > 0) ? 'bg-info text-dark' : 'bg-danger text-white';
+                            ?>
                             <div class="text-center mb-2">
-                                <span class="badge bg-info text-dark">Stock: <?= htmlspecialchars($product['stock']) ?></span>
+                                <span class="badge <?= $stockBadgeClass ?>">Stock: <?= $displayStock ?></span>
                             </div>
 
                             <div class="text-center mb-3">

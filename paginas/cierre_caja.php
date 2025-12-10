@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../templates/autoload.php';
+require_once '../templates/pos_check.php'; // SEGURIDAD POS
 
 $userId = $_SESSION['user_id'] ?? null;
 if (!$userId) {
@@ -34,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 require_once '../templates/header.php';
+require_once '../templates/menu.php';
 ?>
 
 <div class="container mt-5 mb-5">
@@ -46,7 +48,7 @@ require_once '../templates/header.php';
                 </div>
 
                 <div class="card-body">
-                    <?php if($mensaje): ?>
+                    <?php if ($mensaje): ?>
                         <div class="alert alert-danger"><?= $mensaje ?></div>
                     <?php endif; ?>
 
@@ -66,7 +68,8 @@ require_once '../templates/header.php';
 
                     <hr>
 
-                    <form method="POST" onsubmit="return confirm('¿Estás seguro de cerrar la caja? Esta acción es irreversible.');">
+                    <form method="POST"
+                        onsubmit="return confirm('¿Estás seguro de cerrar la caja? Esta acción es irreversible.');">
                         <h4 class="mb-3">💸 Arqueo de Caja (Conteo Físico)</h4>
                         <p class="text-muted">Por favor, cuenta el dinero físico en la gaveta e ingrésalo abajo.</p>
 
@@ -75,14 +78,16 @@ require_once '../templates/header.php';
                                 <label class="form-label fw-bold">Total contado en USD ($)</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-success text-white">$</span>
-                                    <input type="number" name="counted_usd" class="form-control form-control-lg" step="0.01" required placeholder="0.00">
+                                    <input type="number" name="counted_usd" class="form-control form-control-lg"
+                                        step="0.01" required placeholder="0.00">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Total contado en VES (Bs)</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-primary text-white">Bs</span>
-                                    <input type="number" name="counted_ves" class="form-control form-control-lg" step="0.01" required placeholder="0.00">
+                                    <input type="number" name="counted_ves" class="form-control form-control-lg"
+                                        step="0.01" required placeholder="0.00">
                                 </div>
                             </div>
                         </div>

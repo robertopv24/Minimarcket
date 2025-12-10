@@ -24,6 +24,7 @@ require_once '../templates/menu.php';
     <h2>Eliminar Orden de Compra</h2>
     <p>¿Estás seguro de que quieres eliminar la orden de compra #<?= $purchaseOrder['id'] ?>?</p>
     <form method="post" action="process_purchase_order.php">
+        <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" value="<?= $purchaseOrder['id'] ?>">
         <button type="submit" class="btn btn-danger">Eliminar Orden de Compra</button>

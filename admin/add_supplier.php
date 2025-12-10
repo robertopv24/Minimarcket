@@ -24,23 +24,27 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="card-body">
                     <form method="post" action="process_supplier.php">
+                        <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
                         <input type="hidden" name="action" value="add">
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Nombre de la Empresa</label>
-                                <input type="text" name="name" class="form-control" placeholder="Ej: Distribuidora Polar" required>
+                                <input type="text" name="name" class="form-control"
+                                    placeholder="Ej: Distribuidora Polar" required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Persona de Contacto</label>
-                                <input type="text" name="contact_person" class="form-control" placeholder="Ej: Juan Pérez">
+                                <input type="text" name="contact_person" class="form-control"
+                                    placeholder="Ej: Juan Pérez">
                             </div>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Correo Electrónico</label>
-                                <input type="email" name="email" class="form-control" placeholder="contacto@empresa.com">
+                                <input type="email" name="email" class="form-control"
+                                    placeholder="contacto@empresa.com">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Teléfono</label>
@@ -50,7 +54,8 @@ require_once '../templates/menu.php';
 
                         <div class="mb-4">
                             <label class="form-label">Dirección Física</label>
-                            <textarea name="address" class="form-control" rows="3" placeholder="Dirección de despacho o fiscal"></textarea>
+                            <textarea name="address" class="form-control" rows="3"
+                                placeholder="Dirección de despacho o fiscal"></textarea>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">

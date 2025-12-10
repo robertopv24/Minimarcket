@@ -1,9 +1,8 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// Production settings applied via autoload
 
 require_once '../templates/autoload.php';
+require_once '../funciones/Csrf.php';
 
 session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
@@ -16,6 +15,9 @@ $error_message = '';
 
 // 1. Procesar Tasa de Cambio
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_exchange_rate'])) {
+    if (!Csrf::validate($_POST['csrf_token'] ?? '')) {
+        die("CSRF Error");
+    }
     $newRate = floatval($_POST['new_exchange_rate']);
     if ($newRate > 0) {
         if ($config->update('exchange_rate', $newRate)) {
@@ -70,13 +72,16 @@ require_once '../templates/menu.php';
                         <label class="small fw-bold text-primary">Tasa BCV/Paralelo</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text">Bs</span>
-                            <input type="number" step="0.01" name="new_exchange_rate" class="form-control fw-bold" value="<?= $currentRate ?>">
+                            <input type="number" step="0.01" name="new_exchange_rate" class="form-control fw-bold"
+                                value="<?= $currentRate ?>">
                         </div>
                     </div>
                     <div class="col-5">
-                        <button type="submit" name="update_exchange_rate" class="btn btn-primary btn-sm w-100 h-100" onclick="return confirm('¿Actualizar precios?');">
+                        <button type="submit" name="update_exchange_rate" class="btn btn-primary btn-sm w-100 h-100"
+                            onclick="return confirm('¿Actualizar precios?');">
                             <i class="fa fa-sync"></i> Fijar
                         </button>
+                        <?= Csrf::insertTokenField(); ?>
                     </div>
                 </form>
             </div>
@@ -84,7 +89,8 @@ require_once '../templates/menu.php';
     </div>
 
     <?php if ($success_message): ?>
-        <div class="alert alert-success alert-dismissible fade show"><?= $success_message ?> <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+        <div class="alert alert-success alert-dismissible fade show"><?= $success_message ?> <button type="button"
+                class="btn-close" data-bs-dismiss="alert"></button></div>
     <?php endif; ?>
 
     <h5 class="text-muted mb-3"><i class="fa fa-chart-line me-2"></i>Ingresos por Ventas (POS)</h5>
@@ -131,7 +137,8 @@ require_once '../templates/menu.php';
                     <div>
                         <h6 class="text-uppercase opacity-75">Bóveda Central (Caja Chica)</h6>
                         <h2 class="fw-bold mb-0">$<?= number_format($vaultBalance['balance_usd'], 2) ?></h2>
-                        <span class="badge bg-dark text-white"><?= number_format($vaultBalance['balance_ves'], 2) ?> Bs</span>
+                        <span class="badge bg-dark text-white"><?= number_format($vaultBalance['balance_ves'], 2) ?>
+                            Bs</span>
                     </div>
                     <div class="text-end">
                         <i class="fa fa-vault fa-3x opacity-25 mb-2"></i><br>
@@ -180,13 +187,14 @@ require_once '../templates/menu.php';
                         <tbody>
                             <?php foreach ($ultimasVentas as $v):
                                 $badge = $v['status'] == 'paid' ? 'bg-success' : 'bg-secondary';
-                            ?>
+                                ?>
                                 <tr>
                                     <td class="fw-bold">#<?= $v['id'] ?></td>
                                     <td><?= htmlspecialchars($v['name'] ?? 'Consumidor') ?></td>
                                     <td class="fw-bold text-success">$<?= number_format($v['total_price'], 2) ?></td>
                                     <td><span class="badge <?= $badge ?>"><?= $v['status'] ?></span></td>
-                                    <td class="text-end"><a href="ver_venta.php?id=<?= $v['id'] ?>" class="btn btn-sm btn-outline-primary"><i class="fa fa-eye"></i></a></td>
+                                    <td class="text-end"><a href="ver_venta.php?id=<?= $v['id'] ?>"
+                                            class="btn btn-sm btn-outline-primary"><i class="fa fa-eye"></i></a></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -205,15 +213,18 @@ require_once '../templates/menu.php';
                     <?php foreach ($ultimosMovimientos as $mov):
                         $color = $mov['type'] == 'deposit' ? 'text-success' : 'text-danger';
                         $sign = $mov['type'] == 'deposit' ? '+' : '-';
-                    ?>
+                        ?>
                         <div class="list-group-item d-flex justify-content-between align-items-center">
                             <div>
-                                <small class="d-block fw-bold text-truncate" style="max-width: 150px;"><?= htmlspecialchars($mov['origin']) ?></small>
+                                <small class="d-block fw-bold text-truncate"
+                                    style="max-width: 150px;"><?= htmlspecialchars($mov['origin']) ?></small>
                                 <small class="text-muted" style="font-size: 0.75rem;"><?= $mov['description'] ?></small>
                             </div>
                             <div class="text-end">
-                                <span class="fw-bold <?= $color ?>"><?= $sign ?> <?= number_format($mov['amount'], 2) ?> <?= $mov['currency'] ?></span><br>
-                                <small class="text-muted" style="font-size: 0.7rem;"><?= date('d/m H:i', strtotime($mov['created_at'])) ?></small>
+                                <span class="fw-bold <?= $color ?>"><?= $sign ?>     <?= number_format($mov['amount'], 2) ?>
+                                    <?= $mov['currency'] ?></span><br>
+                                <small class="text-muted"
+                                    style="font-size: 0.7rem;"><?= date('d/m H:i', strtotime($mov['created_at'])) ?></small>
                             </div>
                         </div>
                     <?php endforeach; ?>

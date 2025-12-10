@@ -2,12 +2,14 @@
 require_once '../templates/autoload.php';
 session_start();
 
-if (!isset($_SESSION['user_id'])) die("Acceso denegado");
+if (!isset($_SESSION['user_id']))
+    die("Acceso denegado");
 
 $orderId = $_GET['id'] ?? 0;
 $order = $orderManager->getOrderById($orderId);
 
-if (!$order) die("Orden no encontrada");
+if (!$order)
+    die("Orden no encontrada");
 
 $items = $orderManager->getOrderItems($orderId);
 $companyName = $GLOBALS['config']->get('site_name');
@@ -42,21 +44,25 @@ $changeTx = $stmtChange->fetch(PDO::FETCH_ASSOC);
 define('WIDTH', 32);
 define('EOL', "\n");
 
-function clean($str) {
+function clean($str)
+{
     $str = strtoupper(trim($str));
-    $str = str_replace(['Á','É','Í','Ó','Ú','Ñ'], ['A','E','I','O','U','N'], $str);
+    $str = str_replace(['Á', 'É', 'Í', 'Ó', 'Ú', 'Ñ'], ['A', 'E', 'I', 'O', 'U', 'N'], $str);
     return preg_replace('/[^A-Z0-9 \.,\-\(\)\#\$\%\:\/]/', '', $str);
 }
 
-function center($str) {
+function center($str)
+{
     $str = clean($str);
     $len = strlen($str);
-    if ($len >= WIDTH) return substr($str, 0, WIDTH);
+    if ($len >= WIDTH)
+        return substr($str, 0, WIDTH);
     $pad = floor((WIDTH - $len) / 2);
     return str_repeat(' ', $pad) . $str . str_repeat(' ', WIDTH - $len - $pad);
 }
 
-function row($left, $right) {
+function row($left, $right)
+{
     $left = clean($left);
     $right = clean($right);
 
@@ -71,7 +77,8 @@ function row($left, $right) {
     return $left . str_repeat(' ', $spaces) . $right;
 }
 
-function line() {
+function line()
+{
     return str_repeat('-', WIDTH) . EOL;
 }
 
@@ -105,18 +112,19 @@ foreach ($items as $item) {
     if ($item['product_type'] == 'compound') {
         $comps = $productManager->getProductComponents($item['product_id']);
         $subs = [];
-        foreach($comps as $c) {
-            if($c['component_type'] == 'product') {
+        foreach ($comps as $c) {
+            if ($c['component_type'] == 'product') {
                 $p = $productManager->getProductById($c['component_id']);
                 $subs[] = clean($p['name']);
             }
         }
-        if(!empty($subs)) {
+        if (!empty($subs)) {
             $incStr = " > INC: " . implode(",", $subs);
             if (strlen($incStr) > WIDTH) {
                 $ticket .= substr($incStr, 0, WIDTH) . EOL;
                 $rest = substr($incStr, WIDTH);
-                if($rest) $ticket .= "   " . substr($rest, 0, WIDTH-3) . EOL;
+                if ($rest)
+                    $ticket .= "   " . substr($rest, 0, WIDTH - 3) . EOL;
             } else {
                 $ticket .= $incStr . EOL;
             }
@@ -166,44 +174,51 @@ $ticket .= line();
 foreach ($items as $item) {
     $mods = $orderManager->getItemModifiers($item['id']);
     $groupedMods = [];
-    foreach($mods as $m) { $groupedMods[$m['sub_item_index']][] = $m; }
+    foreach ($mods as $m) {
+        $groupedMods[$m['sub_item_index']][] = $m;
+    }
 
     $subNames = [];
     if ($item['product_type'] == 'compound') {
         $comps = $productManager->getProductComponents($item['product_id']);
-        foreach($comps as $c) {
-            if($c['component_type'] == 'product') {
+        foreach ($comps as $c) {
+            if ($c['component_type'] == 'product') {
                 $p = $productManager->getProductById($c['component_id']);
-                for($k=0; $k < $c['quantity']; $k++) $subNames[] = clean($p['name']);
+                for ($k = 0; $k < $c['quantity']; $k++)
+                    $subNames[] = clean($p['name']);
             }
         }
     }
 
     $loop = $item['quantity'];
-    if ($item['product_type'] == 'compound' && !empty($subNames)) $loop = count($subNames);
+    if ($item['product_type'] == 'compound' && !empty($subNames))
+        $loop = count($subNames);
 
     $ticket .= ">> " . $item['quantity'] . " X " . clean($item['name']) . EOL;
 
-    for($i = 0; $i < $loop; $i++) {
+    for ($i = 0; $i < $loop; $i++) {
         $currentMods = $groupedMods[$i] ?? [];
         $isTakeaway = false;
-        foreach($currentMods as $m) {
-            if($m['modifier_type'] == 'info' && $m['is_takeaway'] == 1) $isTakeaway = true;
+        foreach ($currentMods as $m) {
+            if ($m['modifier_type'] == 'info' && $m['is_takeaway'] == 1)
+                $isTakeaway = true;
         }
 
         $tag = $isTakeaway ? '[LLEVAR]' : '[MESA]';
         $specName = isset($subNames[$i]) ? $subNames[$i] : '';
 
-        $ticket .= "   $tag #" . ($i+1) . " $specName" . EOL;
+        $ticket .= "   $tag #" . ($i + 1) . " $specName" . EOL;
 
-        foreach($currentMods as $m) {
-            if($m['modifier_type'] == 'remove') $ticket .= "     -- SIN " . clean($m['ingredient_name']) . EOL;
-            if($m['modifier_type'] == 'add')    $ticket .= "     ++ EXTRA " . clean($m['ingredient_name']) . EOL;
+        foreach ($currentMods as $m) {
+            if ($m['modifier_type'] == 'remove')
+                $ticket .= "     -- SIN " . clean($m['ingredient_name']) . EOL;
+            if ($m['modifier_type'] == 'add')
+                $ticket .= "     ++ EXTRA " . clean($m['ingredient_name']) . EOL;
         }
 
         if ($i == 0) {
-            foreach($mods as $gm) {
-                if($gm['sub_item_index'] == -1 && $gm['modifier_type'] == 'info' && !empty($gm['note'])) {
+            foreach ($mods as $gm) {
+                if ($gm['sub_item_index'] == -1 && $gm['modifier_type'] == 'info' && !empty($gm['note'])) {
                     $ticket .= "   NOTA: " . clean($gm['note']) . EOL;
                 }
             }
@@ -214,114 +229,145 @@ foreach ($items as $item) {
 }
 $ticket .= ".";
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Ticket #<?= $orderId ?></title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        @media print {
-            .no-print { display: none !important; }
-            body { margin: 0; padding: 0; }
-            @page { margin: 0; size: auto; }
+<?php
+// ... (PHP Logic from lines 1-231 remains unchanged, handled by startLine below)
+
+require_once '../templates/header.php';
+require_once '../templates/menu.php';
+?>
+
+<style>
+    /* Estilos específicos para la visualización del Ticket */
+    .ticket-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 80vh;
+        padding-top: 2rem;
+    }
+
+    .ticket-wrapper {
+        background: white;
+        /* Siempre blanco para simular papel */
+        color: black;
+        /* Siempre negro para simular tinta */
+        width: 80mm;
+        /* Ancho estándar de ticket */
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        /* Sombra elegante */
+        border-radius: 2px;
+        /* Bordes casi rectos */
+        margin-bottom: 2rem;
+        transform: rotate(-0.5deg);
+        /* Efecto sutil de imperfección */
+    }
+
+    pre.ticket-content {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 13px;
+        font-weight: bold;
+        line-height: 1.2;
+        white-space: pre-wrap;
+        margin: 0;
+        text-align: center;
+    }
+
+    /* Acciones flotantes o estáticas */
+    .ticket-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-bottom: 3rem;
+    }
+
+    /* Print Styles */
+    @media print {
+
+        .no-print,
+        header,
+        nav,
+        footer {
+            display: none !important;
         }
-        body {
-            background-color: #e9ecef;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            font-family: sans-serif;
-            padding-top: 20px;
+
+        body,
+        .container,
+        .ticket-container {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            width: auto !important;
         }
+
         .ticket-wrapper {
-            background: white;
-            width: 80mm; /* Visualización en pantalla */
-            padding: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            margin-bottom: 60px;
-            border-radius: 5px;
+            width: 100% !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            transform: none !important;
         }
-        pre {
-            font-family: 'Courier New', Courier, monospace;
+
+        pre.ticket-content {
             font-size: 12px;
-            font-weight: bold;
-            line-height: 1.2;
-            white-space: pre-wrap;
-            margin: 0;
-            color: #000;
-            width: 100%;
-            text-align: center; /* Centrado general */
+            /* Ajuste para impresora térmica */
+            text-align: left;
+            /* Alineación natural impresora */
         }
-        .actions {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 9999;
-        }
-        .btn {
-            border: none;
-            padding: 12px 25px;
-            border-radius: 50px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            color: white;
-            font-size: 14px;
-            min-width: 220px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.2s;
-        }
-        .btn:hover { transform: translateY(-2px); shadow: 0 6px 8px rgba(0,0,0,0.3); }
-        .btn:active { transform: translateY(0); }
-        .btn-browser { background-color: #0d6efd; }
-        .btn-server  { background-color: #fd7e14; }
-        .btn-back    { background-color: #6c757d; }
-    </style>
-</head>
-<body>
+    }
+</style>
 
+<div class="container ticket-container">
+
+    <!-- TICKET DE PAPEL -->
     <div class="ticket-wrapper">
-        <pre><?= $ticket ?></pre>
+        <pre class="ticket-content"><?= $ticket ?></pre>
     </div>
 
-    <div class="actions no-print">
-        <button onclick="window.print()" class="btn btn-browser">🪟 Imprimir (Windows)</button>
-        <button id="btnLinux" class="btn btn-server">🐧 Imprimir (Server USB)</button>
-        <a href="tienda.php" style="text-decoration:none;"><button class="btn btn-back">⬅ Volver a Tienda</button></a>
+    <!-- BOTONES DE ACCIÓN -->
+    <div class="ticket-actions no-print">
+        <button onclick="window.print()" class="btn btn-lg btn-primary hover-scale">
+            <i class="fa fa-print"></i> Imprimir (Windows)
+        </button>
+
+        <button id="btnLinux" class="btn btn-lg btn-warning hover-scale text-dark">
+            <i class="fa fa-server"></i> Imprimir (Server USB)
+        </button>
+
+        <a href="tienda.php" class="btn btn-lg btn-secondary hover-scale">
+            <i class="fa fa-arrow-left"></i> Volver a Tienda
+        </a>
     </div>
 
-    <script>
-        $(document).ready(function() {
-            $('#btnLinux').click(function() {
-                const btn = $(this);
-                const originalText = btn.text();
+</div>
 
-                btn.prop('disabled', true).text('Enviando...');
+<script>
+    $(document).ready(function () {
+        $('#btnLinux').click(function () {
+            const btn = $(this);
+            const originalText = btn.html();
 
-                $.post('../ajax/imprimir_ticket.php', { order_id: <?= $orderId ?> }, function(res) {
-                    if(res.status === 'ok') {
-                        btn.css('background-color', '#198754').text('✅ ¡Enviado!');
-                        setTimeout(() => {
-                            btn.css('background-color', '#fd7e14').text(originalText).prop('disabled', false);
-                        }, 2000);
-                    } else {
-                        alert("❌ Error: " + res.message);
-                        btn.prop('disabled', false).text(originalText);
-                    }
-                }, 'json')
-                .fail(function() {
+            btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Enviando...');
+
+            $.post('../ajax/imprimir_ticket.php', { order_id: <?= $orderId ?> }, function (res) {
+                if (res.status === 'ok') {
+                    btn.removeClass('btn-warning').addClass('btn-success').html('<i class="fa fa-check"></i> ¡Impreso!');
+                    setTimeout(() => {
+                        btn.removeClass('btn-success').addClass('btn-warning').html(originalText).prop('disabled', false);
+                    }, 3000);
+                } else {
+                    alert("❌ Error: " + res.message);
+                    btn.prop('disabled', false).html(originalText);
+                }
+            }, 'json')
+                .fail(function () {
                     alert("Error de conexión con el servidor.");
-                    btn.prop('disabled', false).text(originalText);
+                    btn.prop('disabled', false).html(originalText);
                 });
-            });
         });
-    </script>
+    });
+</script>
 
-</body>
-</html>
+<?php require_once '../templates/footer.php'; ?>

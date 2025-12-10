@@ -24,6 +24,7 @@ require_once '../templates/menu.php';
     <h2>Eliminar Proveedor</h2>
     <p>¿Estás seguro de que quieres eliminar el proveedor "<?= htmlspecialchars($supplier['name']) ?>"?</p>
     <form method="post" action="process_supplier.php">
+        <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" value="<?= $supplier['id'] ?>">
         <button type="submit" class="btn btn-danger">Eliminar Proveedor</button>

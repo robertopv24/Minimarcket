@@ -1,8 +1,10 @@
 <?php
-class TransactionManager {
+class TransactionManager
+{
     private $db;
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->db = $db;
     }
 
@@ -13,7 +15,8 @@ class TransactionManager {
     /**
      * Registrar Ingresos de una Venta (Lo que el cliente paga)
      */
-    public function processOrderPayments($orderId, $payments, $userId, $sessionId) {
+    public function processOrderPayments($orderId, $payments, $userId, $sessionId)
+    {
         try {
             foreach ($payments as $payment) {
                 if ($payment['amount'] > 0) {
@@ -40,7 +43,8 @@ class TransactionManager {
     /**
      * Registrar Vuelto de una Venta (Salida de dinero)
      */
-    public function registerOrderChange($orderId, $amountNominal, $currency, $methodId, $userId, $sessionId) {
+    public function registerOrderChange($orderId, $amountNominal, $currency, $methodId, $userId, $sessionId)
+    {
         try {
             $this->logTransaction(
                 $sessionId,
@@ -67,14 +71,16 @@ class TransactionManager {
     /**
      * Registrar Pago a Proveedor (Gasto Administrativo)
      */
-    public function registerPurchasePayment($purchaseId, $amount, $currency, $methodId, $userId) {
+    public function registerPurchasePayment($purchaseId, $amount, $currency, $methodId, $userId)
+    {
         try {
             // 1. Validar Método de Pago
             $stmt = $this->db->prepare("SELECT type, name FROM payment_methods WHERE id = ?");
             $stmt->execute([$methodId]);
             $method = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$method) throw new Exception("Método de pago no válido.");
+            if (!$method)
+                throw new Exception("Método de pago no válido.");
 
             // Las compras no afectan la caja del turno (session_id = 0)
             $cashSessionId = 0;
@@ -98,7 +104,8 @@ class TransactionManager {
                     $purchaseId
                 );
 
-                if ($res !== true) throw new Exception("Fondos insuficientes en Bóveda: " . $res);
+                if ($res !== true)
+                    throw new Exception("Fondos insuficientes en Bóveda: " . $res);
             }
 
             // 3. Registrar la transacción contable
@@ -122,6 +129,63 @@ class TransactionManager {
         }
     }
 
+    /**
+     * Registrar Transacción Manual (Ingreso/Egreso genérico)
+     */
+    public function registerTransaction($type, $amount, $description, $userId, $referenceType = 'manual', $referenceId = 0, $currency = 'USD')
+    {
+        try {
+            // Asumimos Metodo "Efectivo USD" o "Efectivo VES" por defecto para manuales si no se especifica
+            // Para simplificar, buscamos 'Efectivo USD' si currency es USD
+            $methodName = ($currency === 'USD') ? 'Efectivo USD' : 'Efectivo VES';
+            $methodId = $this->getMethodIdByName($methodName);
+
+            if (!$methodId) {
+                // Fallback a cualquier metodo activo si no encuentra el especifico
+                $methods = $this->getPaymentMethods();
+                if (!empty($methods))
+                    $methodId = $methods[0]['id'];
+                else
+                    return false;
+            }
+
+            // Las manuales podrían no estar ligadas a sesión de caja si son administrativas,
+            // pero si son de caja, deberían. Por ahora session_id = 0 para administrativas/generales.
+            $sessionId = 0;
+
+            $this->logTransaction(
+                $sessionId,
+                $type,
+                $amount,
+                $currency,
+                $methodId,
+                $referenceType,
+                $referenceId,
+                $description,
+                $userId
+            );
+
+            return $this->db->lastInsertId();
+        } catch (Exception $e) {
+            error_log("Error en registerTransaction: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getTransactionsByDate($startDate, $endDate)
+    {
+        $sql = "SELECT t.*, pm.name as method_name, u.name as user_name 
+                FROM transactions t
+                LEFT JOIN payment_methods pm ON t.payment_method_id = pm.id
+                LEFT JOIN users u ON t.created_by = u.id
+                WHERE DATE(t.created_at) BETWEEN ? AND ?
+                ORDER BY t.created_at DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$startDate, $endDate]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     // ---------------------------------------------------------
     // 3. NÚCLEO (PRIVADO)
     // ---------------------------------------------------------
@@ -130,7 +194,8 @@ class TransactionManager {
      * Función centralizada para insertar en la tabla `transactions`
      * Calcula automáticamente la tasa de cambio y el valor referencia en USD.
      */
-    private function logTransaction($sessionId, $type, $amount, $currency, $methodId, $refType, $refId, $desc, $userId) {
+    private function logTransaction($sessionId, $type, $amount, $currency, $methodId, $refType, $refId, $desc, $userId)
+    {
         // Obtener tasa actual del sistema
         $rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1;
 
@@ -162,12 +227,14 @@ class TransactionManager {
     // 4. UTILIDADES
     // ---------------------------------------------------------
 
-    public function getPaymentMethods() {
+    public function getPaymentMethods()
+    {
         $stmt = $this->db->query("SELECT * FROM payment_methods WHERE is_active = 1");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function getMethodIdByName($name) {
+    public function getMethodIdByName($name)
+    {
         $stmt = $this->db->prepare("SELECT id FROM payment_methods WHERE name = ?");
         $stmt->execute([$name]);
         return $stmt->fetchColumn();

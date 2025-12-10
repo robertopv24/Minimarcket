@@ -2,7 +2,20 @@
 // process_purchase_receipt.php
 require_once '../templates/autoload.php';
 
+session_start();
+if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+    header('Location: ../paginas/login.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validar CSRF
+    try {
+        Csrf::validateToken();
+    } catch (Exception $e) {
+        die("Error de seguridad: " . $e->getMessage());
+    }
+
     $action = $_POST['action'] ?? '';
 
     switch ($action) {
