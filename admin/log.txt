@@ -1,0 +1,62 @@
+[2025-12-11 12:19:17] payDebt called | {"arId":5,"amount":10,"method":"cash","paymentMethodId":2,"sessionId":17}
+[2025-12-11 12:19:17] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2025-12-11 12:19:17] payDebt: Calculated | {"newPaidAmount":10,"status":"partial"}
+[2025-12-11 12:19:17] payDebt: Transaction started
+[2025-12-11 12:19:17] payDebt: UPDATE accounts_receivable | {"result":"true","rowCount":1}
+[2025-12-11 12:19:17] payDebt: UPDATE clients | {"result":"true","rowCount":1}
+[2025-12-11 12:19:17] payDebt: Processing cash/transfer transaction
+[2025-12-11 12:19:17] payDebt: Payment method currency=VES
+[2025-12-11 12:19:17] payDebt ERROR: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'minimarket.config' doesn't exist
+[2025-12-11 12:19:17] payDebt ERROR trace: #0 /home/roberto/Escritorio/Minimarcket/funciones/CreditManager.php(203): PDO->prepare()
+#1 /home/roberto/Escritorio/Minimarcket/tests/manual_test_credit.php(48): CreditManager->payDebt()
+#2 {main}
+[2025-12-11 12:20:54] payDebt called | {"arId":6,"amount":10,"method":"cash","paymentMethodId":2,"sessionId":17}
+[2025-12-11 12:20:54] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2025-12-11 12:20:54] payDebt: Calculated | {"newPaidAmount":10,"status":"partial"}
+[2025-12-11 12:20:54] payDebt: Transaction started
+[2025-12-11 12:20:54] payDebt: UPDATE accounts_receivable | {"result":"true","rowCount":1}
+[2025-12-11 12:20:54] payDebt: UPDATE clients | {"result":"true","rowCount":1}
+[2025-12-11 12:20:54] payDebt: Processing cash/transfer transaction
+[2025-12-11 12:20:54] payDebt: Payment method currency=VES
+[2025-12-11 12:20:54] payDebt: Conversion logic | {"input_usd":10,"rate":"300","currency":"VES","nominal_calculated":3000}
+[2025-12-11 12:20:54] payDebt ERROR: SQLSTATE[01000]: Warning: 1265 Data truncated for column 'reference_type' at row 1
+[2025-12-11 12:20:54] payDebt ERROR trace: #0 /home/roberto/Escritorio/Minimarcket/funciones/CreditManager.php(243): PDOStatement->execute()
+#1 /home/roberto/Escritorio/Minimarcket/tests/manual_test_credit.php(48): CreditManager->payDebt()
+#2 {main}
+[2025-12-11 12:21:31] payDebt called | {"arId":7,"amount":10,"method":"cash","paymentMethodId":2,"sessionId":17}
+[2025-12-11 12:21:31] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2025-12-11 12:21:31] payDebt: Calculated | {"newPaidAmount":10,"status":"partial"}
+[2025-12-11 12:21:31] payDebt: Transaction started
+[2025-12-11 12:21:31] payDebt: UPDATE accounts_receivable | {"result":"true","rowCount":1}
+[2025-12-11 12:21:31] payDebt: UPDATE clients | {"result":"true","rowCount":1}
+[2025-12-11 12:21:31] payDebt: Processing cash/transfer transaction
+[2025-12-11 12:21:31] payDebt: Payment method currency=VES
+[2025-12-11 12:21:31] payDebt: Conversion logic | {"input_usd":10,"rate":"300","currency":"VES","nominal_calculated":3000}
+[2025-12-11 12:21:31] payDebt ERROR: SQLSTATE[01000]: Warning: 1265 Data truncated for column 'reference_type' at row 1
+[2025-12-11 12:21:31] payDebt ERROR trace: #0 /home/roberto/Escritorio/Minimarcket/funciones/CreditManager.php(243): PDOStatement->execute()
+#1 /home/roberto/Escritorio/Minimarcket/tests/manual_test_credit.php(48): CreditManager->payDebt()
+#2 {main}
+[2025-12-11 12:24:47] payDebt called | {"arId":8,"amount":10,"method":"cash","paymentMethodId":2,"sessionId":17}
+[2025-12-11 12:24:47] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2025-12-11 12:24:47] payDebt: Calculated | {"newPaidAmount":10,"status":"partial"}
+[2025-12-11 12:24:47] payDebt: Transaction started
+[2025-12-11 12:24:47] payDebt: UPDATE accounts_receivable | {"result":"true","rowCount":1}
+[2025-12-11 12:24:47] payDebt: UPDATE clients | {"result":"true","rowCount":1}
+[2025-12-11 12:24:47] payDebt: Processing cash/transfer transaction
+[2025-12-11 12:24:47] payDebt: Payment method currency=VES
+[2025-12-11 12:24:47] payDebt: Conversion logic | {"input_usd":10,"rate":"300","currency":"VES","nominal_calculated":3000}
+[2025-12-11 12:24:47] payDebt ERROR: SQLSTATE[01000]: Warning: 1265 Data truncated for column 'reference_type' at row 1
+[2025-12-11 12:24:47] payDebt ERROR trace: #0 /home/roberto/Escritorio/Minimarcket/funciones/CreditManager.php(243): PDOStatement->execute()
+#1 /home/roberto/Escritorio/Minimarcket/tests/manual_test_credit.php(48): CreditManager->payDebt()
+#2 {main}
+[2025-12-11 12:25:57] payDebt called | {"arId":9,"amount":10,"method":"cash","paymentMethodId":2,"sessionId":17}
+[2025-12-11 12:25:57] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2025-12-11 12:25:57] payDebt: Calculated | {"newPaidAmount":10,"status":"partial"}
+[2025-12-11 12:25:57] payDebt: Transaction started
+[2025-12-11 12:25:57] payDebt: UPDATE accounts_receivable | {"result":"true","rowCount":1}
+[2025-12-11 12:25:57] payDebt: UPDATE clients | {"result":"true","rowCount":1}
+[2025-12-11 12:25:57] payDebt: Processing cash/transfer transaction
+[2025-12-11 12:25:57] payDebt: Payment method currency=VES
+[2025-12-11 12:25:57] payDebt: Conversion logic | {"input_usd":10,"rate":"300","currency":"VES","nominal_calculated":3000}
+[2025-12-11 12:25:57] payDebt: INSERT transactions result=true
+[2025-12-11 12:25:57] payDebt: Transaction committed successfully
