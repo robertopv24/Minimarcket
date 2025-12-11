@@ -72,6 +72,9 @@ require_once '../templates/menu.php';
             // Nota: Podriamos implementar ese contador rapido
             ?>
         </a>
+        <button class="btn btn-success ms-2" onclick="openDebtModal()">
+            <i class="fa fa-hand-holding-usd"></i> Abonar Crédito
+        </button>
     </div>
 
     <!-- Barra de Búsqueda -->
@@ -142,5 +145,167 @@ require_once '../templates/menu.php';
         <?php endif; ?>
     </div>
 </div>
+
+<!-- MODAL DE ABONO DE CRÉDITO -->
+<div class="modal fade" id="modalDebtPOS" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">💵 Abonar a Crédito</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- PASO 1: BUSCAR CLIENTE -->
+                <div id="step-search">
+                    <label class="form-label fw-bold">Buscar Cliente</label>
+                    <div class="input-group mb-2">
+                        <input type="text" id="debt-client-search" class="form-control"
+                            placeholder="Nombre o Cédula...">
+                        <button class="btn btn-outline-secondary" onclick="searchDebtClient()">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+                    <div id="debt-client-results" class="list-group"></div>
+                </div>
+
+                <!-- PASO 2: FORMULARIO PAGO -->
+                <div id="step-pay" style="display:none;">
+                    <div class="alert alert-info py-2 mb-3">
+                        <h6 class="mb-0" id="selected-client-name"></h6>
+                        <small>Deuda Total: <strong id="selected-client-debt" class="text-danger"></strong></small>
+                    </div>
+
+                    <form id="form-debt-pos">
+                        <input type="hidden" id="p_client_id">
+
+                        <div class="mb-3">
+                            <label class="form-label">Monto a Abonar ($ USD)</label>
+                            <input type="number" step="0.01" id="p_amount_usd" class="form-control form-control-lg"
+                                required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Método de Pago</label>
+                            <select id="p_payment_method" class="form-select" required>
+                                <option value="">-- Seleccionar --</option>
+                                <?php
+                                // Reutilizamos transactionManager? No está instanciado aquí explícitamente pero está en autoload.
+                                // Si no, hacemos query manual o instanciamos.
+                                // Autoload ya instanció $transactionManager
+                                $methods = $transactionManager->getPaymentMethods();
+                                foreach ($methods as $m): ?>
+                                    <option value="<?= $m['id'] ?>"><?= $m['name'] ?> (<?= $m['currency'] ?>)</option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="resetDebtModal()">Atrás</button>
+                        <button type="submit" class="btn btn-success w-100 mt-2">✅ Procesar Abono</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- LÓGICA DE ABONO POS ---
+    let debtModal;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        debtModal = new bootstrap.Modal(document.getElementById('modalDebtPOS'));
+    });
+
+    function openDebtModal() {
+        resetDebtModal();
+        debtModal.show();
+    }
+
+    function resetDebtModal() {
+        document.getElementById('step-search').style.display = 'block';
+        document.getElementById('step-pay').style.display = 'none';
+        document.getElementById('debt-client-results').innerHTML = '';
+        document.getElementById('debt-client-search').value = '';
+        document.getElementById('form-debt-pos').reset();
+    }
+
+    function searchDebtClient() {
+        const query = document.getElementById('debt-client-search').value;
+        if (query.length < 2) return;
+
+        fetch(`ajax/search_clients.php?q=${encodeURIComponent(query)}`)
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('debt-client-results');
+                list.innerHTML = '';
+
+                if (data.length === 0) {
+                    list.innerHTML = '<div class="list-group-item text-muted">No encontrado</div>';
+                    return;
+                }
+
+                data.forEach(c => {
+                    const item = document.createElement('button');
+                    item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                    item.innerHTML = `
+                        <div>
+                            <strong>${c.name}</strong><br>
+                            <small class="text-muted">${c.document_id}</small>
+                        </div>
+                        <span class="badge bg-danger">$${parseFloat(c.current_debt).toFixed(2)}</span>
+                    `;
+                    item.onclick = () => selectDebtClient(c);
+                    list.appendChild(item);
+                });
+            });
+    }
+
+    // Búsqueda al presionar Enter
+    document.getElementById('debt-client-search').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Evitar submit de forms si los hubiera
+            searchDebtClient();
+        }
+    });
+
+    function selectDebtClient(client) {
+        document.getElementById('p_client_id').value = client.id;
+        document.getElementById('selected-client-name').textContent = client.name;
+        document.getElementById('selected-client-debt').textContent = '$' + parseFloat(client.current_debt).toFixed(2);
+
+        document.getElementById('step-search').style.display = 'none';
+        document.getElementById('step-pay').style.display = 'block';
+        document.getElementById('p_amount_usd').focus();
+    }
+
+    document.getElementById('form-debt-pos').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const data = {
+            client_id: document.getElementById('p_client_id').value,
+            amount_usd: document.getElementById('p_amount_usd').value,
+            payment_method_id: document.getElementById('p_payment_method').value
+        };
+
+        if (confirm(`¿Confirmar abono de $${data.amount_usd}?`)) {
+            fetch('ajax/process_debt_payment.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        alert(res.message);
+                        debtModal.hide();
+                        // Opcional: Recargar o actualizar UI
+                    } else {
+                        alert('Error: ' + res.message);
+                    }
+                })
+                .catch(err => alert('Error de conexión'));
+        }
+    });
+</script>
 
 <?php require_once '../templates/footer.php'; ?>
