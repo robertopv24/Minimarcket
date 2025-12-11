@@ -22,32 +22,8 @@ if (!$venta) {
     exit;
 }
 
-// Primera fila tiene todos los datos de la orden
-$venta = [
-    'id' => $rows[0]['id'],
-    'user_id' => $rows[0]['user_id'],
-    'customer_name' => $rows[0]['customer_name'],
-    'shipping_address' => $rows[0]['shipping_address'],
-    'total_price' => $rows[0]['total_usd'], // Renamed from total_usd to total_price for consistency with original code
-    'total_ves' => $rows[0]['total_ves'],
-    'status' => $rows[0]['status'],
-    'created_at' => $rows[0]['created_at'],
-    'cashier_name' => $rows[0]['cashier_name']
-];
-
-// Construir array de items desde las filas
-$items = [];
-foreach ($rows as $row) {
-    if ($row['item_id']) { // Solo si hay items
-        $items[] = [
-            'id' => $row['item_id'],
-            'product_id' => $row['product_id'],
-            'name' => $row['product_name'],
-            'quantity' => $row['item_quantity'],
-            'price' => $row['item_price'] // Renamed from price_usd to price for consistency with original code
-        ];
-    }
-}
+// 2. Obtener productos de la venta
+$productos = $orderManager->getOrderItems($ventaId);
 
 // 3. Obtener Transacciones Financieras (Tesorería)
 // Buscamos todo el dinero que entró o salió (vuelto) por esta orden
