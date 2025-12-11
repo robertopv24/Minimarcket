@@ -50,6 +50,9 @@ class CreditManager
         // Validar límites si es cliente
         if ($clientId) {
             $client = $this->getClientById($clientId);
+            if (!$client) {
+                return "Error: Cliente no encontrado (ID: $clientId)";
+            }
             if (($client['current_debt'] + $amount) > $client['credit_limit']) {
                 return "Error: Límite de crédito excedido. Actual: {$client['current_debt']} + {$amount} > {$client['credit_limit']}";
             }
@@ -195,25 +198,41 @@ class CreditManager
                     $currency = $stmtMethod->fetchColumn();
                     debugLog("payDebt: Payment method currency=$currency");
 
-                    // Si es VES, necesitamos tasa de cambio para amount_usd_ref
-                    $amountUsdRef = $amountToPay;
-                    $exchangeRate = 1.00;
+                    // LÓGICA CORREGIDA MULTIMONEDA:
+                    // $amountToPay entra SIEMPRE como USD (porque es abono a deuda en USD).
+                    // Pero la caja necesita saber el monto NOMINAL que entró (físico).
+
+                    // 1. Obtener Tasa Local
+                    $exchangeRate = 1;
+                    if (isset($GLOBALS['config'])) {
+                        $exchangeRate = $GLOBALS['config']->get('exchange_rate');
+                    } else {
+                        // Fallback seguro
+                        $stmtRate = $this->db->query("SELECT config_value FROM config WHERE config_key = 'exchange_rate'");
+                        $rateVal = $stmtRate->fetchColumn();
+                        $exchangeRate = floatval($rateVal) ?: 1;
+                    }
+
+                    // 2. Calcular Montos
+                    $amountUsdRef = $amountToPay; // Siempre es el valor que reduce la deuda
+                    $amountNominal = $amountToPay; // Default para USD
 
                     if ($currency === 'VES') {
-                        $stmtRate = $this->db->prepare("SELECT config_value FROM config WHERE config_key = 'exchange_rate'");
-                        $stmtRate->execute();
-                        $exchangeRate = floatval($stmtRate->fetchColumn() ?: 1);
-                        $amountUsdRef = $amountToPay / $exchangeRate;
-                        debugLog("payDebt: VES conversion", [
-                            'rate' => $exchangeRate,
-                            'amountUsdRef' => $amountUsdRef
-                        ]);
+                        // Si paga en Bolívares, multiplicamos USD * Tasa para saber cuántos Bs entraron
+                        $amountNominal = $amountToPay * $exchangeRate;
                     }
+
+                    debugLog("payDebt: Conversion logic", [
+                        'input_usd' => $amountToPay,
+                        'rate' => $exchangeRate,
+                        'currency' => $currency,
+                        'nominal_calculated' => $amountNominal
+                    ]);
 
                     $description = "Pago de deuda AR#{$arId}" . ($ar['client_id'] ? " - Cliente ID: {$ar['client_id']}" : "");
 
                     // Obtener usuario actual para created_by
-                    $createdBy = $_SESSION['user_id'] ?? 1; // Default a 1 si no hay sesión
+                    $createdBy = $_SESSION['user_id'] ?? 1;
 
                     // Registrar ingreso en transactions
                     $stmtTx = $this->db->prepare("
@@ -223,13 +242,13 @@ class CreditManager
 
                     $resultTx = $stmtTx->execute([
                         $sessionId,
-                        $amountToPay,           // amount en moneda nominal
+                        $amountNominal,         // amount en moneda nominal (lo que entra a caja)
                         $currency,              // USD o VES
-                        $exchangeRate,          // tasa de cambio
-                        $amountUsdRef,          // amount en USD
+                        $exchangeRate,          // tasa de cambio usada
+                        $amountUsdRef,          // amount en USD (crédito real)
                         $paymentMethodId,
                         $arId,                  // reference_id
-                        $description,           // description (antes era notes)
+                        $description,           // description
                         $createdBy              // created_by
                     ]);
                     debugLog("payDebt: INSERT transactions result=" . ($resultTx ? 'true' : 'false'));
