@@ -1,90 +1,52 @@
 <?php
-// SupplierManager.php
 
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\SupplyChain\Services\SupplierService;
+
+/**
+ * @deprecated This class is a legacy proxy. Use Minimarcket\Modules\SupplyChain\Services\SupplierService instead.
+ */
 class SupplierManager
 {
-    private $db;
+    private $service;
 
-    public function __construct($db)
+    public function __construct($db = null)
     {
-        $this->db = $db;
+        $container = Container::getInstance();
+        try {
+            $this->service = $container->get(SupplierService::class);
+        } catch (Exception $e) {
+            $this->service = new SupplierService($db);
+        }
     }
 
     public function addSupplier($name, $contactPerson, $email, $phone, $address)
     {
-        try {
-            $stmt = $this->db->prepare("INSERT INTO suppliers (name, contact_person, email, phone, address) VALUES (?, ?, ?, ?, ?)");
-            return $stmt->execute([$name, $contactPerson, $email, $phone, $address]);
-        } catch (PDOException $e) {
-            error_log("Error al agregar proveedor: " . $e->getMessage());
-            return false;
-        }
+        return $this->service->addSupplier($name, $contactPerson, $email, $phone, $address);
     }
 
     public function updateSupplier($id, $name, $contactPerson, $email, $phone, $address)
     {
-        try {
-            $stmt = $this->db->prepare("UPDATE suppliers SET name = ?, contact_person = ?, email = ?, phone = ?, address = ? WHERE id = ?");
-            return $stmt->execute([$name, $contactPerson, $email, $phone, $address, $id]);
-        } catch (PDOException $e) {
-            error_log("Error al actualizar proveedor: " . $e->getMessage());
-            return false;
-        }
+        return $this->service->updateSupplier($id, $name, $contactPerson, $email, $phone, $address);
     }
 
     public function deleteSupplier($id)
     {
-        try {
-            $stmt = $this->db->prepare("DELETE FROM suppliers WHERE id = ?");
-            return $stmt->execute([$id]);
-        } catch (PDOException $e) {
-            error_log("Error al eliminar proveedor: " . $e->getMessage());
-            return false;
-        }
+        return $this->service->deleteSupplier($id);
     }
 
-    /**
-     * Obtener proveedor por ID
-     * @param int $id
-     * @return array|false Datos del proveedor o false si falla/no existe
-     */
     public function getSupplierById($id)
     {
-        try {
-            $stmt = $this->db->prepare("SELECT * FROM suppliers WHERE id = ?");
-            $stmt->execute([$id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error al obtener proveedor por ID: " . $e->getMessage());
-            return false;
-        }
+        return $this->service->getSupplierById($id);
     }
 
     public function searchSuppliers($query = '')
     {
-        try {
-            $sql = "SELECT * FROM suppliers";
-            $params = [];
-
-            if (!empty($query)) {
-                $sql .= " WHERE name LIKE ? OR contact_person LIKE ? OR email LIKE ?";
-                $term = "%$query%";
-                $params = [$term, $term, $term];
-            }
-
-            $sql .= " ORDER BY name ASC";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Error al buscar proveedores: " . $e->getMessage());
-            return [];
-        }
+        return $this->service->searchSuppliers($query);
     }
 
     public function getAllSuppliers()
     {
-        return $this->searchSuppliers();
+        return $this->service->getAllSuppliers();
     }
 }
-?>

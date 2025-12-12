@@ -6,8 +6,22 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\User\Services\UserService;
+use Minimarcket\Modules\SupplyChain\Services\PurchaseOrderService;
+use Minimarcket\Modules\Finance\Services\TransactionService;
+use Minimarcket\Core\Config\ConfigService;
+use Minimarcket\Core\Security\CsrfToken;
+
+$container = Container::getInstance();
+$userService = $container->get(UserService::class);
+$purchaseOrderService = $container->get(PurchaseOrderService::class);
+$transactionService = $container->get(TransactionService::class);
+$configService = $container->get(ConfigService::class);
+$csrfToken = $container->get(CsrfToken::class);
+
 session_start();
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -15,7 +29,7 @@ if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validar CSRF
     try {
-        Csrf::validateToken();
+        $csrfToken->validateToken();
     } catch (Exception $e) {
         die("Error de seguridad: " . $e->getMessage());
     }
@@ -40,34 +54,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception("Debes seleccionar un método de pago.");
 
                 // Obtener tasa actual para registros
-                $currentRate = $GLOBALS['config']->get('exchange_rate');
+                $currentRate = $configService->get('exchange_rate');
                 if (!$currentRate)
                     $currentRate = 1.00;
 
                 // 1. CREAR ORDEN DE COMPRA (Inventario)
                 // Esto guarda en purchase_orders y purchase_order_items
-                $purchaseId = $purchaseOrderManager->createPurchaseOrder($supplierId, $orderDate, $expectedDate, $items, $currentRate);
+                $purchaseId = $purchaseOrderService->createPurchaseOrder($supplierId, $orderDate, $expectedDate, $items, $currentRate);
 
                 if ($purchaseId) {
                     // 2. REGISTRAR PAGO / GASTO (Tesorería)
 
-                    // Obtenemos el total calculado por el Manager para ser precisos
-                    $purchaseData = $purchaseOrderManager->getPurchaseOrderById($purchaseId);
+                    // Obtenemos el total calculado por el Service para ser precisos
+                    $purchaseData = $purchaseOrderService->getPurchaseOrderById($purchaseId);
                     $totalAmountUsd = $purchaseData['total_amount'];
 
                     // Averiguar moneda del método de pago seleccionado
-                    // (Necesario para saber si descontamos USD o VES de la bóveda)
-                    $stmt = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
-                    $stmt->execute([$paymentMethodId]);
-                    $currency = $stmt->fetchColumn();
+                    // Necesitamos obtener el método para saber su moneda
+                    $methods = $transactionService->getPaymentMethods();
+                    $currency = 'USD'; // Default
+                    foreach ($methods as $method) {
+                        if ($method['id'] == $paymentMethodId) {
+                            $currency = $method['currency'];
+                            break;
+                        }
+                    }
 
                     // Calcular monto en la moneda de pago
-                    // Si la moneda es VES, convertimos el total USD a VES usando la tasa actual
                     $amountToRegister = ($currency == 'VES') ? ($totalAmountUsd * $currentRate) : $totalAmountUsd;
 
-                    // Llamamos al TransactionManager para que registre el egreso
-                    // Si es efectivo, descontará de la Caja Chica automáticamente
-                    $result = $transactionManager->registerPurchasePayment(
+                    // Llamamos al TransactionService para que registre el egreso
+                    $result = $transactionService->registerPurchasePayment(
                         $purchaseId,
                         $amountToRegister,
                         $currency,
@@ -76,13 +93,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
 
                     if ($result === false) {
-                        // Si falla el pago (ej: saldo insuficiente), deberíamos cancelar la orden para mantener consistencia
-                        $purchaseOrderManager->deletePurchaseOrder($purchaseId);
-                        throw new Exception("Error financiero: No se pudo registrar el pago (¿Saldo insuficiente en Caja Chica?). La orden fue cancelada.");
+                        // Si falla el pago, cancelar la orden
+                        $purchaseOrderService->deletePurchaseOrder($purchaseId);
+                        throw new Exception("Error financiero: No se pudo registrar el pago (¿Saldo insuficiente en Bóveda?). La orden fue cancelada.");
                     }
 
                     // Éxito
-                    header('Location: list_purchase_orders.php?msg=success');
+                    header('Location: compras.php?msg=success');
                     exit;
                 } else {
                     throw new Exception("Error al guardar la orden en base de datos.");
@@ -99,10 +116,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
 
         case 'delete':
-            // ... Lógica de eliminar existente ...
             $id = $_POST['id'] ?? 0;
-            if ($purchaseOrderManager->deletePurchaseOrder($id)) {
-                header('Location: list_purchase_orders.php');
+            // Para delete, normalmente se usa GET en el botón, pero si se cambia a POST por seguridad:
+            // $purchaseOrderService->deletePurchaseOrder($id);
+            // Pero el botón en compras.php es un GET link.
+            // Para mantener consistencia con el archivo original, mantienes esto por si acaso se llama vía POST.
+            // Pero el link es: delete_purchase_order.php?id=... (que es otro archivo).
+            // Este archivo parece manejar solo el POST del formulario de add.
+            // El case 'delete' podría ser un residuo, pero lo mantendremos safe.
+            if ($purchaseOrderService->deletePurchaseOrder($id)) {
+                header('Location: compras.php');
             } else {
                 echo "Error al eliminar.";
             }
@@ -113,6 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
     }
 } else {
-    header('Location: list_purchase_orders.php');
+    header('Location: compras.php');
 }
 ?>

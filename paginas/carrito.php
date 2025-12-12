@@ -5,8 +5,19 @@ session_start();
 // -------------------------------------------------------------------------
 require_once '../templates/autoload.php';
 
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\Sales\Services\CartService;
+use Minimarcket\Core\Config\ConfigService;
+
+$container = Container::getInstance();
+$cartService = $container->get(CartService::class);
+// We might need ConfigService if we want strict types, but CartService handles it internally for now.
+
 $userId = $_SESSION['user_id'] ?? null;
-if (!$userId) { header("Location: login.php"); exit; }
+if (!$userId) {
+    header("Location: login.php");
+    exit;
+}
 
 $error_msg = "";
 
@@ -21,32 +32,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $itemsData = json_decode($json, true);
             $generalNote = $_POST['general_note'] ?? '';
 
-            $result = $cartManager->updateItemModifiers($cartId, [
+            $result = $cartService->updateItemModifiers($cartId, [
                 'items' => $itemsData,
                 'general_note' => $generalNote
             ]);
 
             if ($result === true) {
-                header("Location: carrito.php"); exit;
+                header("Location: carrito.php");
+                exit;
             } else {
                 throw new Exception($result);
             }
         }
 
         // OTRAS ACCIONES
-        if ($action === 'update_qty') $cartManager->updateCartQuantity($cartId, $_POST['quantity']);
-        if ($action === 'remove') $cartManager->removeFromCart($cartId);
-        if ($action === 'clear') $cartManager->emptyCart($userId);
+        if ($action === 'update_qty')
+            $cartService->updateCartQuantity($cartId, $_POST['quantity']);
+        if ($action === 'remove')
+            $cartService->removeFromCart($cartId);
+        if ($action === 'clear')
+            $cartService->emptyCart($userId);
 
-        header("Location: carrito.php"); exit;
+        header("Location: carrito.php");
+        exit;
 
     } catch (Exception $e) {
         $error_msg = "Error: " . $e->getMessage();
     }
 }
 
-$cartItems = $cartManager->getCart($userId);
-$total = $cartManager->calculateTotal($cartItems);
+$cartItems = $cartService->getCart($userId);
+$total = $cartService->calculateTotal($cartItems);
 
 // -------------------------------------------------------------------------
 // 2. VISTA
@@ -56,7 +72,9 @@ require_once '../templates/menu.php';
 ?>
 
 <div class="container mt-5 mb-5">
-    <h2 class="text-center mb-4"><i class="fa fa-shopping-cart text-primary"></i> Tu Pedido</h2>
+    <div class="d-flex align-items-center justify-content-center mb-4">
+        <h2 class="fw-bold text-dark"><i class="fa fa-shopping-cart text-primary me-2"></i> Tu Pedido</h2>
+    </div>
 
     <?php if (!empty($error_msg)): ?>
         <div class="alert alert-danger shadow-sm"><?= htmlspecialchars($error_msg) ?></div>
@@ -64,61 +82,67 @@ require_once '../templates/menu.php';
 
     <?php if (empty($cartItems)): ?>
         <div class="text-center py-5">
-            <h4 class="text-muted">Carrito vacío</h4>
-            <a href="tienda.php" class="btn btn-primary mt-3">Ir al Menú</a>
+            <div class="mb-3">
+                <i class="fa fa-shopping-basket fa-4x text-muted opacity-50"></i>
+            </div>
+            <h4 class="text-muted fw-bold">Tu carrito está vacío</h4>
+            <p class="text-secondary">Parece que aún no has seleccionado nada delicioso.</p>
+            <a href="tienda.php" class="btn btn-primary btn-lg rounded-pill px-5 shadow-sm mt-3">
+                <i class="fa fa-arrow-left me-2"></i> Ir al Menú
+            </a>
         </div>
     <?php else: ?>
-        <div class="card shadow">
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
             <div class="card-body p-0">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-dark">
+                        <thead class="bg-light text-secondary small text-uppercase">
                             <tr>
-                                <th style="width: 40%;">Producto</th>
-                                <th style="width: 25%;">Detalles</th>
-                                <th class="text-center" style="width: 15%;">Cant.</th>
-                                <th class="text-end" style="width: 15%;">Precio</th>
+                                <th class="ps-4" style="width: 40%;">Producto</th>
+                                <th style="width: 25%;">Personalización</th>
+                                <th class="text-center" style="width: 15%;">Cantidad</th>
+                                <th class="text-end" style="width: 15%;">Total</th>
                                 <th style="width: 5%;"></th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="bg-white">
                             <?php foreach ($cartItems as $item): ?>
                                 <tr>
-                                    <td>
-                                        <div class="fw-bold fs-5"><?= htmlspecialchars($item['name']) ?></div>
+                                    <td class="ps-4 py-3">
+                                        <div class="fw-bold text-dark fs-5"><?= htmlspecialchars($item['name']) ?></div>
                                         <?php if($item['product_type']=='compound'): ?>
-                                            <span class="badge bg-warning text-dark" style="font-size:0.7em">COMBO</span>
+                                            <span class="badge bg-warning text-dark border border-warning" style="font-size:0.7em">COMBO</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if ($item['product_type'] != 'simple'): ?>
-                                            <button class="btn btn-sm btn-outline-primary w-100 mb-2"
+                                            <button class="btn btn-sm btn-outline-primary w-100 mb-2 rounded-pill"
                                                     onclick="openModifierModal(<?= $item['id'] ?>)">
-                                                <i class="fa fa-sliders-h me-1"></i> Configurar
+                                                <i class="fa fa-sliders-h me-1"></i> Editar Extras
                                             </button>
 
                                             <?php if (!empty($item['modifiers_desc'])): ?>
-                                                <div class="small text-muted bg-light p-2 rounded border" style="font-size: 0.85rem;">
+                                                <div class="small text-muted bg-light p-2 rounded-3 border" style="font-size: 0.85rem;">
                                                     <?php foreach($item['modifiers_desc'] as $d) echo $d; ?>
                                                 </div>
                                             <?php endif; ?>
                                         <?php else: ?>
-                                            <small class="text-muted fst-italic">Sin opciones</small>
+                                            <span class="badge bg-light text-muted border fw-normal">Estándar</span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-center">
-                                        <form method="post">
+                                        <form method="post" class="d-flex justify-content-center">
                                             <input type="hidden" name="action" value="update_qty">
                                             <input type="hidden" name="cart_id" value="<?= $item['id'] ?>">
-                                            <input type="number" name="quantity" value="<?= $item['quantity'] ?>" class="form-control form-control-sm text-center fw-bold" style="width:60px; margin:auto;" onchange="this.form.submit()">
+                                            <input type="number" name="quantity" value="<?= $item['quantity'] ?>" min="1" class="form-control form-control-sm text-center fw-bold border-secondary" style="width:70px;" onchange="this.form.submit()">
                                         </form>
                                     </td>
-                                    <td class="text-end fw-bold text-success">$<?= number_format($item['total_price'], 2) ?></td>
-                                    <td class="text-end">
+                                    <td class="text-end fw-bold text-success fs-5">$<?= number_format($item['total_price'], 2) ?></td>
+                                    <td class="text-end pe-4">
                                         <form method="post">
                                             <input type="hidden" name="action" value="remove">
                                             <input type="hidden" name="cart_id" value="<?= $item['id'] ?>">
-                                            <button class="btn btn-link text-danger p-0"><i class="fa fa-trash fa-lg"></i></button>
+                                            <button class="btn btn-link text-danger p-0 hover-scale"><i class="fa fa-trash-alt fa-lg"></i></button>
                                         </form>
                                     </td>
                                 </tr>
@@ -127,18 +151,34 @@ require_once '../templates/menu.php';
                     </table>
                 </div>
             </div>
-            <div class="card-footer bg-white p-3">
-                <div class="d-flex justify-content-between align-items-center">
-                    <form method="post"><input type="hidden" name="action" value="clear"><button class="btn btn-outline-danger btn-sm">Vaciar</button></form>
+            <div class="card-footer bg-white p-4 border-top-0">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <form method="post">
+                        <input type="hidden" name="action" value="clear">
+                        <button class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                            <i class="fa fa-trash me-1"></i> Vaciar Carrito
+                        </button>
+                    </form>
                     <div class="text-end">
-                        <h4 class="text-success fw-bold m-0">$<?= number_format($total['total_usd'], 2) ?></h4>
-                        <a href="checkout.php" class="btn btn-success mt-2 px-4 shadow">Pagar</a>
+                        <div class="mb-2">
+                            <span class="text-muted small text-uppercase fw-bold">Total a Pagar</span>
+                            <h3 class="text-success fw-bold m-0 display-6">$<?= number_format($total['total_usd'], 2) ?></h3>
+                            <small class="text-muted">~ <?= number_format($total['total_ves'], 2) ?> VES</small>
+                        </div>
+                        <a href="checkout.php" class="btn btn-success btn-lg rounded-pill px-5 shadow hover-lift">
+                            Proceder al Pago <i class="fa fa-arrow-right ms-2"></i>
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     <?php endif; ?>
 </div>
+
+<style>
+.hover-scale:hover { transform: scale(1.1); transition: transform 0.2s; }
+.hover-lift:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; transition: all 0.2s; }
+</style>
 
 <div class="modal fade" id="modifierModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -161,7 +201,8 @@ require_once '../templates/menu.php';
 
                 <div class="mt-3">
                     <label class="fw-bold">Nota General:</label>
-                    <input type="text" name="general_note" id="modalGeneralNote" class="form-control" placeholder="Ej: Sin servilletas...">
+                    <input type="text" name="general_note" id="modalGeneralNote" class="form-control"
+                        placeholder="Ej: Sin servilletas...">
                 </div>
             </div>
             <div class="modal-footer">
@@ -187,7 +228,7 @@ require_once '../templates/menu.php';
         fetch(`../ajax/get_cart_item.php?cart_id=${cartId}`)
             .then(r => r.json())
             .then(data => {
-                if(data.error) { alert(data.error); return; }
+                if (data.error) { alert(data.error); return; }
 
                 // Debug en consola para verificar qué llega
                 console.log("Datos del Carrito:", data);
@@ -235,7 +276,7 @@ require_once '../templates/menu.php';
                 <div class="accordion-item mb-2 border shadow-sm">
                     <h2 class="accordion-header">
                         <button class="accordion-button ${btnCollapsed} fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#c${idx}">
-                            <span class="badge bg-secondary me-2">#${idx+1}</span> ${item.name}
+                            <span class="badge bg-secondary me-2">#${idx + 1}</span> ${item.name}
                         </button>
                     </h2>
                     <div id="c${idx}" class="accordion-collapse collapse ${isExpanded}" data-bs-parent="#modalItemsContainer">
@@ -257,45 +298,44 @@ require_once '../templates/menu.php';
                                     <h6 class="text-danger small fw-bold border-bottom pb-1">❌ QUITAR</h6>
                                     <div class="mt-2">
                                         ${item.removables.map(ing => {
-                                            // Lógica corregida: Busca en savedMods comparando IDs
-                                            // Usamos == para que no falle si uno es string y otro int
-                                            const isChecked = savedMods.some(m =>
-                                                m.sub_item_index == idx &&
-                                                m.modifier_type == 'remove' &&
-                                                m.raw_material_id == ing.id
-                                            );
-                                            return `
+                // Lógica corregida: Busca en savedMods comparando IDs
+                // Usamos == para que no falle si uno es string y otro int
+                const isChecked = savedMods.some(m =>
+                    m.sub_item_index == idx &&
+                    m.modifier_type == 'remove' &&
+                    m.raw_material_id == ing.id
+                );
+                return `
                                             <div class="form-check mb-1">
-                                                <input class="form-check-input remove-chk border-danger" type="checkbox" value="${ing.id}" data-idx="${idx}" ${isChecked?'checked':''}>
+                                                <input class="form-check-input remove-chk border-danger" type="checkbox" value="${ing.id}" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
                                                 <label class="form-check-label small">${ing.name}</label>
                                             </div>`;
-                                        }).join('')}
+            }).join('')}
                                     </div>
                                 </div>
 
                                 <div class="col-md-6">
                                     <h6 class="text-success small fw-bold border-bottom pb-1">➕ EXTRAS</h6>
                                     <div class="mt-2" style="max-height:150px; overflow-y:auto;">
-                                        ${
-                                            (item.available_extras && item.available_extras.length > 0)
-                                            ? item.available_extras.map(ext => {
-                                                // Lógica corregida: Busca en savedMods
-                                                const isChecked = savedMods.some(m =>
-                                                    m.sub_item_index == idx &&
-                                                    m.modifier_type == 'add' &&
-                                                    m.raw_material_id == ext.id
-                                                );
-                                                return `
+                                        ${(item.available_extras && item.available_extras.length > 0)
+                    ? item.available_extras.map(ext => {
+                        // Lógica corregida: Busca en savedMods
+                        const isChecked = savedMods.some(m =>
+                            m.sub_item_index == idx &&
+                            m.modifier_type == 'add' &&
+                            m.raw_material_id == ext.id
+                        );
+                        return `
                                                 <div class="form-check mb-1">
-                                                    <input class="form-check-input add-chk border-success" type="checkbox" value="${ext.id}" data-price="${ext.price}" data-idx="${idx}" ${isChecked?'checked':''}>
+                                                    <input class="form-check-input add-chk border-success" type="checkbox" value="${ext.id}" data-price="${ext.price}" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
                                                     <label class="form-check-label small d-flex justify-content-between pe-2">
                                                         <span>${ext.name}</span>
                                                         <span class="text-success fw-bold">+$${ext.price}</span>
                                                     </label>
                                                 </div>`;
-                                            }).join('')
-                                            : '<span class="text-muted small fst-italic">No hay extras disponibles.</span>'
-                                        }
+                    }).join('')
+                    : '<span class="text-muted small fst-italic">No hay extras disponibles.</span>'
+                }
                                     </div>
                                 </div>
                             </div>
@@ -311,16 +351,16 @@ require_once '../templates/menu.php';
         const items = [];
         const count = document.getElementById('modalItemsContainer').children.length;
 
-        for(let i=0; i<count; i++) {
+        for (let i = 0; i < count; i++) {
             const radio = document.querySelector(`input[name="cons_${i}"]:checked`);
-            if(!radio) continue;
+            if (!radio) continue;
 
             const consumption = radio.value;
             const remove = [];
             const add = [];
 
             document.querySelectorAll(`.remove-chk[data-idx="${i}"]:checked`).forEach(el => remove.push(parseInt(el.value)));
-            document.querySelectorAll(`.add-chk[data-idx="${i}"]:checked`).forEach(el => add.push({id: parseInt(el.value), price: parseFloat(el.dataset.price)}));
+            document.querySelectorAll(`.add-chk[data-idx="${i}"]:checked`).forEach(el => add.push({ id: parseInt(el.value), price: parseFloat(el.dataset.price) }));
 
             items.push({ index: i, consumption: consumption, remove: remove, add: add });
         }

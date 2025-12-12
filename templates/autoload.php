@@ -18,17 +18,12 @@ $envFile = __DIR__ . '/../.env';
 if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        // Ignorar comentarios
         if (strpos(trim($line), '#') === 0)
             continue;
-
-        // Separar clave=valor
         if (strpos($line, '=') !== false) {
             list($name, $value) = explode('=', $line, 2);
             $name = trim($name);
             $value = trim($value);
-
-            // Guardar en $_ENV y $_SERVER
             if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
                 putenv(sprintf('%s=%s', $name, $value));
                 $_ENV[$name] = $value;
@@ -38,13 +33,28 @@ if (file_exists($envFile)) {
     }
 }
 
+// --- 2. CORE MODULAR SYSTEM (NEW) ---
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
+// Initialize Container
+use Minimarcket\Core\Container;
+$container = Container::getInstance();
+
+// Register Database Service
+$container->register(\Minimarcket\Core\Database::class, function () {
+    return \Minimarcket\Core\Database::getConnection();
+});
+
+// --- 3. LEGACY SYSTEM COMPATIBILITY ---
 require_once __DIR__ . '/../funciones/conexion.php';
 require_once __DIR__ . '/../funciones/Config.php';
 
-
 // Crear instancias de las clases principales para su uso global
 $config = new GlobalConfig();  // Configuración global
-$db = Database::getConnection(); // Conexión a la base de datos
+// We use the legacy Database class for now to ensure 100% compatibility with existing Type Hints
+$db = Database::getConnection(); // Conexión a la base de datos (Legacy class)
 
 
 require_once __DIR__ . '/../funciones/ProductManager.php';
@@ -67,6 +77,10 @@ require_once __DIR__ . '/../funciones/PayrollManager.php'; // NEW
 require_once __DIR__ . '/../funciones/CreditManager.php'; // NEW
 require_once __DIR__ . '/../funciones/RateLimiter.php'; // Rate limiting for security
 require_once __DIR__ . '/../funciones/Csrf.php'; // CSRF Protection
+require_once __DIR__ . '/../funciones/ExchangeRate.php';
+require_once __DIR__ . '/../funciones/EmailController.php';
+require_once __DIR__ . '/../funciones/UploadHelper.php';
+require_once __DIR__ . '/../funciones/PrinterHelper.php';
 
 // Instancias de los controladores
 $cartManager = new CartManager($db);  // Manejo del carrito de compras

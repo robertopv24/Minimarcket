@@ -3,24 +3,36 @@ session_start();
 require_once '../templates/autoload.php';
 require_once '../templates/pos_check.php'; // SEGURIDAD POS
 
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\Finance\Services\CashRegisterService;
+use Minimarcket\Modules\Sales\Services\CartService;
+use Minimarcket\Core\Config\ConfigService;
+use Minimarcket\Modules\Finance\Services\TransactionService;
+
+$container = Container::getInstance();
+$cashRegisterService = $container->get(CashRegisterService::class);
+$cartService = $container->get(CartService::class);
+$configService = $container->get(ConfigService::class);
+$transactionService = $container->get(TransactionService::class);
+
 // 1. Validar Sesión de Caja
 $userId = $_SESSION['user_id'] ?? null;
-if (!$userId || !$cashRegisterManager->hasOpenSession($userId)) {
+if (!$userId || !$cashRegisterService->hasOpenSession($userId)) {
     header("Location: apertura_caja.php");
     exit;
 }
 
 // 2. Obtener carrito
-$cartItems = $cartManager->getCart($userId);
+$cartItems = $cartService->getCart($userId);
 if (empty($cartItems)) {
     header("Location: tienda.php");
     exit;
 }
 
-$totals = $cartManager->calculateTotal($cartItems);
+$totals = $cartService->calculateTotal($cartItems);
 $totalUsd = $totals['total_usd'];
-$rate = $config->get('exchange_rate');
-$methods = $transactionManager->getPaymentMethods();
+$rate = $configService->get('exchange_rate');
+$methods = $transactionService->getPaymentMethods();
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';

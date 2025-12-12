@@ -1,248 +1,52 @@
 <?php
+
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\Finance\Services\CashRegisterService;
+
+/**
+ * @deprecated This class is a legacy proxy. Use Minimarcket\Modules\Finance\Services\CashRegisterService instead.
+ */
 class CashRegisterManager
 {
-    private $db;
+    private $service;
 
-    public function __construct($db)
+    public function __construct($db = null)
     {
-        $this->db = $db;
+        $container = Container::getInstance();
+        try {
+            $this->service = $container->get(CashRegisterService::class);
+        } catch (Exception $e) {
+            $this->service = new CashRegisterService($db);
+        }
     }
 
-    // Verificar si el usuario (Admin o User) tiene caja abierta
     public function hasOpenSession($userId)
     {
-        $stmt = $this->db->prepare("SELECT id FROM cash_sessions WHERE user_id = ? AND status = 'open'");
-        $stmt->execute([$userId]);
-        return $stmt->fetchColumn(); // Retorna el ID si existe, o false
+        return $this->service->hasOpenSession($userId);
     }
 
     public function getStatus($userId)
     {
-        $sessionId = $this->hasOpenSession($userId);
-        if (!$sessionId) {
-            return ['status' => 'closed'];
-        }
-        $stmt = $this->db->prepare("SELECT * FROM cash_sessions WHERE id = ?");
-        $stmt->execute([$sessionId]);
-        $session = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($session) {
-            return $session;
-        }
-        return ['status' => 'closed'];
+        return $this->service->getStatus($userId);
     }
 
-    // Abrir Caja (Iniciar Turno)
     public function openRegister($userId, $initialUsd, $initialVes)
     {
-        if ($this->hasOpenSession($userId)) {
-            return ["status" => false, "message" => "Ya tienes una caja abierta."];
-        }
-
-        try {
-            $this->db->beginTransaction();
-
-            // 1. Crear sesión
-            $sql = "INSERT INTO cash_sessions (user_id, opening_balance_usd, opening_balance_ves, status, opened_at) VALUES (?, ?, ?, 'open', NOW())";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$userId, $initialUsd, $initialVes]);
-            $sessionId = $this->db->lastInsertId();
-
-            // 2. Registrar el saldo inicial como transacción (Ajuste de entrada)
-            if ($initialUsd > 0)
-                $this->logInitialBalance($sessionId, $initialUsd, 'USD', $userId);
-            if ($initialVes > 0)
-                $this->logInitialBalance($sessionId, $initialVes, 'VES', $userId);
-
-            $this->db->commit();
-            return ["status" => true, "session_id" => $sessionId];
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            return ["status" => false, "message" => "Error al abrir caja: " . $e->getMessage()];
-        }
+        return $this->service->openRegister($userId, $initialUsd, $initialVes);
     }
 
-    // Registrar transacción contable
-    private function logInitialBalance($sessionId, $amount, $currency, $userId)
-    {
-        // Buscamos el ID del método "Efectivo" correspondiente
-        $methodName = "Efectivo " . $currency;
-        $stmt = $this->db->prepare("SELECT id FROM payment_methods WHERE name = ?");
-        $stmt->execute([$methodName]);
-        $methodId = $stmt->fetchColumn();
-
-        // Obtener Tasa de Cambio actual
-        $rate = 1;
-        if (isset($GLOBALS['config'])) {
-            $rate = $GLOBALS['config']->get('exchange_rate');
-        } else {
-            // Fallback si no está el global config (ej: tests)
-            $stmtRate = $this->db->query("SELECT value FROM system_config WHERE key_name = 'exchange_rate'");
-            $rate = $stmtRate->fetchColumn() ?: 1;
-        }
-
-        $amountUsdRef = ($currency == 'USD') ? $amount : ($amount / $rate);
-
-        if ($methodId) {
-            $sql = "INSERT INTO transactions (cash_session_id, type, amount, currency, exchange_rate, amount_usd_ref, payment_method_id, reference_type, description, created_by, created_at)
-                    VALUES (?, 'income', ?, ?, ?, ?, ?, 'adjustment', 'Fondo Inicial de Caja', ?, NOW())";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$sessionId, $amount, $currency, $rate, $amountUsdRef, $methodId, $userId]);
-        }
-    }
-
-    // --- NUEVO: Lógica para Cierre de Caja ---
-
-    // 1. Obtener reporte del turno actual (Cuánto debería haber)
     public function getSessionReport($userId)
     {
-        $sessionId = $this->hasOpenSession($userId);
-        if (!$sessionId)
-            return null;
-
-        $report = [
-            'id' => $sessionId,
-            'expected_usd' => 0,
-            'expected_ves' => 0,
-            'movements' => []
-        ];
-
-        // 1. Iniciar el conteo con el Fondo de Caja (Base)
-        $stmt = $this->db->prepare("SELECT * FROM cash_sessions WHERE id = ?");
-        $stmt->execute([$sessionId]);
-        $session = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        $report['expected_usd'] = floatval($session['opening_balance_usd']);
-        $report['expected_ves'] = floatval($session['opening_balance_ves']);
-        $report['opened_at'] = $session['opened_at'];
-
-        // 2. Obtener transacciones
-        // Nota: Traemos TODAS (incluyendo ajustes) para mostrarlas en la lista
-        $sql = "SELECT t.*, pm.type as method_type, pm.name as method_name
-                        FROM transactions t
-                        JOIN payment_methods pm ON t.payment_method_id = pm.id
-                        WHERE t.cash_session_id = ?
-                        ORDER BY t.created_at ASC";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$sessionId]);
-        $trans = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($trans as $t) {
-            // Lógica de Suma:
-            // Solo sumamos al "Total Esperado" si NO es un ajuste de fondo (reference_type != 'adjustment')
-            // Porque el fondo ya lo sumamos en el paso 1 con $session['opening_balance...']
-
-            if ($t['method_type'] === 'cash' && $t['reference_type'] !== 'adjustment') {
-                if ($t['currency'] === 'USD') {
-                    $report['expected_usd'] += ($t['type'] === 'income' ? $t['amount'] : -$t['amount']);
-                } elseif ($t['currency'] === 'VES') {
-                    $report['expected_ves'] += ($t['type'] === 'income' ? $t['amount'] : -$t['amount']);
-                }
-            }
-
-            // Agregamos todo a la lista visual (incluso el fondo, para que se vea en el historial)
-            $report['movements'][] = $t;
-        }
-
-        return $report;
+        return $this->service->getSessionReport($userId);
     }
 
-    // 2. Cerrar la Caja
     public function closeRegister($userId, $countedUsd, $countedVes)
     {
-        $report = $this->getSessionReport($userId);
-        if (!$report)
-            return ["status" => false, "message" => "No hay sesión abierta."];
-
-        try {
-            $sql = "UPDATE cash_sessions SET
-                    closing_balance_usd = ?,
-                    closing_balance_ves = ?,
-                    calculated_usd = ?,
-                    calculated_ves = ?,
-                    status = 'closed',
-                    closed_at = NOW()
-                    WHERE id = ?";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $countedUsd,
-                $countedVes,
-                $report['expected_usd'],
-                $report['expected_ves'],
-                $report['id']
-            ]);
-
-            // Usamos $GLOBALS para acceder al VaultManager creado en autoload
-            if (isset($GLOBALS['vaultManager'])) {
-                $GLOBALS['vaultManager']->transferFromSession($report['id'], $countedUsd, $countedVes, $userId);
-            }
-
-            return ["status" => true];
-
-        } catch (Exception $e) {
-            return ["status" => false, "message" => "Error al cerrar: " . $e->getMessage()];
-        }
+        return $this->service->closeRegister($userId, $countedUsd, $countedVes);
     }
 
-    // --- BÚSQUEDA HISTÓRICA DE SESIONES (PARA ADMIN) ---
     public function searchSessions($query = '')
     {
-        $sql = "SELECT cs.*, u.name as cashier_name,
-                (cs.closing_balance_usd - cs.calculated_usd) as diff_usd,
-                (cs.closing_balance_ves - cs.calculated_ves) as diff_ves
-                FROM cash_sessions cs
-                JOIN users u ON cs.user_id = u.id
-                WHERE cs.status = 'closed'";
-
-        $params = [];
-        if (!empty($query)) {
-            $sql .= " AND (u.name LIKE ? OR cs.id LIKE ?)";
-            $params[] = "%$query%";
-            $params[] = "%$query%";
-        }
-
-        $sql .= " ORDER BY cs.closed_at DESC LIMIT 50";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->service->searchSessions($query);
     }
-
-    // --- NUEVO: Obtener detalle completo de una sesión cerrada por ID ---
-    public function getSessionDetailsById($sessionId)
-    {
-        // 1. Datos básicos de la sesión
-        $stmt = $this->db->prepare("SELECT cs.*, u.name as cashier_name
-                                            FROM cash_sessions cs
-                                            JOIN users u ON cs.user_id = u.id
-                                            WHERE cs.id = ?");
-        $stmt->execute([$sessionId]);
-        $session = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$session)
-            return null;
-
-        // 2. Agrupar totales por Método de Pago
-        // Esto nos dirá: Zelle=$50, Pago Móvil=200Bs, Efectivo=$20...
-        $sql = "SELECT pm.name as method_name, pm.currency, pm.type,
-                        SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE -t.amount END) as total
-                        FROM transactions t
-                        JOIN payment_methods pm ON t.payment_method_id = pm.id
-                        WHERE t.cash_session_id = ?
-                        GROUP BY pm.id, pm.name, pm.currency, pm.type";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$sessionId]);
-        $methods = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return [
-            'info' => $session,
-            'methods' => $methods
-        ];
-    }
-
-
-
 }
-?>

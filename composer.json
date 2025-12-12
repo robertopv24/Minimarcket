@@ -1,0 +1,13 @@
+{
+    "name": "minimarcket/core",
+    "description": "Core modular system for Minimarcket",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Minimarcket\\": "src/"
+        }
+    },
+    "require": {
+        "phpmailer/phpmailer": "^7.0"
+    }
+}
