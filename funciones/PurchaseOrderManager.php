@@ -12,10 +12,10 @@ class PurchaseOrderManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(PurchaseOrderService::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(PurchaseOrderService::class);
+        } else {
             $this->service = new PurchaseOrderService($db);
         }
     }

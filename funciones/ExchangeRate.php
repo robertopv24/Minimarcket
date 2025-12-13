@@ -13,12 +13,10 @@ class ExchangeRate
 
     public function __construct()
     {
-        // Original constructor called Database::getInstance inside.
-        // We do it via container
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(ExchangeRateService::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(ExchangeRateService::class);
+        } else {
             $this->service = new ExchangeRateService();
         }
     }

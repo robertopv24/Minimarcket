@@ -1,7 +1,5 @@
 <?php
 
-require_once __DIR__ . '/conexion.php';
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\Sales\Services\OrderService;
 
 /**
@@ -13,11 +11,11 @@ class OrderManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(OrderService::class);
-        } catch (Exception $e) {
-            $this->service = new OrderService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(OrderService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate OrderManager.");
         }
     }
 

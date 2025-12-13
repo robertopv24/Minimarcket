@@ -13,11 +13,22 @@ class GlobalConfig
 
     public function __construct()
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(ConfigService::class);
-        } catch (Exception $e) {
-            $this->service = new ConfigService();
+        global $app;
+        if (isset($app)) {
+            try {
+                $this->service = $app->getContainer()->get(ConfigService::class);
+            } catch (Exception $e) {
+                // $this->service = new ConfigService(); // Might fail without dependencies
+                // die("ConfigService dependency error: " . $e->getMessage());
+                error_log("GlobalConfig Proxy Error: " . $e->getMessage());
+                // Rethrow so we see the trace if needed, or suppress if non-critical?
+                // autoload.php continues...
+                // But $config object will be broken.
+                throw $e;
+            }
+        } else {
+            // If accessed before app bootstrap, this is critical error now
+            die("GlobalConfig instantiated before App Bootstrap.");
         }
     }
 

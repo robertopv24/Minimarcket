@@ -12,10 +12,10 @@ class SupplierManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(SupplierService::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(SupplierService::class);
+        } else {
             $this->service = new SupplierService($db);
         }
     }

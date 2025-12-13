@@ -11,10 +11,10 @@ class ProductionManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(ProductionService::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(ProductionService::class);
+        } else {
             $this->service = new ProductionService($db);
         }
     }

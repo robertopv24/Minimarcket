@@ -1,6 +1,5 @@
 <?php
 
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\Finance\Services\VaultService;
 
 /**
@@ -12,11 +11,11 @@ class VaultManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(VaultService::class);
-        } catch (Exception $e) {
-            $this->service = new VaultService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(VaultService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate VaultManager.");
         }
     }
 

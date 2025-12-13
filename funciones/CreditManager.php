@@ -1,10 +1,9 @@
 <?php
 
-use Minimarcket\Core\Container;
-use Minimarcket\Modules\Finance\Services\CreditService;
+use Minimarcket\Modules\Sales\Services\CreditService;
 
 /**
- * @deprecated This class is a legacy proxy. Use Minimarcket\Modules\Finance\Services\CreditService instead.
+ * @deprecated This class is a legacy proxy. Use Minimarcket\Modules\Sales\Services\CreditService instead.
  */
 class CreditManager
 {
@@ -12,11 +11,11 @@ class CreditManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(CreditService::class);
-        } catch (Exception $e) {
-            $this->service = new CreditService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(CreditService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate CreditManager.");
         }
     }
 

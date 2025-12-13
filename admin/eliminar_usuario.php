@@ -9,12 +9,14 @@ use Minimarcket\Core\Container;
 use Minimarcket\Modules\User\Services\UserService;
 use Minimarcket\Core\Security\CsrfToken;
 
-$container = Container::getInstance();
+global $app;
+$container = $app->getContainer();
 $userService = $container->get(UserService::class);
 $csrfToken = $container->get(CsrfToken::class);
 
-session_start();
-if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+$sessionManager = $container->get(\Minimarcket\Core\Session\SessionManager::class);
+
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -29,7 +31,7 @@ if (!$usuario) {
 }
 
 // Evitar suicidio digital (Admin borrándose a sí mismo)
-if ($usuario['id'] == $_SESSION['user_id']) {
+if ($usuario['id'] == $sessionManager->get('user_id')) {
     echo '<div class="container mt-5"><div class="alert alert-danger shadow-sm rounded-3">No puedes eliminar tu propia cuenta mientras estás conectado.</div><a href="usuarios.php" class="btn btn-primary rounded-pill px-4">Volver</a></div>';
     exit;
 }

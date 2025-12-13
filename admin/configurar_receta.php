@@ -1,9 +1,19 @@
 <?php
 require_once '../templates/autoload.php';
-session_start();
+use Minimarcket\Core\Session\SessionManager;
+use Minimarcket\Modules\Inventory\Services\ProductService;
+use Minimarcket\Modules\Inventory\Services\RawMaterialService;
+use Minimarcket\Modules\Manufacturing\Services\ProductionService;
+
+global $app;
+$container = $app->getContainer();
+$sessionManager = $container->get(SessionManager::class);
+$productService = $container->get(ProductService::class);
+$rawMaterialService = $container->get(RawMaterialService::class);
+$productionService = $container->get(ProductionService::class);
 
 // Validación de seguridad
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -14,7 +24,7 @@ if (!isset($_GET['id'])) {
 }
 
 $productId = $_GET['id'];
-$product = $productManager->getProductById($productId);
+$product = $productService->getProductById($productId);
 $mensaje = '';
 
 // ---------------------------------------------------------
@@ -25,20 +35,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 1. Cambiar Tipo de Producto
     if ($action === 'update_type') {
-        $productManager->updateProductType($productId, $_POST['product_type']);
-        $product = $productManager->getProductById($productId);
+        $productService->updateProductType($productId, $_POST['product_type']);
+        $product = $productService->getProductById($productId);
         $mensaje = '<div class="alert alert-success">Tipo de producto actualizado.</div>';
     }
 
     // 2. Agregar Componente a la Receta Base
     if ($action === 'add_component') {
-        $productManager->addComponent($productId, $_POST['type'], $_POST['component_id'], $_POST['quantity']);
+        $productService->addComponent($productId, $_POST['type'], $_POST['component_id'], $_POST['quantity']);
         $mensaje = '<div class="alert alert-success">Ingrediente base agregado.</div>';
     }
 
     // 3. Eliminar Componente de la Receta Base
     if ($action === 'remove_component') {
-        $productManager->removeComponent($_POST['component_row_id']);
+        $productService->removeComponent($_POST['component_row_id']);
     }
 
     // 4. AGREGAR EXTRA VÁLIDO (NUEVA LÓGICA)
@@ -48,14 +58,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // O mandamos el precio que el admin escriba.
         $price = !empty($_POST['extra_price']) ? $_POST['extra_price'] : 1.00; // Default $1 si no escribe nada
 
-        if ($productManager->addValidExtra($productId, $rawId, $price)) {
+        if ($productService->addValidExtra($productId, $rawId, $price)) {
             $mensaje = '<div class="alert alert-success">Extra permitido agregado correctamente.</div>';
         }
     }
 
     // 5. ELIMINAR EXTRA VÁLIDO
     if ($action === 'remove_valid_extra') {
-        if ($productManager->removeValidExtra($_POST['extra_row_id'])) {
+        if ($productService->removeValidExtra($_POST['extra_row_id'])) {
             $mensaje = '<div class="alert alert-warning">Extra eliminado de la lista.</div>';
         }
     }
@@ -65,15 +75,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // CARGA DE DATOS
 // ---------------------------------------------------------
 // 1. Receta Base
-$components = $productManager->getProductComponents($productId);
+$components = $productService->getProductComponents($productId);
 
 // 2. Listas para selectores
-$rawMaterials = $rawMaterialManager->getAllMaterials();
-$manufactured = $productionManager->getAllManufactured();
-$allProducts = $productManager->getAllProducts();
+$rawMaterials = $rawMaterialService->getAllMaterials();
+$manufactured = $productionService->getAllManufactured();
+$allProducts = $productService->getAllProducts();
 
 // 3. Extras Configurados (NUEVO)
-$validExtras = $productManager->getValidExtras($productId);
+$validExtras = $productService->getValidExtras($productId);
 
 // Calcular Costo Base Total
 $totalCost = 0;

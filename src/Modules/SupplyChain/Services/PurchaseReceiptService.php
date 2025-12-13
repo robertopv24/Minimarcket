@@ -2,117 +2,119 @@
 
 namespace Minimarcket\Modules\SupplyChain\Services;
 
-use Minimarcket\Core\Database;
+use Minimarcket\Modules\SupplyChain\Repositories\PurchaseReceiptRepository;
+use Minimarcket\Modules\SupplyChain\Repositories\PurchaseOrderRepository;
 use Minimarcket\Modules\Inventory\Services\ProductService;
+use Minimarcket\Modules\Inventory\Services\RawMaterialService;
 use Minimarcket\Core\Config\ConfigService;
-use PDO;
 use Exception;
-use PDOException;
 
 class PurchaseReceiptService
 {
-    private $db;
-    private $productService;
-    private $configService;
+    private PurchaseReceiptRepository $repository;
+    private PurchaseOrderRepository $orderRepository;
+    private ?ProductService $productService;
+    private ?RawMaterialService $rawMaterialService;
+    private ?ConfigService $configService;
 
-    public function __construct(?PDO $db = null, ?ProductService $productService = null, ?ConfigService $configService = null)
-    {
-        $this->db = $db ?? Database::getConnection();
-        $this->productService = $productService ?? new ProductService($this->db);
-        $this->configService = $configService ?? new ConfigService($this->db);
+    public function __construct(
+        PurchaseReceiptRepository $repository,
+        PurchaseOrderRepository $orderRepository,
+        ?ProductService $productService = null,
+        ?ConfigService $configService = null,
+        ?RawMaterialService $rawMaterialService = null
+    ) {
+        $this->repository = $repository;
+        $this->orderRepository = $orderRepository;
+        $this->productService = $productService;
+        $this->configService = $configService;
+        $this->rawMaterialService = $rawMaterialService;
     }
-
 
     public function createPurchaseReceipt($purchaseOrderId, $receiptDate)
     {
         try {
-            $this->db->beginTransaction();
+            $this->repository->beginTransaction();
 
-            $stmtCheck = $this->db->prepare("SELECT status FROM purchase_orders WHERE id = ? FOR UPDATE");
-            $stmtCheck->execute([$purchaseOrderId]);
-            $currentStatus = $stmtCheck->fetchColumn();
+            $currentStatus = $this->repository->getOrderForUpdate($purchaseOrderId);
 
             if (!$currentStatus) {
                 throw new Exception("Orden de compra #$purchaseOrderId no encontrada.");
             }
-
             if ($currentStatus === 'received') {
                 throw new Exception("Esta orden ya fue recibida anteriormente.");
             }
-
-            if ($currentStatus === 'canceled') {
+            if ($currentStatus === 'canceled' || $currentStatus === 'cancelled') {
                 throw new Exception("No se puede recibir una orden cancelada.");
             }
 
-            $stmt = $this->db->prepare("INSERT INTO purchase_receipts (purchase_order_id, receipt_date) VALUES (?, ?)");
-            $stmt->execute([$purchaseOrderId, $receiptDate]);
-            $receiptId = $this->db->lastInsertId();
+            // Crear Receipt
+            $receiptId = $this->repository->create([
+                'purchase_order_id' => $purchaseOrderId,
+                'receipt_date' => $receiptDate
+            ]);
 
-            $items = $this->getPurchaseOrderItems($purchaseOrderId);
+            // Procesar Items (Logic de Legacy: Actualizar Stock y Precios)
+            $items = $this->orderRepository->getOrderItems($purchaseOrderId);
 
-            $currentRate = $this->configService->get('exchange_rate');
+            $currentRate = $this->configService ? $this->configService->get('exchange_rate') : 1;
             if (!$currentRate)
                 $currentRate = 1;
 
             foreach ($items as $item) {
-                // Assuming items are PRODUCTS. If they are raw_materials, Logic changes (handled in PurchaseOrder logic? No, Receipt confirms it).
-                // Existing Legacy code only handled PRODUCTS (getProductById).
-                // I will stick to legacy logic.
-                $product = $this->productService->getProductById($item['product_id']);
+                // Item puede ser Product o RawMaterial
+                $itemType = $item['item_type'] ?? 'product';
+                $itemId = $item['item_id'] ?? $item['product_id'];
 
-                if ($product) {
-                    $newStock = $product['stock'] + $item['quantity'];
+                if ($itemType === 'product') {
+                    if (!$this->productService)
+                        continue;
 
-                    $margin = $product['profit_margin'];
-                    $cost = $item['unit_price'];
+                    $product = $this->productService->getProductById($itemId);
+                    if ($product) {
+                        // Calcular nuevo precio
+                        $margin = $product['profit_margin'];
+                        $cost = $item['unit_price'];
 
-                    $newPriceUsd = $cost * (1 + ($margin / 100));
-                    $newPriceVes = $newPriceUsd * $currentRate;
+                        $newPriceUsd = $cost * (1 + ($margin / 100));
+                        $newPriceVes = $newPriceUsd * $currentRate;
 
-                    // Manual update to Products table for atomic efficiency
-                    // Ideally use ProductService update logic, but we change multiple fields.
-                    $sql = "UPDATE products SET stock = ?, price_usd = ?, price_ves = ?, updated_at = NOW() WHERE id = ?";
-                    $stmtUpdate = $this->db->prepare($sql);
-                    $stmtUpdate->execute([$newStock, $newPriceUsd, $newPriceVes, $item['product_id']]);
+                        // Añadir stock (Ahora es el único lugar donde se añade)
+                        $this->productService->addStockByPurchase($itemId, $item['quantity'], $newPriceUsd, $newPriceVes);
 
-                } else {
-                    // Could be raw material? Legacy didn't handle it here explicitly or crashed.
-                    // I will throw exception as legacy did.
-                    throw new Exception("Producto no encontrado ID: " . $item['product_id']);
+                    } else {
+                        throw new Exception("Producto no encontrado ID: " . $itemId);
+                    }
+                } elseif ($itemType === 'raw_material') {
+                    if (!$this->rawMaterialService)
+                        continue;
+
+                    // Usamos RawMaterialService para añadir stock (promediando costo)
+                    // Nota: RawMaterialService->addStock actualiza precio promedio
+                    $this->rawMaterialService->addStock($itemId, $item['quantity'], $item['unit_price']);
                 }
             }
 
-            $stmt = $this->db->prepare("UPDATE purchase_orders SET status = 'received' WHERE id = ?");
-            $stmt->execute([$purchaseOrderId]);
+            $this->repository->updateOrderStatus($purchaseOrderId, 'received');
 
-            $this->db->commit();
+            $this->repository->commit();
             return $receiptId;
 
         } catch (Exception $e) {
-            if ($this->db->inTransaction())
-                $this->db->rollBack();
+            if ($this->repository->inTransaction())
+                $this->repository->rollBack();
             error_log("Error en recepción: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
     public function getPurchaseReceiptById($id)
     {
-        $stmt = $this->db->prepare("SELECT * FROM purchase_receipts WHERE id = ?");
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->repository->find($id);
     }
 
     public function getAllPurchaseReceipts()
     {
-        $stmt = $this->db->query("SELECT * FROM purchase_receipts");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    private function getPurchaseOrderItems($purchaseOrderId)
-    {
-        $stmt = $this->db->prepare("SELECT * FROM purchase_order_items WHERE purchase_order_id = ?");
-        $stmt->execute([$purchaseOrderId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->repository->getReceiptsWithDetails();
     }
 }

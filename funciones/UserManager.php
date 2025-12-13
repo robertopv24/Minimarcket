@@ -1,6 +1,5 @@
 <?php
 
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\User\Services\UserService;
 
 /**
@@ -12,11 +11,13 @@ class UserManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(UserService::class);
-        } catch (Exception $e) {
-            $this->service = new UserService($db);
+        // Obtener el servicio desde el contenedor global de la aplicación
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(UserService::class);
+        } else {
+            // Fallback temporal si no hay app inicializada
+            throw new \Exception("Application not bootstrapped. Cannot instantiate UserManager.");
         }
     }
 

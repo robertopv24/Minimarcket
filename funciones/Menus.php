@@ -15,10 +15,10 @@ class Menus
 
     public function __construct()
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(MenuService::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(MenuService::class);
+        } else {
             $this->service = new MenuService();
         }
     }

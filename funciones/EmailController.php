@@ -12,10 +12,10 @@ class EmailController
 
     public function __construct()
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(EmailService::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(EmailService::class);
+        } else {
             $this->service = new EmailService();
         }
     }

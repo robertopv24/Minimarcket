@@ -8,11 +8,13 @@ require_once '../templates/autoload.php';
 use Minimarcket\Core\Container;
 use Minimarcket\Modules\User\Services\UserService;
 
-$container = Container::getInstance();
+global $app;
+$container = $app->getContainer();
 $userService = $container->get(UserService::class);
 
-session_start();
-if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+$sessionManager = $container->get(\Minimarcket\Core\Session\SessionManager::class);
+
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -129,7 +131,7 @@ $usuarios = $userService->searchUsers($search);
                                             <i class="fa fa-edit"></i>
                                         </a>
 
-                                        <?php if ($usuario['id'] != $_SESSION['user_id']): ?>
+                                        <?php if ($usuario['id'] != $sessionManager->get('user_id')): ?>
                                             <a href="eliminar_usuario.php?id=<?= $usuario['id'] ?>"
                                                 class="btn btn-sm btn-outline-danger border-0" title="Eliminar"
                                                 onclick="return confirm('¿Estás seguro de eliminar a este usuario?');">

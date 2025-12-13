@@ -7,7 +7,18 @@ require_once '../templates/autoload.php';
 
 session_start();
 // Seguridad: Solo Admin
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+// Seguridad: Solo Admin
+use Minimarcket\Modules\User\Services\UserService;
+use Minimarcket\Modules\Sales\Services\OrderService;
+use Minimarcket\Core\Database\ConnectionManager;
+
+global $app;
+$container = $app->getContainer();
+$userService = $container->get(UserService::class);
+$orderService = $container->get(OrderService::class);
+$db = $container->get(ConnectionManager::class)->getConnection();
+
+if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -19,8 +30,8 @@ require_once '../templates/menu.php';
 $search = $_GET['search'] ?? '';
 $filter = $_GET['filter'] ?? '';
 
-// Obtener las órdenes usando el Manager
-$ventas = $orderManager->getOrdersBySearchAndFilter($search, $filter);
+// Obtener las órdenes usando el Service
+$ventas = $orderService->getOrdersBySearchAndFilter($search, $filter);
 ?>
 
 <div class="container mt-5">

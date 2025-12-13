@@ -2,12 +2,21 @@
 // Production settings applied via autoload
 
 require_once '../templates/autoload.php';
-require_once '../funciones/Csrf.php';
-require_once '../funciones/UploadHelper.php';
+use Minimarcket\Core\Security\CsrfToken;
 
-session_start();
+use Minimarcket\Core\Session\SessionManager;
+use Minimarcket\Modules\Inventory\Services\ProductService;
+use Minimarcket\Core\Helpers\UploadHelper;
+
+global $app;
+$container = $app->getContainer();
+$sessionManager = $container->get(SessionManager::class);
+$csrfToken = $container->get(CsrfToken::class);
+$productService = $container->get(ProductService::class);
+$config = $container->get(\Minimarcket\Core\Config\ConfigService::class); // Necesario para el script JS
+
 // Validación de seguridad estándar
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -15,7 +24,7 @@ if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id
 $mensaje = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!Csrf::validate($_POST['csrf_token'] ?? '')) {
+    if (!$csrfToken->validate($_POST['csrf_token'] ?? '')) {
         die("Error de seguridad: Token CSRF inválido.");
     }
     $nombre = $_POST['nombre'] ?? '';
@@ -36,8 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Usar ProductManager para crear (Limpio y Seguro)
-    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin)) {
+    // Usar ProductService para crear (Limpio y Seguro)
+    if ($productService->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin)) {
         $mensaje = '<div class="alert alert-success">Producto creado con éxito.</div>';
     } else {
         $mensaje = '<div class="alert alert-danger">Error al crear el producto en base de datos.</div>';
@@ -57,7 +66,7 @@ require_once '../templates/menu.php';
             <?= $mensaje; ?>
 
             <form method="post" action="" enctype="multipart/form-data">
-                <?= Csrf::insertTokenField(); ?>
+                <?= $csrfToken->insertTokenField(); ?>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">

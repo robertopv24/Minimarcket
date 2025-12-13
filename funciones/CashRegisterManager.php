@@ -1,6 +1,5 @@
 <?php
 
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\Finance\Services\CashRegisterService;
 
 /**
@@ -12,11 +11,11 @@ class CashRegisterManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(CashRegisterService::class);
-        } catch (Exception $e) {
-            $this->service = new CashRegisterService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(CashRegisterService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate CashRegisterManager.");
         }
     }
 

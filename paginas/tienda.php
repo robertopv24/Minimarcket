@@ -1,62 +1,3 @@
-<?php
-session_start();
-
-require_once '../templates/autoload.php';
-require_once '../templates/pos_check.php'; // SEGURIDAD POS
-
-// --- LÓGICA DE CONTROL DE CAJA ---
-$userId = $_SESSION['user_id'] ?? null;
-$userRole = $_SESSION['user_role'] ?? null;
-$hasOpenSession = false;
-$cajaAlert = "";
-
-if ($userId) {
-    $hasOpenSession = $cashRegisterManager->hasOpenSession($userId);
-
-    // REGLA 1: Si es Cajero y NO tiene caja, ¡FUERA! A abrir caja.
-    if ($userRole === 'user' && !$hasOpenSession) {
-        header("Location: apertura_caja.php");
-        exit;
-    }
-
-    // REGLA 2: Si es Admin y NO tiene caja, advertencia.
-    if ($userRole === 'admin' && !$hasOpenSession) {
-        $cajaAlert = '<div class="alert alert-warning text-center m-3">
-                        <i class="fa fa-exclamation-triangle"></i>
-                        <strong>Atención Admin:</strong> No tienes una caja abierta.
-                        <a href="apertura_caja.php" class="btn btn-sm btn-dark ms-2">Abrir Caja para Vender</a>
-                      </div>';
-    }
-}
-// ----------------------------------
-
-// Procesar "Agregar al Carrito"
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    if (!$userId) {
-        echo "<script>alert('Debes iniciar sesión'); window.location='login.php';</script>";
-        exit;
-    }
-
-    // REGLA 3: Nadie puede vender sin caja abierta (ni siquiera el admin si intenta agregar)
-    if (!$hasOpenSession) {
-        echo "<script>alert('⚠️ ERROR: Debes abrir una caja (Turno) antes de realizar ventas.'); window.location='apertura_caja.php';</script>";
-        exit;
-    }
-
-    $productId = $_POST['product_id'];
-    $quantity = $_POST['quantity'];
-
-    $cartManager->addToCart($userId, $productId, $quantity);
-    header('Location: carrito.php');
-    exit;
-}
-
-$search = $_GET['search'] ?? '';
-$products = (!empty($search)) ? $productManager->searchProducts($search) : $productManager->getAllProducts();
-
-require_once '../templates/header.php';
-require_once '../templates/menu.php';
-?>
 
 <?php
 session_start();
@@ -71,7 +12,8 @@ use Minimarcket\Modules\Inventory\Services\ProductService;
 use Minimarcket\Modules\Finance\Services\TransactionService;
 
 // --- MODERN DI SETUP ---
-$container = Container::getInstance();
+global $app;
+$container = $app->getContainer();
 $cashRegisterService = $container->get(CashRegisterService::class);
 $cartService = $container->get(CartService::class);
 $productService = $container->get(ProductService::class);
@@ -173,9 +115,14 @@ require_once '../templates/menu.php';
             <i class="fa fa-shopping-cart"></i> Ver Carrito
             <?php
             // Un pequeño badge si hay items (opcional, pero util)
-            $count = 0; // count($cartManager->getCartItems($userId)); 
-            // Nota: Podriamos implementar ese contador rapido
-            ?>
+            $cartItems = $cartService->getCart($userId);
+            $count = count($cartItems); 
+            if ($count > 0): ?>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    <?= $count ?>
+                    <span class="visually-hidden">items in cart</span>
+                </span>
+            <?php endif; ?>
         </a>
         <button class="btn btn-success ms-2" onclick="openDebtModal()">
             <i class="fa fa-hand-holding-usd"></i> Abonar Crédito

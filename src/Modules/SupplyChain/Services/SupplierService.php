@@ -2,63 +2,56 @@
 
 namespace Minimarcket\Modules\SupplyChain\Services;
 
-use Minimarcket\Core\Database;
-use PDO;
-use Exception;
+use Minimarcket\Modules\SupplyChain\Repositories\SupplierRepository;
 
 class SupplierService
 {
-    private $db;
+    private SupplierRepository $repository;
 
-    public function __construct(?PDO $db = null)
+    public function __construct(SupplierRepository $repository)
     {
-        $this->db = $db ?? Database::getConnection();
+        $this->repository = $repository;
     }
 
     public function addSupplier($name, $contactPerson, $email, $phone, $address)
     {
-        $stmt = $this->db->prepare("INSERT INTO suppliers (name, contact_person, email, phone, address) VALUES (?, ?, ?, ?, ?)");
-        return $stmt->execute([$name, $contactPerson, $email, $phone, $address]);
+        return $this->repository->create([
+            'name' => $name,
+            'contact_person' => $contactPerson,
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address
+        ]);
     }
 
     public function updateSupplier($id, $name, $contactPerson, $email, $phone, $address)
     {
-        $stmt = $this->db->prepare("UPDATE suppliers SET name = ?, contact_person = ?, email = ?, phone = ?, address = ? WHERE id = ?");
-        return $stmt->execute([$name, $contactPerson, $email, $phone, $address, $id]);
+        return $this->repository->update($id, [
+            'name' => $name,
+            'contact_person' => $contactPerson,
+            'email' => $email,
+            'phone' => $phone,
+            'address' => $address
+        ]);
     }
 
     public function deleteSupplier($id)
     {
-        $stmt = $this->db->prepare("DELETE FROM suppliers WHERE id = ?");
-        return $stmt->execute([$id]);
+        return $this->repository->delete($id);
     }
 
     public function getSupplierById($id)
     {
-        $stmt = $this->db->prepare("SELECT * FROM suppliers WHERE id = ?");
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->repository->find($id);
     }
 
     public function searchSuppliers($query = '')
     {
-        $sql = "SELECT * FROM suppliers";
-        $params = [];
-
-        if (!empty($query)) {
-            $sql .= " WHERE name LIKE ? OR contact_person LIKE ? OR email LIKE ?";
-            $term = "%$query%";
-            $params = [$term, $term, $term];
-        }
-
-        $sql .= " ORDER BY name ASC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->repository->search($query);
     }
 
     public function getAllSuppliers()
     {
-        return $this->searchSuppliers();
+        return $this->repository->all();
     }
 }

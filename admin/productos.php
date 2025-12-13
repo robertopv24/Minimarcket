@@ -5,8 +5,15 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+use Minimarcket\Core\Session\SessionManager;
+use Minimarcket\Modules\Inventory\Services\ProductService;
+
+global $app;
+$container = $app->getContainer();
+$sessionManager = $container->get(SessionManager::class);
+$productService = $container->get(ProductService::class);
+
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -16,11 +23,11 @@ $search = $_GET['search'] ?? '';
 $filter = $_GET['filter'] ?? '';
 
 if ($filter === 'stock_bajo') {
-    $productos = $productManager->getLowStockProducts(10); // Umbral de 10
+    $productos = $productService->getLowStockProducts(10); // Umbral de 10
 } elseif (!empty($search)) {
-    $productos = $productManager->searchProducts($search);
+    $productos = $productService->searchProducts($search);
 } else {
-    $productos = $productManager->getAllProducts();
+    $productos = $productService->getAllProducts();
 }
 
 // Calcular Estadísticas Rápidas (KPIs)
@@ -32,7 +39,8 @@ foreach ($productos as $p) {
     // Nota: Para KPIs rápidos usamos el stock físico,
     // pero podrías ajustarlo si quisieras valorar el stock virtual.
     $valorInventarioUsd += $p['price_usd'] * $p['stock'];
-    if ($p['stock'] <= 5) $itemsCriticos++;
+    if ($p['stock'] <= 5)
+        $itemsCriticos++;
 }
 
 require_once '../templates/header.php';
@@ -80,13 +88,15 @@ require_once '../templates/menu.php';
                 <div class="col-md-6">
                     <div class="input-group">
                         <span class="input-group-text"><i class="fa fa-search"></i></span>
-                        <input type="text" name="search" class="form-control" placeholder="Buscar por nombre..." value="<?= htmlspecialchars($search) ?>">
+                        <input type="text" name="search" class="form-control" placeholder="Buscar por nombre..."
+                            value="<?= htmlspecialchars($search) ?>">
                     </div>
                 </div>
                 <div class="col-md-4">
                     <select name="filter" class="form-select">
                         <option value="">Todos los productos</option>
-                        <option value="stock_bajo" <?= ($filter === 'stock_bajo') ? 'selected' : '' ?>>⚠️ Stock Bajo</option>
+                        <option value="stock_bajo" <?= ($filter === 'stock_bajo') ? 'selected' : '' ?>>⚠️ Stock Bajo
+                        </option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -116,9 +126,11 @@ require_once '../templates/menu.php';
                                 <tr>
                                     <td>
                                         <?php if (!empty($producto['image_url']) && file_exists("../" . $producto['image_url'])): ?>
-                                            <img src="../<?= htmlspecialchars($producto['image_url']) ?>" class="rounded border" width="50" height="50" style="object-fit: cover;">
+                                            <img src="../<?= htmlspecialchars($producto['image_url']) ?>" class="rounded border"
+                                                width="50" height="50" style="object-fit: cover;">
                                         <?php else: ?>
-                                            <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                            <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center"
+                                                style="width: 50px; height: 50px;">
                                                 <i class="fa fa-image"></i>
                                             </div>
                                         <?php endif; ?>
@@ -133,7 +145,7 @@ require_once '../templates/menu.php';
                                             <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">REVENTA</span>
                                         <?php endif; ?>
 
-                                        <?php if($producto['stock'] == 0 && $producto['product_type'] == 'simple'): ?>
+                                        <?php if ($producto['stock'] == 0 && $producto['product_type'] == 'simple'): ?>
                                             <span class="badge bg-danger ms-2">AGOTADO</span>
                                         <?php endif; ?>
                                         <br>
@@ -144,8 +156,10 @@ require_once '../templates/menu.php';
 
                                     <td>
                                         <div class="d-flex flex-column">
-                                            <span class="fw-bold text-success">$<?= number_format($producto['price_usd'], 2) ?></span>
-                                            <span class="small text-muted"><?= number_format($producto['price_ves'], 2) ?> Bs</span>
+                                            <span
+                                                class="fw-bold text-success">$<?= number_format($producto['price_usd'], 2) ?></span>
+                                            <span class="small text-muted"><?= number_format($producto['price_ves'], 2) ?>
+                                                Bs</span>
                                         </div>
                                     </td>
 
@@ -157,32 +171,34 @@ require_once '../templates/menu.php';
 
                                     <td class="text-center">
                                         <?php
-                                            $stockMostrar = 0;
+                                        $stockMostrar = 0;
+                                        $esVirtual = false;
+
+                                        // Lógica: Si es simple, muestra stock físico. Si es preparado, calcula receta.
+                                        if ($producto['product_type'] === 'simple') {
+                                            $stockMostrar = $producto['stock'];
                                             $esVirtual = false;
+                                        } else {
+                                            // ¡IMPORTANTE! Asegúrate de tener getVirtualStock en ProductService.php
+                                            $stockMostrar = $productService->getVirtualStock($producto['id']);
+                                            $esVirtual = true;
+                                        }
 
-                                            // Lógica: Si es simple, muestra stock físico. Si es preparado, calcula receta.
-                                            if ($producto['product_type'] === 'simple') {
-                                                $stockMostrar = $producto['stock'];
-                                                $esVirtual = false;
-                                            } else {
-                                                // ¡IMPORTANTE! Asegúrate de tener getVirtualStock en ProductManager.php
-                                                $stockMostrar = $productManager->getVirtualStock($producto['id']);
-                                                $esVirtual = true;
-                                            }
-
-                                            // Colores del semáforo
-                                            $stockClass = 'bg-success';
-                                            if ($stockMostrar <= 5) $stockClass = 'bg-danger';
-                                            elseif ($stockMostrar <= 15) $stockClass = 'bg-warning text-dark';
+                                        // Colores del semáforo
+                                        $stockClass = 'bg-success';
+                                        if ($stockMostrar <= 5)
+                                            $stockClass = 'bg-danger';
+                                        elseif ($stockMostrar <= 15)
+                                            $stockClass = 'bg-warning text-dark';
                                         ?>
 
                                         <span class="badge <?= $stockClass ?> rounded-pill px-3 position-relative">
                                             <?= $stockMostrar ?>
 
-                                            <?php if($esVirtual): ?>
-                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary"
-                                                      style="font-size: 0.6em;"
-                                                      title="Calculado según ingredientes disponibles">
+                                            <?php if ($esVirtual): ?>
+                                                <span
+                                                    class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary"
+                                                    style="font-size: 0.6em;" title="Calculado según ingredientes disponibles">
                                                     <i class="fa fa-utensils"></i>
                                                 </span>
                                             <?php endif; ?>
@@ -195,16 +211,21 @@ require_once '../templates/menu.php';
 
                                     <td class="text-end">
                                         <div class="btn-group">
-                                            <a href="edit_product.php?id=<?= $producto['id'] ?>" class="btn btn-sm btn-warning" title="Editar">
+                                            <a href="edit_product.php?id=<?= $producto['id'] ?>" class="btn btn-sm btn-warning"
+                                                title="Editar">
                                                 <i class="fa fa-edit"></i>
                                             </a>
 
-                                            <a href="configurar_receta.php?id=<?= $producto['id'] ?>" class="btn btn-sm btn-dark ms-1" title="Configurar Receta">
+                                            <a href="configurar_receta.php?id=<?= $producto['id'] ?>"
+                                                class="btn btn-sm btn-dark ms-1" title="Configurar Receta">
                                                 <i class="fa fa-cogs"></i>
                                             </a>
 
-                                            <form action="delete_product.php?id=<?= $producto['id'] ?>" method="POST" style="display:inline;">
-                                                <button type="submit" class="btn btn-sm btn-danger ms-1" onclick="return confirm('¿Eliminar <?= htmlspecialchars($producto['name']) ?>?');" title="Eliminar">
+                                            <form action="delete_product.php?id=<?= $producto['id'] ?>" method="POST"
+                                                style="display:inline;">
+                                                <button type="submit" class="btn btn-sm btn-danger ms-1"
+                                                    onclick="return confirm('¿Eliminar <?= htmlspecialchars($producto['name']) ?>?');"
+                                                    title="Eliminar">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
                                             </form>

@@ -1,10 +1,9 @@
 <?php
 
-use Minimarcket\Core\Container;
-use Minimarcket\Modules\SupplyChain\Services\RawMaterialService;
+use Minimarcket\Modules\Inventory\Services\RawMaterialService;
 
 /**
- * @deprecated This class is a legacy proxy. Use Minimarcket\Modules\SupplyChain\Services\RawMaterialService instead.
+ * @deprecated This class is a legacy proxy. Use Minimarcket\Modules\Inventory\Services\RawMaterialService instead.
  */
 class RawMaterialManager
 {
@@ -12,11 +11,11 @@ class RawMaterialManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(RawMaterialService::class);
-        } catch (Exception $e) {
-            $this->service = new RawMaterialService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(RawMaterialService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate RawMaterialManager.");
         }
     }
 
@@ -40,9 +39,9 @@ class RawMaterialManager
         return $this->service->getMaterialById($id);
     }
 
-    public function createMaterial($name, $unit, $cost, $minStock, $isCookingSupply)
+    public function createMaterial($name, $unit, $cost, $minStock, $isCookingSupply, $category = 'ingredient')
     {
-        return $this->service->createMaterial($name, $unit, $cost, $minStock, $isCookingSupply);
+        return $this->service->createMaterial($name, $unit, $cost, $minStock, $isCookingSupply, $category);
     }
 
     public function updateMaterial($id, $name, $unit, $minStock, $isCookingSupply)

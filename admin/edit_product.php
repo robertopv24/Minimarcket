@@ -5,15 +5,25 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+use Minimarcket\Core\Session\SessionManager;
+use Minimarcket\Modules\Inventory\Services\ProductService;
+use Minimarcket\Core\Config\ConfigService;
+use Minimarcket\Core\Helpers\UploadHelper;
+
+global $app;
+$container = $app->getContainer();
+$sessionManager = $container->get(SessionManager::class);
+$productService = $container->get(ProductService::class);
+$config = $container->get(ConfigService::class);
+
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
 
 $mensaje = '';
 $productoId = $_GET['id'] ?? 0;
-$producto = $productManager->getProductById($productoId);
+$producto = $productService->getProductById($productoId);
 
 if (!$producto) {
     echo '<div class="container mt-5"><div class="alert alert-danger">Producto no encontrado.</div><a href="productos.php" class="btn btn-primary">Volver</a></div>';
@@ -31,10 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $profit_margin = $_POST['profit_margin']; // <--- NUEVO CAMPO
 
     // Procesar imagen
-    // Procesar imagen
     $rutaImagen = null; // null indica que no se actualiza la imagen
     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-        require_once '../funciones/UploadHelper.php'; // Ensure helper is loaded
+        // require_once '../funciones/UploadHelper.php'; // Removed legacy include
         $uploadedPath = UploadHelper::uploadImage($_FILES['imagen']);
 
         if ($uploadedPath) {
@@ -44,10 +53,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Actualizar usando ProductManager
-    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin)) {
+    // Actualizar usando ProductService
+    if ($productService->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin)) {
         $mensaje = '<div class="alert alert-success">Producto actualizado con éxito.</div>';
-        $producto = $productManager->getProductById($id); // Refrescar datos
+        $producto = $productService->getProductById($id); // Refrescar datos
     } else {
         $mensaje = '<div class="alert alert-danger">Error al actualizar el producto.</div>';
     }

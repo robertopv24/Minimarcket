@@ -10,11 +10,10 @@ class Csrf
 {
     private static function getService()
     {
-        // Como Csrf original es estático, usamos el contenedor directamente.
-        $container = Container::getInstance();
-        try {
-            return $container->get(CsrfToken::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            return $app->getContainer()->get(CsrfToken::class);
+        } else {
             return new CsrfToken();
         }
     }

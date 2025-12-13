@@ -11,45 +11,34 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// --- 1. CARGADOR DE VARIABLES DE ENTORNO (.ENV) ---
-// Buscamos el archivo .env en la raíz (un nivel arriba de templates)
-$envFile = __DIR__ . '/../.env';
-
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0)
-            continue;
-        if (strpos($line, '=') !== false) {
-            list($name, $value) = explode('=', $line, 2);
-            $name = trim($name);
-            $value = trim($value);
-            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
-                putenv(sprintf('%s=%s', $name, $value));
-                $_ENV[$name] = $value;
-                $_SERVER[$name] = $value;
-            }
-        }
-    }
-}
-
 // --- 2. CORE MODULAR SYSTEM (NEW) ---
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
 }
 
-// Initialize Container
-use Minimarcket\Core\Container;
-$container = Container::getInstance();
+// Initialize Application (this handles Container, Env, Config, and Service Registration)
+use Minimarcket\Application\Application;
 
-// Register Database Service
-$container->register(\Minimarcket\Core\Database::class, function () {
-    return \Minimarcket\Core\Database::getConnection();
-});
+$basePath = realpath(__DIR__ . '/..');
+$app = new Application($basePath);
+$container = $app->getContainer(); // Keep for compatibility if needed locally
+
+// Register Legacy Database Wrapper if needed by new system (optional)
+// $container->set('db', function() { return \Database::getConnection(); });
 
 // --- 3. LEGACY SYSTEM COMPATIBILITY ---
 require_once __DIR__ . '/../funciones/conexion.php';
 require_once __DIR__ . '/../funciones/Config.php';
+
+// Initialize Session Manager (Centralized Session Handling)
+// This ensures that the session is started with consistent configuration across the app.
+try {
+    $sessionManager = $app->getContainer()->get(\Minimarcket\Core\Session\SessionManager::class);
+    $sessionManager->start();
+} catch (Exception $e) {
+    // Fail silently or log if session cannot start (e.g. CLI)
+    // In CLI test scripts, session_start might fail or behave differently.
+}
 
 // Crear instancias de las clases principales para su uso global
 $config = new GlobalConfig();  // Configuración global

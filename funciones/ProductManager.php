@@ -1,8 +1,5 @@
 <?php
 
-require_once __DIR__ . '/conexion.php';
-// IMPORTANT: autoload.php handles the container loading now.
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\Inventory\Services\ProductService;
 
 /**
@@ -14,19 +11,11 @@ class ProductManager
 
     public function __construct($db = null)
     {
-        // Ignore $db, get service from Container
-        // If Container is not ready (weird edge case), fallback to direct instantiation?
-        // Ideally we assume Container is ready via autoload.php
-        $container = Container::getInstance();
-
-        // Register if not registered (Lazy registration for this module)
-        // Ideally this goes to a ServiceProvider, but for now we do it here or assume autoload handled it.
-        // Let's use get() which auto-wires.
-        try {
-            $this->service = $container->get(ProductService::class);
-        } catch (Exception $e) {
-            // Fallback for non-container environments (unlikely if autoload is used)
-            $this->service = new ProductService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(ProductService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate ProductManager.");
         }
     }
 

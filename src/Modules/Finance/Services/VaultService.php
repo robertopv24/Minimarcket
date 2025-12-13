@@ -2,81 +2,39 @@
 
 namespace Minimarcket\Modules\Finance\Services;
 
-use Minimarcket\Core\Database;
-use PDO;
-use Exception;
+use Minimarcket\Modules\Finance\Repositories\VaultRepository;
 
+/**
+ * Class VaultService
+ * 
+ * Servicio de lógica de negocio para la bóveda de efectivo.
+ */
 class VaultService
 {
-    private $db;
+    protected VaultRepository $repository;
 
-    public function __construct(?PDO $db = null)
+    public function __construct(VaultRepository $repository)
     {
-        $this->db = $db ?? Database::getConnection();
+        $this->repository = $repository;
     }
 
-    public function getBalance()
+    public function getBalance(): array
     {
-        $stmt = $this->db->query("SELECT * FROM company_vault WHERE id = 1");
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->repository->getBalance();
     }
 
-    public function registerMovement($type, $origin, $amount, $currency, $description, $userId, $refId = null, $useTransaction = true)
+    public function registerMovement(string $type, string $origin, float $amount, string $currency, string $description, int $userId, ?int $refId = null, bool $useTransaction = true): string
     {
-        try {
-            if ($amount <= 0)
-                return false;
-
-            if ($useTransaction) {
-                $this->db->beginTransaction();
-            }
-
-            $sql = "INSERT INTO vault_movements (type, origin, amount, currency, description, reference_id, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$type, $origin, $amount, $currency, $description, $refId, $userId]);
-
-            $field = ($currency == 'USD') ? 'balance_usd' : 'balance_ves';
-            $operator = ($type == 'deposit') ? '+' : '-';
-
-            if ($type == 'withdrawal') {
-                $current = $this->getBalance();
-                if ($current[$field] < $amount) {
-                    throw new Exception("Fondos insuficientes en Caja Chica para realizar esta operación.");
-                }
-            }
-
-            $updateSql = "UPDATE company_vault SET $field = $field $operator ? WHERE id = 1";
-            $stmtUpd = $this->db->prepare($updateSql);
-            $stmtUpd->execute([$amount]);
-
-            if ($useTransaction) {
-                $this->db->commit();
-            }
-            return true;
-
-        } catch (Exception $e) {
-            if ($useTransaction && $this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            error_log("Error Vault: " . $e->getMessage());
-            return $e->getMessage();
-        }
+        return $this->repository->registerMovement($type, $origin, $amount, $currency, $description, $userId, $refId);
     }
 
-    public function transferFromSession($sessionId, $amountUsd, $amountVes, $userId)
+    public function transferFromSession(int $sessionId, float $amountUsd, float $amountVes, int $userId): bool
     {
-        if ($amountUsd > 0) {
-            $this->registerMovement('deposit', 'session_close', $amountUsd, 'USD', "Cierre de Caja #$sessionId", $userId, $sessionId);
-        }
-        if ($amountVes > 0) {
-            $this->registerMovement('deposit', 'session_close', $amountVes, 'VES', "Cierre de Caja #$sessionId", $userId, $sessionId);
-        }
+        return $this->repository->transferFromSession($sessionId, $amountUsd, $amountVes, $userId);
     }
 
-    public function getAllMovements()
+    public function getAllMovements(): array
     {
-        $stmt = $this->db->query("SELECT * FROM vault_movements ORDER BY created_at DESC");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->repository->all();
     }
 }

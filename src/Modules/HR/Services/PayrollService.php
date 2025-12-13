@@ -2,46 +2,40 @@
 
 namespace Minimarcket\Modules\HR\Services;
 
-use Minimarcket\Core\Database;
+use Minimarcket\Modules\HR\Repositories\PayrollRepository;
+use Minimarcket\Modules\HR\Repositories\EmployeeRepository;
 use Minimarcket\Modules\Finance\Services\CreditService;
 use Minimarcket\Modules\Finance\Services\VaultService;
-use PDO;
 use Exception;
 
 class PayrollService
 {
-    private $db;
-    private $creditService;
-    private $vaultService;
+    private PayrollRepository $payrollRepository;
+    private EmployeeRepository $employeeRepository;
+    private ?CreditService $creditService;
+    private ?VaultService $vaultService;
 
-    public function __construct(?PDO $db = null, ?CreditService $creditService = null, ?VaultService $vaultService = null)
-    {
-        $this->db = $db ?? Database::getConnection();
-        $this->creditService = $creditService ?? new CreditService($this->db);
-        $this->vaultService = $vaultService ?? new VaultService($this->db);
+    public function __construct(
+        PayrollRepository $payrollRepository,
+        EmployeeRepository $employeeRepository,
+        ?CreditService $creditService = null,
+        ?VaultService $vaultService = null
+    ) {
+        $this->payrollRepository = $payrollRepository;
+        $this->employeeRepository = $employeeRepository;
+        $this->creditService = $creditService;
+        $this->vaultService = $vaultService;
     }
 
     public function getPayrollStatus($filterRole = null)
     {
-        $sql = "SELECT id, name, email, role, phone, salary_amount, salary_frequency, job_role 
-                FROM users 
-                WHERE salary_amount > 0";
-
-        if ($filterRole) {
-            $sql .= " AND job_role = :role";
-        }
-
-        $stmt = $this->db->prepare($sql);
-        if ($filterRole) {
-            $stmt->bindParam(':role', $filterRole);
-        }
-        $stmt->execute();
-        $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+        // 1. Obtener Empleados
+        $employees = $this->employeeRepository->getEmployees($filterRole);
         $results = [];
 
         foreach ($employees as $emp) {
-            $lastPayment = $this->getLastPayment($emp['id']);
+            // 2. Obtener último pago
+            $lastPayment = $this->payrollRepository->getLastPayment($emp['id']);
 
             $emp['last_payment_date'] = $lastPayment ? $lastPayment['payment_date'] : 'Nunca';
             $emp['next_payment_due'] = $this->calculateNextPaymentDate($emp['salary_frequency'], $lastPayment['payment_date'] ?? null);
@@ -54,14 +48,10 @@ class PayrollService
                 $emp['status'] = 'paid';
             }
 
-            // Verify if CreditService has this method. It wasn't in list before.
-            // If not, I need to add it to CreditService.
-            // CreditManager line 59: getPendingEmployeeDebts
-            // I need to check CreditService for getPendingEmployeeDebts
-            if (method_exists($this->creditService, 'getPendingEmployeeDebts')) {
+            // 3. Obtener Deudas (Adelantos)
+            $debts = [];
+            if ($this->creditService) {
                 $debts = $this->creditService->getPendingEmployeeDebts($emp['id']);
-            } else {
-                $debts = []; // Temporary fallback if method missing (I need to check CreditService content)
             }
 
             $totalDebt = 0;
@@ -77,11 +67,33 @@ class PayrollService
         return $results;
     }
 
-    private function getLastPayment($userId)
+    public function registerPayment($userId, $amount, $notes, $creatorId)
     {
-        $stmt = $this->db->prepare("SELECT * FROM payroll_payments WHERE user_id = :uid ORDER BY payment_date DESC LIMIT 1");
-        $stmt->execute([':uid' => $userId]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $this->payrollRepository->beginTransaction();
+
+            // Verificar fondos si VaultService está disponible? (Opcional, legacy no lo mostraba explícito pero es buena práctica)
+            // Por ahora solo registramos
+
+            $success = $this->payrollRepository->logPayment([
+                'user_id' => $userId,
+                'amount' => $amount,
+                'payment_date' => date('Y-m-d'),
+                'notes' => $notes,
+                'created_by' => $creatorId
+            ]);
+
+            if (!$success)
+                throw new Exception("Error registering payment.");
+
+            $this->payrollRepository->commit();
+            return true;
+
+        } catch (Exception $e) {
+            if ($this->payrollRepository->inTransaction())
+                $this->payrollRepository->rollBack();
+            return false;
+        }
     }
 
     private function calculateNextPaymentDate($freq, $lastDate)

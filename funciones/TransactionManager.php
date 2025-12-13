@@ -1,6 +1,5 @@
 <?php
 
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\Finance\Services\TransactionService;
 
 /**
@@ -12,11 +11,11 @@ class TransactionManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(TransactionService::class);
-        } catch (Exception $e) {
-            $this->service = new TransactionService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(TransactionService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate TransactionManager.");
         }
     }
 

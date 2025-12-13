@@ -6,7 +6,10 @@
 ob_start();
 session_start();
 require_once '../../templates/autoload.php';
-require_once '../../funciones/debug_logger.php';
+
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\Finance\Services\CashRegisterService;
+use Minimarcket\Modules\Finance\Services\CreditService;
 
 header('Content-Type: application/json');
 ob_end_clean(); // Ensure clean output
@@ -17,33 +20,42 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-$userId = $_SESSION['user_id'];
-$sessionId = $cashRegisterManager->hasOpenSession($userId);
-
-if (!$sessionId) {
-    echo json_encode(['success' => false, 'message' => '⚠️ Debes tener una Cajan abierta para recibir pagos.']);
-    exit;
-}
-
-// 2. Validar Inputs
-$data = json_decode(file_get_contents('php://input'), true);
-
-$clientId = $data['client_id'] ?? null;
-$amountUsd = floatval($data['amount_usd'] ?? 0);
-$methodId = $data['payment_method_id'] ?? null;
-
-if (!$clientId || $amountUsd <= 0.01 || !$methodId) {
-    echo json_encode(['success' => false, 'message' => 'Datos inválidos (Cliente, Monto o Método faltante).']);
-    exit;
-}
-
 try {
+    $container = Container::getInstance();
+    $cashRegisterService = $container->get(CashRegisterService::class);
+    $creditService = $container->get(CreditService::class);
+
+    $userId = $_SESSION['user_id'];
+
+    // hasOpenSession returns bool based on service logic, but we might need the session ID for payDebt
+    // Wait, payDebt requires $sessionId. 
+    // CashRegisterService->hasOpenSession returns bool.
+    // We need to get the Session ID. 
+    // CashRegisterService->getStatus returns ['id' => ..., 'status' => 'open'] if open.
+
+    $status = $cashRegisterService->getStatus($userId);
+
+    if (!$status || $status['status'] !== 'open') {
+        echo json_encode(['success' => false, 'message' => '⚠️ Debes tener una Caja abierta para recibir pagos.']);
+        exit;
+    }
+    $sessionId = $status['id'];
+
+    // 2. Validar Inputs
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    $clientId = $data['client_id'] ?? null;
+    $amountUsd = floatval($data['amount_usd'] ?? 0);
+    $methodId = $data['payment_method_id'] ?? null;
+
+    if (!$clientId || $amountUsd <= 0.01 || !$methodId) {
+        echo json_encode(['success' => false, 'message' => 'Datos inválidos (Cliente, Monto o Método faltante).']);
+        exit;
+    }
+
     // 3. Obtener Deudas Pendientes (Más antiguas primero - FIFO)
-    $stmt = $db->prepare("SELECT * FROM accounts_receivable 
-                          WHERE client_id = ? AND status != 'paid' 
-                          ORDER BY created_at ASC");
-    $stmt->execute([$clientId]);
-    $debts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Usamos el servicio
+    $debts = $creditService->getPendingDebtsByClient($clientId);
 
     if (empty($debts)) {
         echo json_encode(['success' => false, 'message' => 'Este cliente no tiene deudas pendientes.']);
@@ -54,13 +66,6 @@ try {
     $remainingToPay = $amountUsd;
     $payCount = 0;
 
-    // Iniciar Transacción global opcional? No, payDebt maneja sus propias transacciones.
-    // Pero idealmente todo debería ser atómico.
-    // CreditManager::payDebt inicia transacción por cada pago.
-    // Si falla uno, quedaríamos a medias.
-    // IMPROVEMENT: Podríamos envolver todo en DB transaction si CreditManager soportara nested transactions o no-commit mode.
-    // Por ahora, lo haremos iterativo.
-
     foreach ($debts as $debt) {
         if ($remainingToPay <= 0.001)
             break;
@@ -69,21 +74,21 @@ try {
         $amountForThisDebt = min($remainingToPay, $debtBalance);
 
         // Llamar a payDebt
-        // payDebt($arId, $amountToPay, $method, $transactionRef, $paymentMethodId, $sessionId)
-        // Nota: method='cash' para activar la lógica de caja en CreditManager
-        $result = $creditManager->payDebt(
+        // payDebt($arId, $amountToPay, $paymentMethodId, $paymentRef, $paymentCurrency, $userId, $sessionId)
+        // Signature check: payDebt($arId, $amountToPay, $paymentMethodId, $paymentRef = '', $paymentCurrency = 'USD', $userId = 1, $sessionId = 1)
+
+        $result = $creditService->payDebt(
             $debt['id'],
             $amountForThisDebt,
-            'cash',
-            null,
             $methodId,
+            '', // Ref
+            'USD', // Assuming USD for now based on modal
+            $userId,
             $sessionId
         );
 
-        if (!$result) {
-            // Loguear error pero tratar de continuar o parar?
-            // Si falla uno, mejor parar.
-            throw new Exception("Error al procesar el pago de la deuda ID {$debt['id']}");
+        if ($result !== true) {
+            throw new Exception("Error al procesar el pago de la deuda ID {$debt['id']}: " . $result);
         }
 
         $remainingToPay -= $amountForThisDebt;
@@ -100,4 +105,3 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
 }
-?>

@@ -1,6 +1,5 @@
 <?php
 
-use Minimarcket\Core\Container;
 use Minimarcket\Modules\Sales\Services\CartService;
 
 /**
@@ -12,11 +11,11 @@ class CartManager
 
     public function __construct($db = null)
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(CartService::class);
-        } catch (Exception $e) {
-            $this->service = new CartService($db);
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(CartService::class);
+        } else {
+            throw new \Exception("Application not bootstrapped. Cannot instantiate CartManager.");
         }
     }
 
@@ -55,4 +54,3 @@ class CartManager
         return $this->service->calculateTotal($cart_items);
     }
 }
-?>

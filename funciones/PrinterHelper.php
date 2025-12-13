@@ -24,10 +24,10 @@ class PrinterHelper
 
     public function __construct()
     {
-        $container = Container::getInstance();
-        try {
-            $this->service = $container->get(CorePrinterHelper::class);
-        } catch (Exception $e) {
+        global $app;
+        if (isset($app)) {
+            $this->service = $app->getContainer()->get(CorePrinterHelper::class);
+        } else {
             $this->service = new CorePrinterHelper();
         }
     }

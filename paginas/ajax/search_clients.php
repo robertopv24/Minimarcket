@@ -20,6 +20,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\Finance\Services\CreditService;
+
 $query = $_GET['q'] ?? '';
 if (strlen($query) < 2) {
     echo json_encode([]);
@@ -27,7 +30,9 @@ if (strlen($query) < 2) {
 }
 
 try {
-    $results = $creditManager->searchClients($query);
+    $container = Container::getInstance();
+    $creditService = $container->get(CreditService::class);
+    $results = $creditService->searchClients($query);
     echo json_encode($results);
 } catch (Exception $e) {
     echo json_encode(['error' => $e->getMessage()]);

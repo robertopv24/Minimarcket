@@ -5,8 +5,15 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
-if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+use Minimarcket\Core\Session\SessionManager;
+use Minimarcket\Modules\Inventory\Services\RawMaterialService;
+
+global $app;
+$container = $app->getContainer();
+$sessionManager = $container->get(SessionManager::class);
+$rawMaterialService = $container->get(RawMaterialService::class);
+
+if (!$sessionManager->isAuthenticated() || $sessionManager->get('user_role') !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
@@ -24,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $min = $_POST['min_stock'];
         $type = $_POST['is_cooking_supply'];
 
-        if ($rawMaterialManager->createMaterial($name, $unit, $cost, $min, $type)) {
+        if ($rawMaterialService->createMaterial($name, $unit, $cost, $min, $type)) {
             $mensaje = '<div class="alert alert-success">Insumo creado correctamente.</div>';
         } else {
             $mensaje = '<div class="alert alert-danger">Error al crear insumo.</div>';
@@ -36,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $qty = $_POST['quantity'];
         $newCost = $_POST['cost'];
 
-        if ($rawMaterialManager->addStock($id, $qty, $newCost)) {
+        if ($rawMaterialService->addStock($id, $qty, $newCost)) {
             $mensaje = '<div class="alert alert-success">Stock actualizado y costo promediado.</div>';
         } else {
             $mensaje = '<div class="alert alert-danger">Error al actualizar stock.</div>';
@@ -44,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'delete') {
-        $res = $rawMaterialManager->deleteMaterial($_POST['id']);
+        $res = $rawMaterialService->deleteMaterial($_POST['id']);
         if ($res === true) {
             $mensaje = '<div class="alert alert-success">Insumo eliminado.</div>';
         } else {
@@ -54,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $search = $_GET['search'] ?? '';
-$materials = $rawMaterialManager->searchMaterials($search);
+$materials = $rawMaterialService->searchMaterials($search);
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';

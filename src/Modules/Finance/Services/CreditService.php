@@ -170,4 +170,13 @@ class CreditService
         $stmt->execute([$clientId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getPendingEmployeeDebts($userId)
+    {
+        // TODO: Determinar cómo se almacenan los adelantos de sueldo.
+        // La tabla accounts_receivable usa user_id como "Creador" (Vendedor), no como Deudor.
+        // Si filtramos por user_id, obtendríamos las ventas a crédito hechas por el empleado, no sus deudas.
+        // Por seguridad, retornamos vacío hasta definir la estructura de "Préstamos a Empleados".
+        return [];
+    }
 }
