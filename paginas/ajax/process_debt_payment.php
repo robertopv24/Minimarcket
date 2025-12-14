@@ -4,7 +4,7 @@
  * Receives: client_id, amount_usd, payment_method_id
  */
 ob_start();
-session_start();
+// session_start();
 require_once '../../templates/autoload.php';
 
 use Minimarcket\Core\Container;

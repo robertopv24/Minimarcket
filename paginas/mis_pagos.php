@@ -1,5 +1,5 @@
 <?php
-session_start();
+// session_start();
 require_once '../templates/autoload.php';
 
 // Validar auth básica (cualquier user)
@@ -9,11 +9,23 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = $_SESSION['user_id'];
-$user = $userManager->getUserById($userId);
+$employee = $userManager->getUserById($userId);
+
+if (!$employee) {
+    die("Usuario no encontrado.");
+}
+
+
+
+// Obtener Tenant
+global $app;
+$container = $app->getContainer();
+$tenantContext = $container->get(\Minimarcket\Core\Tenant\TenantContext::class);
+$tenantId = $tenantContext->getTenantId();
 
 // Historial de Pagos
-$stmt = $db->prepare("SELECT * FROM payroll_payments WHERE user_id = ? ORDER BY payment_date DESC LIMIT 20");
-$stmt->execute([$userId]);
+$stmt = $db->prepare("SELECT * FROM payroll_payments WHERE user_id = ? AND tenant_id = ? ORDER BY payment_date DESC LIMIT 20");
+$stmt->execute([$userId, $tenantId]);
 $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Deudas Pendientes
@@ -33,19 +45,20 @@ require_once '../templates/menu.php';
         <div class="col-md-4 mb-4">
             <div class="card shadow-sm border-primary">
                 <div class="card-body text-center">
-                    <img src="../uploads/profile_pics/<?= htmlspecialchars($user['profile_pic'] ?? 'default.jpg') ?>"
+                    <img src="../uploads/profile_pics/<?= htmlspecialchars($employee['profile_pic'] ?? 'default.jpg') ?>"
                         class="rounded-circle mb-3" style="width: 100px; height: 100px; object-fit: cover;">
-                    <h4><?= htmlspecialchars($user['name']) ?></h4>
-                    <span class="badge bg-secondary mb-2"><?= htmlspecialchars($user['job_role']) ?></span>
+                    <h4><?= htmlspecialchars($employee['name']) ?></h4>
+                    <span class="badge bg-secondary mb-2"><?= htmlspecialchars($employee['job_role']) ?></span>
 
                     <hr>
                     <div class="d-flex justify-content-between px-3">
                         <span>Salario Base:</span>
-                        <span class="fw-bold text-success">$<?= number_format($user['salary_amount'] ?? 0, 2) ?></span>
+                        <span
+                            class="fw-bold text-success">$<?= number_format($employee['salary_amount'] ?? 0, 2) ?></span>
                     </div>
                     <div class="d-flex justify-content-between px-3 mt-2">
                         <span>Frecuencia:</span>
-                        <span class="text-muted"><?= ucfirst($user['salary_frequency'] ?? 'Monthly') ?></span>
+                        <span class="text-muted"><?= ucfirst($employee['salary_frequency'] ?? 'Monthly') ?></span>
                     </div>
                 </div>
             </div>

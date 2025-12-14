@@ -28,14 +28,22 @@ class CreditRepository extends BaseRepository
      */
     public function getPendingDebtsByClient(int $clientId): array
     {
-        $pdo = $this->connection->getConnection();
-        $stmt = $pdo->prepare("
-            SELECT * FROM accounts_receivable 
-            WHERE client_id = ? AND status = 'pending' 
-            ORDER BY due_date ASC
-        ");
-        $stmt->execute([$clientId]);
-        return $stmt->fetchAll();
+        $query = $this->newQuery()->table('accounts_receivable');
+        return $query->where('client_id', '=', $clientId)
+            ->where('status', '=', 'pending')
+            ->get();
+    }
+
+    /**
+     * Obtiene deudas/adelantos pendientes de un empleado (Usuario)
+     */
+    public function getPendingEmployeeDebts(int $userId): array
+    {
+        // Enforcing SaaS automatically via newQuery()
+        $query = $this->newQuery()->table('accounts_receivable');
+        return $query->where('user_id', '=', $userId)
+            ->where('status', '=', 'pending')
+            ->get();
     }
 
     /**

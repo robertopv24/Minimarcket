@@ -3,7 +3,7 @@
 
 require_once '../templates/autoload.php';
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
@@ -91,7 +91,7 @@ foreach ($transacciones as $tr) {
                         <tbody>
                             <?php foreach ($productos as $prod): ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($prod['name']) ?></td>
+                                    <td><?= htmlspecialchars($prod['name'] ?? 'Producto Desconocido') ?></td>
                                     <td class="text-center"><?= $prod['quantity'] ?></td>
                                     <td class="text-end">$<?= number_format($prod['price'], 2) ?></td>
                                     <td class="text-end fw-bold">

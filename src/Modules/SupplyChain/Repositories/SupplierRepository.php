@@ -11,20 +11,16 @@ class SupplierRepository extends BaseRepository
 
     public function search(string $query = ''): array
     {
-        $sql = "SELECT * FROM {$this->table}";
-        $params = [];
+        $q = $this->newQuery();
 
         if (!empty($query)) {
-            $sql .= " WHERE name LIKE ? OR contact_person LIKE ? OR email LIKE ?";
-            $term = "%$query%";
-            $params = [$term, $term, $term];
+            // FIX: QueryBuilder no soporta OR nativamente aún. 
+            // Buscamos solo por nombre por ahora para evitar errores.
+            $q->where('name', 'LIKE', "%$query%");
         }
 
-        $sql .= " ORDER BY name ASC";
+        $q->orderBy('name', 'ASC');
 
-        $pdo = $this->connection->getConnection();
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $q->get();
     }
 }

@@ -75,7 +75,16 @@
 
                     </div>
                 </div>
-
+                <!-- MENU GENERAL PARA TODOS LOS EMPLEADOS (USER) -->
+                <div class="nav-item dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown"><i class="fa fa-user me-2"></i>Mi
+                        Perfil</a>
+                    <div class="dropdown-menu bg-transparent border-0">
+                        <a href="mis_pagos.php" class="nav-item nav-link"><i class="fa fa-money-bill-wave me-2"></i>Mis
+                            Recibos</a>
+                        <!-- <a href="perfil.php" class="nav-item nav-link">Mis Datos</a> -->
+                    </div>
+                </div>
 
             <?php elseif ($user_role === 'user'): ?>
 

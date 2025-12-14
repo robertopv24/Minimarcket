@@ -1,5 +1,5 @@
 <?php
-session_start();
+// session_start();
 // contacto.php - Página de contacto
 require_once '../templates/header.php';
 require_once '../templates/menu.php';

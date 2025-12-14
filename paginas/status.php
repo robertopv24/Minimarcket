@@ -1,5 +1,5 @@
 <?php
-session_start();
+// session_start();
 // 1. Usamos el Autoload. Esto carga la DB automáticamente en la variable $db
 require_once '../templates/autoload.php';
 require_once '../templates/header.php';

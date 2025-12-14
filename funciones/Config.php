@@ -58,7 +58,7 @@ class GlobalConfig
     }
 }
 
-// Inicialización para compatibilidad
-$config = new GlobalConfig();
-$config->setGlobals();
+// Inicialización eliminada. La instanciación debe ocurrir en autoload.php o vía Contenedor.
+// $config = new GlobalConfig(); 
+// $config->setGlobals();
 ?>

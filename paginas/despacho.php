@@ -5,7 +5,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
-session_start();
+// session_start();
 
 // PERMISOS
 require_once '../templates/kitchen_check.php';
@@ -15,7 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $orderId = $_POST['order_id'];
     $newStatus = $_POST['status'];
     // Update simple
-    $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?")->execute([$newStatus, $orderId]);
+    // Obtener Tenant ID (Fallback a 1, pero idealmente via Context)
+    $tenantId = $_SESSION['tenant_id'] ?? 1;
+
+    // Update Seguro con Tenant ID
+    $db->prepare("UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?")->execute([$newStatus, $orderId, $tenantId]);
     header("Location: despacho.php");
     exit;
 }

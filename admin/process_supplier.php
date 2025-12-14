@@ -2,7 +2,7 @@
 // process_supplier.php
 require_once '../templates/autoload.php';
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
@@ -11,7 +11,9 @@ if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validar CSRF
     try {
-        Csrf::validateToken();
+        /** @var \Minimarcket\Core\Security\CsrfToken $csrf */
+        $csrf = $container->get(\Minimarcket\Core\Security\CsrfToken::class);
+        $csrf->validateToken();
     } catch (Exception $e) {
         die("Error de seguridad: " . $e->getMessage());
     }

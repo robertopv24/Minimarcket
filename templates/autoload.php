@@ -41,14 +41,22 @@ try {
 }
 
 // Crear instancias de las clases principales para su uso global
-$config = new GlobalConfig();  // Configuración global
+// Crear instancias de las clases principales para su uso global
+// FIX: Use ConfigService directly (SaaS/Container aware) instead of deprecated GlobalConfig proxy
+use Minimarcket\Core\Config\ConfigService;
+$config = $app->getContainer()->get(ConfigService::class);
+// $config->setGlobals(); // ConfigService loads automatically on get()? Check implementation.
+// ConfigService::get() calls load(). setGlobals() calls load().
+// Legacy behavior was $config->setGlobals() in Config.php. We should replicate that if needed.
+$config->setGlobals();
+
 // We use the legacy Database class for now to ensure 100% compatibility with existing Type Hints
 $db = Database::getConnection(); // Conexión a la base de datos (Legacy class)
 
 
 require_once __DIR__ . '/../funciones/ProductManager.php';
 
-$productManager = new ProductManager($db);  // Manejo de productos
+// $productManager = new ProductManager($db); // MOVIDO: Instanciado via Container más abajo
 
 require_once __DIR__ . '/../funciones/CartManager.php';
 require_once __DIR__ . '/../funciones/Menus.php';
@@ -72,21 +80,42 @@ require_once __DIR__ . '/../funciones/UploadHelper.php';
 require_once __DIR__ . '/../funciones/PrinterHelper.php';
 
 // Instancias de los controladores
-$cartManager = new CartManager($db);  // Manejo del carrito de compras
-$rateLimiter = new RateLimiter(); // Uses defaults: 5 attempts, 300s window, 900s block
-$menus = new Menus();  // Manejo de menús (sin parámetros)
-$orderManager = new OrderManager($db);  // Manejo de órdenes
-$supplierManager = new SupplierManager($db);  // Manejo de Proveedores
-$purchaseOrderManager = new PurchaseOrderManager($db);  // Manejo de Órdenes de Compra
-$purchaseReceiptManager = new PurchaseReceiptManager($db, $productManager);  // Manejo de Recepciones de Mercancía
-$userManager = new UserManager($db);  // Manejo de usuarios
-$cashRegisterManager = new CashRegisterManager($db);
-$transactionManager = new TransactionManager($db);
-$vaultManager = new VaultManager($db);
-$rawMaterialManager = new RawMaterialManager($db);
-$productionManager = new ProductionManager($db);
-$payrollManager = new PayrollManager($db); // NEW
-$creditManager = new CreditManager($db); // NEW
+// Instancias de los servicios modernos (Reemplazando Managers Legacy)
+// Mantenemos los nombres de variables legacy ($productManager) para compatibilidad, 
+// pero ahora contienen las instancias de los Servicios modernos (que actúan como proxies o reemplazos directos).
+
+use Minimarcket\Modules\Sales\Services\CartService;
+use Minimarcket\Core\View\MenuService;
+use Minimarcket\Modules\Sales\Services\OrderService;
+use Minimarcket\Modules\SupplyChain\Services\SupplierService;
+use Minimarcket\Modules\SupplyChain\Services\PurchaseOrderService;
+use Minimarcket\Modules\SupplyChain\Services\PurchaseReceiptService;
+use Minimarcket\Modules\User\Services\UserService;
+use Minimarcket\Modules\Finance\Services\CashRegisterService;
+use Minimarcket\Modules\Finance\Services\TransactionService;
+use Minimarcket\Modules\Finance\Services\VaultService;
+use Minimarcket\Modules\Inventory\Services\RawMaterialService;
+use Minimarcket\Modules\Manufacturing\Services\ProductionService;
+use Minimarcket\Modules\HR\Services\PayrollService;
+use Minimarcket\Modules\Sales\Services\CreditService;
+use Minimarcket\Modules\Inventory\Services\ProductService;
+
+$productManager = $container->get(ProductService::class);
+$cartManager = $container->get(CartService::class);
+$rateLimiter = new RateLimiter(); // Helper, no service replacement yet
+$menus = $container->get(MenuService::class);
+$orderManager = $container->get(OrderService::class);
+$supplierManager = $container->get(SupplierService::class);
+$purchaseOrderManager = $container->get(PurchaseOrderService::class);
+$purchaseReceiptManager = $container->get(PurchaseReceiptService::class);
+$userManager = $container->get(UserService::class);
+$cashRegisterManager = $container->get(CashRegisterService::class);
+$transactionManager = $container->get(TransactionService::class);
+$vaultManager = $container->get(VaultService::class);
+$rawMaterialManager = $container->get(RawMaterialService::class);
+$productionManager = $container->get(ProductionService::class);
+$payrollManager = $container->get(PayrollService::class);
+$creditManager = $container->get(CreditService::class);
 
 /**
  * Ahora en cualquier archivo que incluya `autoload.php` se podrán usar estas instancias, por ejemplo:

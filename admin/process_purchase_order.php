@@ -20,7 +20,7 @@ $transactionService = $container->get(TransactionService::class);
 $configService = $container->get(ConfigService::class);
 $csrfToken = $container->get(CsrfToken::class);
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;

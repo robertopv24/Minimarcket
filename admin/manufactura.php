@@ -1,7 +1,11 @@
+```php
 <?php
 require_once '../templates/autoload.php';
-session_start();
-// (Validar admin aquí como en los otros archivos)
+// session_start();
+if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
+    header('Location: ../paginas/login.php');
+    exit();
+}
 
 $mensaje = '';
 

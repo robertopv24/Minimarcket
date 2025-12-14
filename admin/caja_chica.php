@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
@@ -340,7 +340,7 @@ require_once '../templates/menu.php';
                 <input type="hidden" name="action" value="transfer">
 
                 <div class="alert alert-info small">
-                    <i class="fa fa-info-circle"></i> Mueve dinero de un método de pago a otro. 
+                    <i class="fa fa-info-circle"></i> Mueve dinero de un método de pago a otro.
                     Si involucra efectivo, se actualizará la bóveda automáticamente.
                 </div>
 
@@ -349,7 +349,8 @@ require_once '../templates/menu.php';
                     <select name="from_method" id="fromMethod" class="form-select" required>
                         <option value="">-- Seleccionar --</option>
                         <?php foreach ($allMethods as $m): ?>
-                            <option value="<?= $m['id'] ?>" data-currency="<?= $m['currency'] ?>" data-type="<?= $m['type'] ?>">
+                            <option value="<?= $m['id'] ?>" data-currency="<?= $m['currency'] ?>"
+                                data-type="<?= $m['type'] ?>">
                                 <?= htmlspecialchars($m['name']) ?> (<?= $m['currency'] ?>)
                             </option>
                         <?php endforeach; ?>
@@ -361,7 +362,8 @@ require_once '../templates/menu.php';
                     <select name="to_method" id="toMethod" class="form-select" required>
                         <option value="">-- Seleccionar --</option>
                         <?php foreach ($allMethods as $m): ?>
-                            <option value="<?= $m['id'] ?>" data-currency="<?= $m['currency'] ?>" data-type="<?= $m['type'] ?>">
+                            <option value="<?= $m['id'] ?>" data-currency="<?= $m['currency'] ?>"
+                                data-type="<?= $m['type'] ?>">
                                 <?= htmlspecialchars($m['name']) ?> (<?= $m['currency'] ?>)
                             </option>
                         <?php endforeach; ?>
@@ -370,21 +372,21 @@ require_once '../templates/menu.php';
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Monto a Transferir</label>
-                    <input type="number" step="0.01" name="transfer_amount" id="transferAmount" 
-                        class="form-control" placeholder="Ej: 100.00" required>
+                    <input type="number" step="0.01" name="transfer_amount" id="transferAmount" class="form-control"
+                        placeholder="Ej: 100.00" required>
                     <small class="text-muted" id="currencyHint">Ingresa el monto en la moneda de origen</small>
                 </div>
 
                 <div class="mb-3" id="exchangeRateGroup" style="display: none;">
                     <label class="form-label fw-bold">Tasa de Cambio</label>
-                    <input type="number" step="0.01" name="exchange_rate" id="exchangeRate" 
-                        class="form-control" value="<?= $currentRate ?>" placeholder="Ej: <?= $currentRate ?>">
+                    <input type="number" step="0.01" name="exchange_rate" id="exchangeRate" class="form-control"
+                        value="<?= $currentRate ?>" placeholder="Ej: <?= $currentRate ?>">
                     <small class="text-muted">1 USD = <span id="rateDisplay"><?= $currentRate ?></span> VES</small>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">Notas / Concepto (Opcional)</label>
-                    <input type="text" name="transfer_notes" class="form-control" 
+                    <input type="text" name="transfer_notes" class="form-control"
                         placeholder="Ej: Cambio de efectivo a digital">
                 </div>
 

@@ -16,9 +16,12 @@ $container = Container::getInstance();
 $userService = $container->get(UserService::class);
 $purchaseOrderService = $container->get(PurchaseOrderService::class);
 $supplierService = $container->get(SupplierService::class);
+$userService = $container->get(UserService::class);
+$purchaseOrderService = $container->get(PurchaseOrderService::class);
+$supplierService = $container->get(SupplierService::class);
 $transactionService = $container->get(TransactionService::class);
 
-session_start();
+// session_start(); // Handled by SessionManager in autoload.php
 if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
@@ -101,7 +104,8 @@ require_once '../templates/menu.php';
                                     <td class="text-muted"><?= date('d/m/Y', strtotime($order['order_date'])) ?></td>
                                     <td>
                                         <div class="fw-bold text-dark">
-                                            <?= htmlspecialchars($supplier['name'] ?? 'Desconocido') ?></div>
+                                            <?= htmlspecialchars($supplier['name'] ?? 'Desconocido') ?>
+                                        </div>
                                     </td>
 
                                     <td>

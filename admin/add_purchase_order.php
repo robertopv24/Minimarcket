@@ -11,7 +11,7 @@ use Minimarcket\Modules\User\Services\UserService;
 use Minimarcket\Modules\SupplyChain\Services\SupplierService;
 use Minimarcket\Modules\Inventory\Services\ProductService;
 use Minimarcket\Modules\Finance\Services\TransactionService;
-use Minimarcket\Modules\SupplyChain\Services\RawMaterialService;
+use Minimarcket\Modules\Inventory\Services\RawMaterialService;
 use Minimarcket\Core\Security\CsrfToken;
 
 $container = Container::getInstance();
@@ -22,7 +22,7 @@ $transactionService = $container->get(TransactionService::class);
 $rawMaterialService = $container->get(RawMaterialService::class);
 $csrfToken = $container->get(CsrfToken::class);
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userService->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;

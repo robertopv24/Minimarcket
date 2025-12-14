@@ -11,7 +11,7 @@ use Minimarcket\Core\Database\BaseRepository;
  */
 class CashRegisterRepository extends BaseRepository
 {
-    protected string $table = 'cash_register_sessions';
+    protected string $table = 'cash_sessions';
 
     /**
      * Verifica si un usuario tiene una sesión abierta

@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 // index.php - Página principal
 
 // Obtener datos del usuario
-session_start();
+// session_start();
 
 
 
@@ -14,6 +14,16 @@ session_start();
 
 
 require_once '../templates/autoload.php';
+
+// session_start();
+global $app;
+$container = $app->getContainer();
+$userManager = $container->get(\Minimarcket\Modules\User\Services\UserService::class);
+
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
 
 
 

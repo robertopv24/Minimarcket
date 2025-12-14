@@ -64,4 +64,23 @@ class TransactionRepository extends BaseRepository
 
         return true;
     }
+
+    /**
+     * Obtiene una transacción por referencia (type/id)
+     */
+    public function getTransactionByReference(string $type, int $id): ?array
+    {
+        $pdo = $this->connection->getConnection();
+        // JOIN with payment_methods to get method name if possible
+        $stmt = $pdo->prepare("
+            SELECT t.*, pm.name as method_name 
+            FROM {$this->table} t
+            LEFT JOIN payment_methods pm ON t.payment_method_id = pm.id
+            WHERE t.reference_type = ? AND t.reference_id = ? 
+            LIMIT 1
+        ");
+        $stmt->execute([$type, $id]);
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
 }

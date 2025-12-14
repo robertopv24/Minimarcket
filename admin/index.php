@@ -2,9 +2,19 @@
 // Production settings applied via autoload
 
 require_once '../templates/autoload.php';
-require_once '../funciones/Csrf.php';
+// FIX: Use CsrfToken service (or class) instead of deprecated Csrf
+use Minimarcket\Core\Security\CsrfToken;
 
-session_start();
+// Type Hinting for IDE (since autoload injects Services into legacy variable names)
+/** @var \Minimarcket\Modules\User\Services\UserService $userManager */
+/** @var \Minimarcket\Core\Config\ConfigService $config */
+/** @var \Minimarcket\Modules\Sales\Services\OrderService $orderManager */
+/** @var \Minimarcket\Modules\Finance\Services\VaultService $vaultManager */
+/** @var \Minimarcket\Modules\Inventory\Services\ProductService $productManager */
+
+$csrf = new CsrfToken(); // Or get from container, but simple new works for utility
+
+// session_start(); // Handled by SessionManager in autoload.php
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
@@ -15,12 +25,15 @@ $error_message = '';
 
 // 1. Procesar Tasa de Cambio
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_exchange_rate'])) {
-    if (!Csrf::validate($_POST['csrf_token'] ?? '')) {
+    if (!$csrf->validate($_POST['csrf_token'] ?? '')) {
         die("CSRF Error");
     }
     $newRate = floatval($_POST['new_exchange_rate']);
     if ($newRate > 0) {
         if ($config->update('exchange_rate', $newRate)) {
+            // ProductService has updateAllPricesBasedOnRate? 
+            // If not, we might need to verify or implement it. 
+            // Assuming it exists or legacy ProductManager proxy had it.
             if ($productManager->updateAllPricesBasedOnRate($newRate)) {
                 $success_message = "Tasa actualizada a <strong>$newRate</strong>. Precios recalculados.";
             } else {
@@ -81,7 +94,7 @@ require_once '../templates/menu.php';
                             onclick="return confirm('¿Actualizar precios?');">
                             <i class="fa fa-sync"></i> Fijar
                         </button>
-                        <?= Csrf::insertTokenField(); ?>
+                        <input type="hidden" name="csrf_token" value="<?= $csrf->getToken() ?>">
                     </div>
                 </form>
             </div>

@@ -5,11 +5,18 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
 }
+
+// Obtener Tenant Context
+global $app;
+$container = $app->getContainer();
+/** @var \Minimarcket\Core\Tenant\TenantContext $tenantContext */
+$tenantContext = $container->get(\Minimarcket\Core\Tenant\TenantContext::class);
+$tenantId = $tenantContext->getTenantId();
 
 // --- FILTROS DE FECHA ---
 $startDate = $_GET['start_date'] ?? date('Y-m-01'); // Principio de mes
@@ -25,23 +32,23 @@ $endSql = $endDate . " 23:59:59";
 
 // A. VENTAS TOTALES (Todas las órdenes pagadas/entregadas, independiente del método de pago)
 $sqlSales = "SELECT SUM(total_price) as total FROM orders
-             WHERE status IN ('paid', 'delivered') AND created_at BETWEEN ? AND ?";
+             WHERE status IN ('paid', 'delivered') AND created_at BETWEEN ? AND ? AND tenant_id = ?";
 $stmt = $db->prepare($sqlSales);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $ventasNetas = $stmt->fetchColumn() ?: 0;
 
 // B. INGRESOS POR TRANSACCIONES (Para referencia de flujo de caja)
 $sqlIncome = "SELECT SUM(amount_usd_ref) as total FROM transactions
-              WHERE type = 'income' AND created_at BETWEEN ? AND ?";
+              WHERE type = 'income' AND created_at BETWEEN ? AND ? AND tenant_id = ?";
 $stmt = $db->prepare($sqlIncome);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $ingresosCaja = $stmt->fetchColumn() ?: 0;
 
 // C. VUELTOS (Salidas de dinero por cambio a clientes)
 $sqlChange = "SELECT SUM(amount_usd_ref) as total FROM transactions
-              WHERE type = 'expense' AND reference_type = 'order' AND created_at BETWEEN ? AND ?";
+              WHERE type = 'expense' AND reference_type = 'order' AND created_at BETWEEN ? AND ? AND tenant_id = ?";
 $stmt = $db->prepare($sqlChange);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $vueltos = $stmt->fetchColumn() ?: 0;
 
 // D. GASTOS OPERATIVOS (Compras a Proveedores / Retiros de Caja)
@@ -57,9 +64,10 @@ $sqlLaborDirect = "SELECT SUM(t.amount_usd_ref)
                    JOIN users u ON p.user_id = u.id
                    WHERE t.type = 'expense' 
                    AND u.job_role = 'kitchen'
-                   AND t.created_at BETWEEN ? AND ?";
+                   AND t.created_at BETWEEN ? AND ?
+                   AND t.tenant_id = ?";
 $stmt = $db->prepare($sqlLaborDirect);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $costoManoObraDirecta = $stmt->fetchColumn() ?: 0;
 
 // 2. Costo Mano de Obra Administrativa (Gerente, Cajero, etc)
@@ -69,9 +77,10 @@ $sqlLaborAdmin = "SELECT SUM(t.amount_usd_ref)
                   JOIN users u ON p.user_id = u.id
                   WHERE t.type = 'expense' 
                   AND u.job_role != 'kitchen'
-                  AND t.created_at BETWEEN ? AND ?";
+                  AND t.created_at BETWEEN ? AND ?
+                  AND t.tenant_id = ?";
 $stmt = $db->prepare($sqlLaborAdmin);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $gastosNominaAdmin = $stmt->fetchColumn() ?: 0;
 
 // 3. Otros Gastos Operativos (Proveedores, Servicios, etc - Excluyendo Nómina, Vueltos y Transferencias Internas)
@@ -82,9 +91,9 @@ $gastosNominaAdmin = $stmt->fetchColumn() ?: 0;
 $sqlTotalExpense = "SELECT SUM(amount_usd_ref) FROM transactions 
                     WHERE type = 'expense' 
                     AND reference_type NOT IN ('order', 'adjustment', 'manual')
-                    AND created_at BETWEEN ? AND ?";
+                    AND created_at BETWEEN ? AND ? AND tenant_id = ?";
 $stmt = $db->prepare($sqlTotalExpense);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $gastosOperativosGenerales = $stmt->fetchColumn() ?: 0;
 
 // =========================================================
@@ -99,10 +108,10 @@ $sqlItems = "SELECT oi.product_id, SUM(oi.quantity) as qty_sold
              JOIN orders o ON oi.order_id = o.id
              JOIN products p ON oi.product_id = p.id
              WHERE o.status IN ('paid', 'delivered')
-             AND o.created_at BETWEEN ? AND ?
+             AND o.created_at BETWEEN ? AND ? AND o.tenant_id = ?
              GROUP BY oi.product_id, p.name, p.price_usd";
 $stmt = $db->prepare($sqlItems);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $soldItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $costoMateriaPrima = 0; // Initialize for final result
@@ -214,12 +223,12 @@ $sqlTopProducts = "SELECT p.name, p.kitchen_station, SUM(oi.quantity) as qty_sol
                    JOIN orders o ON oi.order_id = o.id
                    JOIN products p ON oi.product_id = p.id
                    WHERE o.status IN ('paid', 'delivered')
-                   AND o.created_at BETWEEN ? AND ?
+                   AND o.created_at BETWEEN ? AND ? AND o.tenant_id = ?
                    GROUP BY p.id, p.name, p.kitchen_station
                    ORDER BY revenue_usd DESC
                    LIMIT 10";
 $stmt = $db->prepare($sqlTopProducts);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $topProducts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // =========================================================
@@ -230,11 +239,11 @@ $sqlDailyTrend = "SELECT DATE(o.created_at) as date,
                   COUNT(o.id) as order_count
                   FROM orders o
                   WHERE o.status IN ('paid', 'delivered')
-                  AND o.created_at BETWEEN ? AND ?
+                  AND o.created_at BETWEEN ? AND ? AND o.tenant_id = ?
                   GROUP BY DATE(o.created_at)
                   ORDER BY date ASC";
 $stmt = $db->prepare($sqlDailyTrend);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $dailyTrend = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // =========================================================
@@ -247,11 +256,11 @@ $sqlByCategory = "SELECT p.kitchen_station,
                   JOIN orders o ON oi.order_id = o.id
                   JOIN products p ON oi.product_id = p.id
                   WHERE o.status IN ('paid', 'delivered')
-                  AND o.created_at BETWEEN ? AND ?
+                  AND o.created_at BETWEEN ? AND ? AND o.tenant_id = ?
                   GROUP BY p.kitchen_station
                   ORDER BY revenue DESC";
 $stmt = $db->prepare($sqlByCategory);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $categoryData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // =========================================================
@@ -263,11 +272,11 @@ $sqlPaymentMethods = "SELECT pm.name, pm.currency,
                       COUNT(t.id) as transaction_count
                       FROM transactions t
                       JOIN payment_methods pm ON t.payment_method_id = pm.id
-                      WHERE t.type = 'income' AND t.created_at BETWEEN ? AND ?
+                      WHERE t.type = 'income' AND t.created_at BETWEEN ? AND ? AND t.tenant_id = ?
                       GROUP BY pm.id, pm.name, pm.currency
                       ORDER BY total_usd DESC";
 $stmt = $db->prepare($sqlPaymentMethods);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $paymentMethods = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // =========================================================
@@ -280,9 +289,9 @@ $sqlStats = "SELECT
              MIN(o.total_price) as min_order_value
              FROM orders o
              WHERE o.status IN ('paid', 'delivered')
-             AND o.created_at BETWEEN ? AND ?";
+             AND o.created_at BETWEEN ? AND ? AND o.tenant_id = ?";
 $stmt = $db->prepare($sqlStats);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $stats = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // =========================================================
@@ -293,11 +302,11 @@ $sqlHourly = "SELECT HOUR(o.created_at) as hour,
               SUM(o.total_price) as revenue
               FROM orders o
               WHERE o.status IN ('paid', 'delivered')
-              AND o.created_at BETWEEN ? AND ?
+              AND o.created_at BETWEEN ? AND ? AND o.tenant_id = ?
               GROUP BY HOUR(o.created_at)
               ORDER BY hour ASC";
 $stmt = $db->prepare($sqlHourly);
-$stmt->execute([$startSql, $endSql]);
+$stmt->execute([$startSql, $endSql, $tenantId]);
 $hourlyData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 require_once '../templates/header.php';
@@ -494,10 +503,10 @@ require_once '../templates/menu.php';
                         $sqlMethods = "SELECT pm.name, pm.currency, SUM(t.amount) as total_nominal, SUM(t.amount_usd_ref) as total_usd
                                        FROM transactions t
                                        JOIN payment_methods pm ON t.payment_method_id = pm.id
-                                       WHERE t.type = 'income' AND t.created_at BETWEEN ? AND ?
+                                       WHERE t.type = 'income' AND t.created_at BETWEEN ? AND ? AND t.tenant_id = ?
                                        GROUP BY pm.name, pm.currency";
                         $stmtM = $db->prepare($sqlMethods);
-                        $stmtM->execute([$startSql, $endSql]);
+                        $stmtM->execute([$startSql, $endSql, $tenantId]);
                         $methods = $stmtM->fetchAll(PDO::FETCH_ASSOC);
 
                         foreach ($methods as $m):

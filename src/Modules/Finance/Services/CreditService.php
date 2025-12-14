@@ -33,6 +33,10 @@ class CreditService
 
     public function searchClients($query)
     {
+        if (empty($query)) {
+            $stmt = $this->db->query("SELECT * FROM clients ORDER BY name");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
         $stmt = $this->db->prepare("SELECT * FROM clients WHERE name LIKE ? OR document_id LIKE ? LIMIT 10");
         $searchTerm = "%$query%";
         $stmt->execute([$searchTerm, $searchTerm]);
@@ -44,6 +48,29 @@ class CreditService
         $stmt = $this->db->prepare("SELECT * FROM clients WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function updateClient($id, $name, $docId, $phone, $email, $address, $limit)
+    {
+        $stmt = $this->db->prepare("UPDATE clients SET name = ?, document_id = ?, phone = ?, email = ?, address = ?, credit_limit = ? WHERE id = ?");
+        return $stmt->execute([$name, $docId, $phone, $email, $address, $limit, $id]);
+    }
+
+    public function deleteClient($id)
+    {
+        $client = $this->getClientById($id);
+        if ($client['current_debt'] > 0.01) {
+            return "No se puede eliminar. Cliente tiene deuda pendiente.";
+        }
+        $stmt = $this->db->prepare("DELETE FROM clients WHERE id = ?");
+        return $stmt->execute([$id]);
+    }
+
+    public function getDebtors()
+    {
+        $stmt = $this->db->prepare("SELECT * FROM clients WHERE current_debt > 0.01 ORDER BY current_debt DESC");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // --- CUENTAS POR COBRAR ---

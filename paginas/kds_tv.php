@@ -1,7 +1,7 @@
 <?php
 // paginas/kds_tv.php
 require_once '../templates/autoload.php';
-session_start();
+// session_start();
 
 // 1. CONFIGURACIÓN DE TIEMPO (CRÍTICO)
 // Forzamos la zona horaria para evitar desfases de 4 horas
@@ -11,13 +11,21 @@ date_default_timezone_set('America/Caracas');
 require_once '../templates/kitchen_check.php';
 
 // 2. OBTENER ÓRDENES
+// Obtener Tenant
+global $app;
+$container = $app->getContainer();
+/** @var \Minimarcket\Core\Tenant\TenantContext $tenantContext */
+$tenantContext = $container->get(\Minimarcket\Core\Tenant\TenantContext::class);
+$tenantId = $tenantContext->getTenantId();
+
 $sql = "SELECT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address
         FROM orders o
         JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'preparing')
+        WHERE o.status IN ('paid', 'preparing') AND o.tenant_id = ?
         ORDER BY o.created_at ASC";
 
-$stmt = $db->query($sql);
+$stmt = $db->prepare($sql);
+$stmt->execute([$tenantId]);
 $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 3. PROCESAMIENTO
@@ -28,9 +36,11 @@ foreach ($ordenes as $orden) {
     $sqlItems = "SELECT oi.*, p.name, p.product_type, p.kitchen_station
                  FROM order_items oi
                  JOIN products p ON oi.product_id = p.id
-                 WHERE oi.order_id = ?";
+                 JOIN products p ON oi.product_id = p.id
+                 WHERE oi.order_id = ? AND oi.tenant_id = ?";
     $stmtItems = $db->prepare($sqlItems);
-    $stmtItems->execute([$orden['id']]);
+    $stmtItems = $db->prepare($sqlItems);
+    $stmtItems->execute([$orden['id'], $tenantId]);
     $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
 
     $itemsParaPizza = [];

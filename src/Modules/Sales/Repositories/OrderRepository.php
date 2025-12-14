@@ -103,4 +103,47 @@ class OrderRepository extends BaseRepository
     {
         $this->connection->getConnection()->rollBack();
     }
+
+    // --- REPORTING METHODS (SaaS Enforced via BaseRepository logic or manual tenant filter if using raw SQL) ---
+
+    // NOTE: BaseRepository::newQuery() enforces tenant_id. Using QueryBuilder is safest.
+    // However, QueryBuilder might lack SUM/DATE functions.
+    // If we use raw SQL, we MUST inject tenant_id manually.
+
+    private function getTenantId(): int
+    {
+        return \Minimarcket\Core\Tenant\TenantContext::getTenantId();
+    }
+
+    public function getTotalSalesByDateRange(string $startDate, string $endDate): float
+    {
+        $pdo = $this->connection->getConnection();
+        $sql = "SELECT SUM(total_price) as total FROM orders WHERE tenant_id = ? AND status = 'paid' AND created_at BETWEEN ? AND ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$this->getTenantId(), $startDate, $endDate]);
+        return (float) $stmt->fetchColumn();
+    }
+
+    public function countOrdersByStatus(string $status): int
+    {
+        $query = $this->newQuery();
+        // newQuery enforces tenant_id automatically
+        // But QueryBuilder doesn't have count method yet? 
+        // Let's use raw SQL for now to be safe and fast.
+
+        $pdo = $this->connection->getConnection();
+        $sql = "SELECT COUNT(*) FROM orders WHERE tenant_id = ? AND status = ?";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$this->getTenantId(), $status]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function getRecentOrders(int $limit = 5): array
+    {
+        // Use QueryBuilder as it supports orderBy and get (and implicit tenant_id)
+        $query = $this->newQuery();
+        return $query->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->get();
+    }
 }

@@ -74,4 +74,9 @@ class TransactionService
     {
         return $this->repository->getPaymentMethods();
     }
+
+    public function getTransactionByReference(string $type, int $id): ?array
+    {
+        return $this->repository->getTransactionByReference($type, $id);
+    }
 }

@@ -1,5 +1,5 @@
 <?php
-session_start();
+// session_start();
 require_once '../templates/autoload.php';
 require_once '../templates/pos_check.php'; // SEGURIDAD POS
 

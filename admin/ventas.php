@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
+// session_start(); // Handled by SessionManager in autoload.php
 // Seguridad: Solo Admin
 // Seguridad: Solo Admin
 use Minimarcket\Modules\User\Services\UserService;

@@ -1,6 +1,6 @@
 <?php
 require_once '../templates/autoload.php';
-session_start();
+// session_start();
 
 if (!isset($_SESSION['user_id']))
     die("Acceso denegado");

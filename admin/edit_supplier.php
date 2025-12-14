@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 
 require_once '../templates/autoload.php';
 
-session_start();
+// session_start();
 if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id'])['role'] !== 'admin') {
     header('Location: ../paginas/login.php');
     exit;
@@ -37,7 +37,8 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="card-body">
                     <form method="post" action="process_supplier.php">
-                        <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
+                        <?php $csrf = $container->get(\Minimarcket\Core\Security\CsrfToken::class); ?>
+                        <input type="hidden" name="csrf_token" value="<?= $csrf->getToken() ?>">
                         <input type="hidden" name="action" value="edit">
                         <input type="hidden" name="id" value="<?= $supplier['id'] ?>">
 

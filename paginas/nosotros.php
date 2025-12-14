@@ -1,5 +1,5 @@
 <?php
-session_start();
+// session_start();
 // nosotros.php - Página sobre nosotros
 require_once '../templates/header.php';
 require_once '../templates/menu.php';

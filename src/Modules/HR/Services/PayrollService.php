@@ -113,4 +113,9 @@ class PayrollService
                 return date('Y-m-d', strtotime($lastDate . ' + 30 days'));
         }
     }
+
+    public function getHistory(int $limit = 10): array
+    {
+        return $this->payrollRepository->getHistory($limit);
+    }
 }

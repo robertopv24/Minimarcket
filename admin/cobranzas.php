@@ -1,17 +1,46 @@
 <?php
-session_start();
+// admin/cobranzas.php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once '../templates/autoload.php';
 
-// Validar Admin o Cajero (PosAccess)
-if (!$userManager->hasPosAccess($_SESSION)) {
-    // TODO: Usar hasPosAccess cuando se implemente refactor
-    // Por ahora solo login check basico o admin
+use Minimarcket\Core\Container;
+use Minimarcket\Modules\User\Services\UserService;
+use Minimarcket\Modules\Finance\Services\CreditService;
+use Minimarcket\Modules\Finance\Services\TransactionService;
+use Minimarcket\Modules\Finance\Services\CashRegisterService;
+use Minimarcket\Core\Security\CsrfToken;
+
+$container = Container::getInstance();
+$userService = $container->get(UserService::class);
+$creditService = $container->get(CreditService::class);
+$transactionService = $container->get(TransactionService::class);
+$cashRegisterService = $container->get(CashRegisterService::class);
+$csrfToken = $container->get(CsrfToken::class);
+
+// Validar Admin o Cajero
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../index.php");
+    exit;
+}
+
+$currentUser = $userService->getUserById($_SESSION['user_id']);
+if (!$currentUser || !in_array($currentUser['role'], ['admin', 'cashier'])) {
     header("Location: ../index.php");
     exit;
 }
 
 // Procesar Abono
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_debt'])) {
+    // Validar CSRF
+    try {
+        $csrfToken->validateToken();
+    } catch (Exception $e) {
+        die("Error de seguridad: " . $e->getMessage());
+    }
+
     require_once '../funciones/debug_logger.php';
     clearDebugLog(); // Limpiar log anterior
     
@@ -28,32 +57,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_debt'])) {
     if ($amount > 0 && $paymentMethodId) {
         // Buscar sesión de caja activa del usuario actual
         $userId = $_SESSION['user_id'];
-        $stmtSess = $db->prepare("SELECT id FROM cash_sessions WHERE user_id = ? AND status = 'open' ORDER BY opened_at DESC LIMIT 1");
-        $stmtSess->execute([$userId]);
-        $sessionId = $stmtSess->fetchColumn();
+        $sessionStatus = $cashRegisterService->getStatus($userId);
 
         debugLog("User ID: $userId");
-        debugLog("Session ID: " . ($sessionId ?: 'NULL'));
+        debugLog("Session Status: " . ($sessionStatus ? 'OPEN' : 'CLOSED'));
 
-        if (!$sessionId) {
+        if (!$sessionStatus) {
             $error = "⚠️ No tienes una caja abierta. Debes abrir caja primero.";
             debugLog("ERROR: No open cash session");
         } else {
+            $sessionId = $sessionStatus['id'];
+            
             // Registrar pago (ahora incluye transacción automáticamente)
             try {
                 debugLog("Calling payDebt...");
-                $result = $creditManager->payDebt($arId, $amount, 'cash', null, $paymentMethodId, $sessionId);
-                debugLog("payDebt result: " . ($result ? 'TRUE' : 'FALSE'));
+                // Note: payDebt signature: ($arId, $amountToPay, $paymentMethodId, $paymentRef = '', $paymentCurrency = 'USD', $userId = 1, $sessionId = 1)
+                $result = $creditService->payDebt($arId, $amount, $paymentMethodId, '', 'USD', $userId, $sessionId);
+                debugLog("payDebt result: " . ($result === true ? 'TRUE' : 'FALSE/Error'));
 
-                if ($result) {
+                if ($result === true) {
                     $success = "✅ Abono registrado correctamente. Dinero ingresado a caja.";
                     debugLog("SUCCESS: Payment processed");
                     // Recargar página para ver cambios
+                    // Use meta refresh or JS instead of header to avoid issues with output sent if any debug echoes happened
+                    // But here we rely on header since debugLog writes to file.
                     header("Location: " . $_SERVER['PHP_SELF'] . "?client_id=" . ($_GET['client_id'] ?? ''));
                     exit;
                 } else {
-                    $error = "❌ Error al procesar el pago. Verifica los datos.";
-                    debugLog("ERROR: payDebt returned false");
+                    $error = "❌ Error al procesar el pago: " . (is_string($result) ? $result : "Verifica los datos.");
+                    debugLog("ERROR: payDebt returned: $result");
                 }
             } catch (Exception $e) {
                 $error = "❌ Error: " . $e->getMessage();
@@ -68,8 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_debt'])) {
 }
 
 // Obtener Clientes con Deuda > 0
-$sql = "SELECT * FROM clients WHERE current_debt > 0.01 ORDER BY current_debt DESC";
-$debtors = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+$debtors = $creditService->getDebtors();
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -134,6 +165,13 @@ require_once '../templates/menu.php';
     .modal-body p,
     .modal-body strong {
         color: var(--text-main, #f8fafc) !important;
+        color: #333 !important; /* Force dark text for modal body on light background if modal is light */
+    }
+    
+    /* If modal is dark, override above */
+    [data-bs-theme="dark"] .modal-body p,
+    [data-bs-theme="dark"] .modal-body strong {
+         color: #f8fafc !important;
     }
 
     /* Asegurar que los inputs sean legibles */
@@ -170,6 +208,8 @@ require_once '../templates/menu.php';
 
     <?php if (isset($success))
         echo "<div class='alert alert-success'>$success</div>"; ?>
+    <?php if (isset($error))
+        echo "<div class='alert alert-danger'>$error</div>"; ?>
 
     <div class="row">
         <!-- LISTADO DE DEUDORES -->
@@ -203,15 +243,9 @@ require_once '../templates/menu.php';
         <div class="col-md-7">
             <?php if (isset($_GET['client_id'])):
                 $cId = $_GET['client_id'];
-                $client = $creditManager->getClientById($cId);
+                $client = $creditService->getClientById($cId);
                 // Obtener deudas detallo
-                $stmt = $db->prepare("SELECT ar.*, o.created_at as order_date 
-                                     FROM accounts_receivable ar 
-                                     LEFT JOIN orders o ON ar.order_id = o.id
-                                     WHERE ar.client_id = ? AND ar.status != 'paid' 
-                                     ORDER BY ar.created_at ASC");
-                $stmt->execute([$cId]);
-                $debts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $debts = $creditService->getPendingDebtsByClient($cId); // Uses Service!
                 ?>
                 <div class="card shadow">
                     <div class="card-header bg-primary text-white d-flex justify-content-between">
@@ -272,6 +306,7 @@ require_once '../templates/menu.php';
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST">
+                <?= $csrfToken->insertTokenField() ?>
                 <div class="modal-body">
                     <input type="hidden" name="ar_id" id="modal_ar_id">
 
@@ -282,11 +317,12 @@ require_once '../templates/menu.php';
                     <hr>
 
                     <div class="mb-3">
-                        <label class="form-label">Método de Pago</label>
+                        <label class="form-label" style="color:#000;">Método de Pago</label>
                         <select name="payment_method_id" class="form-select" required>
                             <option value="">-- Seleccionar --</option>
                             <?php
-                            $methods = $transactionManager->getPaymentMethods();
+                            // Uses Service!
+                            $methods = $transactionService->getPaymentMethods();
                             foreach ($methods as $m):
                                 ?>
                                 <option value="<?= $m['id'] ?>">
@@ -297,7 +333,7 @@ require_once '../templates/menu.php';
                     </div>
 
                     <div class="mb-3">
-                        <label>Monto a Abonar ($)</label>
+                        <label style="color:#000;">Monto a Abonar ($)</label>
                         <input type="number" step="0.01" name="pay_amount" id="modal_pay_amount"
                             class="form-control form-control-lg" required>
                         <small class="text-muted">Máx: $<span id="modal_max_amount"></span></small>

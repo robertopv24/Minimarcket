@@ -63,4 +63,9 @@ class CreditService
     {
         return $this->repository->getPendingDebtsByClient($clientId);
     }
+
+    public function getPendingEmployeeDebts(int $userId): array
+    {
+        return $this->repository->getPendingEmployeeDebts($userId);
+    }
 }

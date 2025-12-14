@@ -4,7 +4,7 @@ require_once '../../templates/autoload.php';
 
 // Validar sesion
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+// session_start();
 }
 
 header('Content-Type: application/json');
