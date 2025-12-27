@@ -203,6 +203,10 @@ require_once '../templates/menu.php';
                                                 <i class="fa fa-cogs"></i>
                                             </a>
 
+                                            <a href="duplicate_product.php?id=<?= $producto['id'] ?>" class="btn btn-sm btn-info ms-1 text-white" title="Duplicar" onclick="return confirm('¿Estás seguro de que quieres duplicar este producto?');">
+                                                <i class="fa fa-copy"></i>
+                                            </a>
+
                                             <form action="delete_product.php?id=<?= $producto['id'] ?>" method="POST" style="display:inline;">
                                                 <button type="submit" class="btn btn-sm btn-danger ms-1" onclick="return confirm('¿Eliminar <?= htmlspecialchars($producto['name']) ?>?');" title="Eliminar">
                                                     <i class="fa fa-trash"></i>

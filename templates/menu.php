@@ -55,6 +55,9 @@
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">PERSONAL</div>
                         <a href="../admin/nomina.php" class="nav-item nav-link">Nómina de Pagos</a>
 
+                        <div class="nav-item nav-link text-warning small fw-bold mt-2">MARKETING</div>
+                        <a href="../admin/tv_config.php" class="nav-item nav-link"><i class="fa fa-tv me-2"></i>Pantalla TV</a>
+
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">SISTEMA</div>
                         <a href="../admin/usuarios.php" class="nav-item nav-link">Usuarios</a>
                         <a href="../admin/proveedores.php" class="nav-item nav-link">Proveedores</a>

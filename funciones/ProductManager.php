@@ -331,5 +331,90 @@ class ProductManager
 
 
 
+    // =========================================================
+    // DUPLICACIÓN DE PRODUCTOS
+    // =========================================================
+
+    public function duplicateProduct($productId)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Obtener datos originales
+            $original = $this->getProductById($productId);
+            if (!$original) {
+                throw new Exception("Producto no encontrado");
+            }
+
+            // 2. Crear copia (Nombre + Copia)
+            $newName = $original['name'] . " (Copia)";
+            
+            // Usamos la inserción manual para tener control total de los campos
+            $sql = "INSERT INTO products (
+                name, description, price_usd, price_ves, 
+                stock, image_url, profit_margin, product_type, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                $newName,
+                $original['description'],
+                $original['price_usd'],
+                $original['price_ves'],
+                $original['stock'], // Copiamos el stock físico/manual tal cual
+                $original['image_url'],
+                $original['profit_margin'],
+                $original['product_type']
+            ]);
+
+            $newId = $this->db->lastInsertId();
+
+            // 3. Si es un producto "prepared" (Cocina/Combo), duplicar su receta (Componentes)
+            // OJO: Incluso si es simple, revisamos si tiene componentes por si acaso.
+            $components = $this->getProductComponents($productId); 
+            // Nota: getProductComponents ya trae los items. 
+            // PERO necesitamos la tabla cruda `product_components` para duplicar exactamente las cantidades/IDs.
+            // Usaremos una query directa para ser más precisos con los IDs y tipos.
+            
+            $stmtComps = $this->db->prepare("SELECT * FROM product_components WHERE product_id = ?");
+            $stmtComps->execute([$productId]);
+            $rawComponents = $stmtComps->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($rawComponents as $comp) {
+                $sqlAddComp = "INSERT INTO product_components (product_id, component_type, component_id, quantity) VALUES (?, ?, ?, ?)";
+                $stmtAdd = $this->db->prepare($sqlAddComp);
+                $stmtAdd->execute([
+                    $newId,
+                    $comp['component_type'],
+                    $comp['component_id'],
+                    $comp['quantity']
+                ]);
+            }
+
+            // 4. Duplicar Extras Válidos
+            $stmtExtras = $this->db->prepare("SELECT * FROM product_valid_extras WHERE product_id = ?");
+            $stmtExtras->execute([$productId]);
+            $rawExtras = $stmtExtras->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($rawExtras as $extra) {
+                $sqlAddExtra = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override) VALUES (?, ?, ?)";
+                $stmtAddEx = $this->db->prepare($sqlAddExtra);
+                $stmtAddEx->execute([
+                    $newId,
+                    $extra['raw_material_id'],
+                    $extra['price_override']
+                ]);
+            }
+
+            $this->db->commit();
+            return $newId;
+
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Error duplicando producto: " . $e->getMessage());
+            return false;
+        }
+    }
+
 }
 ?>
