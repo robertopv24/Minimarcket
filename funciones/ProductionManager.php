@@ -68,6 +68,37 @@ class ProductionManager
         }
     }
 
+
+    public function updateRecipeIngredientQuantity($recipeId, $newQty)
+    {
+        $stmt = $this->db->prepare("UPDATE production_recipes SET quantity_required = ? WHERE id = ?");
+        return $stmt->execute([$newQty, $recipeId]);
+    }
+
+    public function replaceRecipe($manufId, $ingredients)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Eliminar receta anterior
+            $stmtDel = $this->db->prepare("DELETE FROM production_recipes WHERE manufactured_product_id = ?");
+            $stmtDel->execute([$manufId]);
+
+            // 2. Insertar nuevos ingredientes
+            $stmtAdd = $this->db->prepare("INSERT INTO production_recipes (manufactured_product_id, raw_material_id, quantity_required) VALUES (?, ?, ?)");
+            foreach ($ingredients as $ing) {
+                $stmtAdd->execute([$manufId, $ing['raw_id'], $ing['qty']]);
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Error reemplazando receta: " . $e->getMessage());
+            return false;
+        }
+    }
+
     public function removeIngredientFromRecipe($recipeId)
     {
         $stmt = $this->db->prepare("DELETE FROM production_recipes WHERE id = ?");

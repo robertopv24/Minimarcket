@@ -48,7 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // O mandamos el precio que el admin escriba.
         $price = !empty($_POST['extra_price']) ? $_POST['extra_price'] : 1.00; // Default $1 si no escribe nada
 
-        if ($productManager->addValidExtra($productId, $rawId, $price)) {
+        $qty = !empty($_POST['extra_qty']) ? $_POST['extra_qty'] : 1.000000;
+
+        if ($productManager->addValidExtra($productId, $rawId, $price, $qty)) {
             $mensaje = '<div class="alert alert-success">Extra permitido agregado correctamente.</div>';
         }
     }
@@ -58,6 +60,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($productManager->removeValidExtra($_POST['extra_row_id'])) {
             $mensaje = '<div class="alert alert-warning">Extra eliminado de la lista.</div>';
         }
+    }
+
+    // 6. ACTUALIZAR CANTIDAD DE COMPONENTE (RECETA)
+    if ($action === 'update_component') {
+        $productManager->updateComponentQuantity($_POST['component_row_id'], $_POST['quantity']);
+        $mensaje = '<div class="alert alert-success">Cantidad de ingrediente actualizada.</div>';
+    }
+
+    // 7. ACTUALIZAR EXTRA (PRECIO Y CANTIDAD)
+    if ($action === 'update_valid_extra') {
+        $productManager->updateValidExtraQuantity($_POST['extra_row_id'], $_POST['price_override'], $_POST['quantity_required']);
+        $mensaje = '<div class="alert alert-success">Configuración de extra actualizada.</div>';
     }
 }
 
@@ -162,7 +176,7 @@ require_once '../templates/menu.php';
                                         <input type="hidden" name="type" value="manufactured">
                                         <select name="component_id" class="form-select mb-2">
                                             <?php foreach($manufactured as $m): ?>
-                                                <option value="<?= $m['id'] ?>"><?= $m['name'] ?> (Stock: <?= floatval($m['stock']) ?>)</option>
+                                                <option value="<?= $m['id'] ?>"><?= $m['name'] ?> (Stock: <?= floatval($m['stock']) ?> <?= $m['unit'] ?>)</option>
                                             <?php endforeach; ?>
                                         </select>
                                         <input type="number" step="0.001" name="quantity" class="form-control mb-2" placeholder="Cantidad" required>
@@ -200,7 +214,7 @@ require_once '../templates/menu.php';
                                             // Filtramos empaques para que no salgan aquí
                                             if($r['category'] == 'packaging') continue;
                                         ?>
-                                            <option value="<?= $r['id'] ?>"><?= $r['name'] ?></option>
+                                            <option value="<?= $r['id'] ?>"><?= $r['name'] ?> (<?= $r['unit'] ?>)</option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -208,6 +222,11 @@ require_once '../templates/menu.php';
                                 <div class="mb-2">
                                     <label class="form-label fw-bold small">Precio de Venta del Extra ($):</label>
                                     <input type="number" step="0.01" name="extra_price" class="form-control form-control-sm" placeholder="Ej: 1.00" value="1.00" required>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold small">Cantidad Insumo a Descontar:</label>
+                                    <input type="number" step="0.000001" name="extra_qty" class="form-control form-control-sm" placeholder="Ej: 0.100" value="1.00" required>
                                 </div>
 
                                 <button type="submit" class="btn btn-warning btn-sm w-100 fw-bold">
@@ -251,11 +270,18 @@ require_once '../templates/menu.php';
                                 <td class="fw-bold"><?= floatval($c['quantity']) ?> <?= $c['item_unit'] ?></td>
                                 <td>$<?= number_format($c['quantity'] * $c['item_cost'], 3) ?></td>
                                 <td class="text-end">
-                                    <form method="POST">
-                                        <input type="hidden" name="action" value="remove_component">
-                                        <input type="hidden" name="component_row_id" value="<?= $c['id'] ?>">
-                                        <button class="btn btn-sm text-danger p-0"><i class="fa fa-times"></i></button>
-                                    </form>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm text-warning p-0 me-2" 
+                                                onclick="editComponent(<?= $c['id'] ?>, '<?= addslashes($c['item_name']) ?>', <?= floatval($c['quantity']) ?>)" 
+                                                title="Editar cantidad">
+                                            <i class="fa fa-edit"></i>
+                                        </button>
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('¿Quitar este ingrediente?')">
+                                            <input type="hidden" name="action" value="remove_component">
+                                            <input type="hidden" name="component_row_id" value="<?= $c['id'] ?>">
+                                            <button class="btn btn-sm text-danger p-0"><i class="fa fa-times"></i></button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -276,6 +302,7 @@ require_once '../templates/menu.php';
                         <thead>
                             <tr>
                                 <th>Ingrediente</th>
+                                <th>Descuenta</th>
                                 <th>Precio Venta ($)</th>
                                 <th class="text-end">Acción</th>
                             </tr>
@@ -286,17 +313,27 @@ require_once '../templates/menu.php';
                                     <td>
                                         <?= htmlspecialchars($ve['name']) ?>
                                     </td>
+                                    <td class="fw-bold">
+                                        <?= floatval($ve['quantity_required']) ?> <small class="text-muted">insumo</small>
+                                    </td>
                                     <td class="fw-bold text-success">
                                         $<?= number_format((float)$ve['price_override'], 2) ?>
                                     </td>
                                     <td class="text-end">
-                                        <form method="POST">
-                                            <input type="hidden" name="action" value="remove_valid_extra">
-                                            <input type="hidden" name="extra_row_id" value="<?= $ve['id'] ?>">
-                                            <button class="btn btn-sm btn-outline-danger py-0" title="Quitar de la lista">
-                                                <i class="fa fa-trash"></i>
+                                        <div class="btn-group">
+                                            <button class="btn btn-sm btn-outline-warning py-0 me-1" 
+                                                    onclick="editExtra(<?= $ve['id'] ?>, '<?= addslashes($ve['name']) ?>', <?= floatval($ve['price_override']) ?>, <?= floatval($ve['quantity_required']) ?>)" 
+                                                    title="Editar Extra">
+                                                <i class="fa fa-edit"></i>
                                             </button>
-                                        </form>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="action" value="remove_valid_extra">
+                                                <input type="hidden" name="extra_row_id" value="<?= $ve['id'] ?>">
+                                                <button class="btn btn-sm btn-outline-danger py-0" title="Quitar de la lista">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -313,3 +350,71 @@ require_once '../templates/menu.php';
 </div>
 
 <?php require_once '../templates/footer.php'; ?>
+
+<!-- Modales para Edición -->
+<div class="modal fade" id="modalEditComponent" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Editar Cantidad: <span id="editCompName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="action" value="update_component">
+                <input type="hidden" name="component_row_id" id="editCompRowId">
+                <div class="mb-3">
+                    <label class="form-label">Nueva Cantidad:</label>
+                    <input type="number" step="0.000001" name="quantity" id="editCompQty" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-warning">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditExtra" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Editar Extra: <span id="editExtraName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="action" value="update_valid_extra">
+                <input type="hidden" name="extra_row_id" id="editExtraRowId">
+                
+                <div class="mb-3">
+                    <label class="form-label">Precio de Venta ($):</label>
+                    <input type="number" step="0.01" name="price_override" id="editExtraPrice" class="form-control" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Cantidad a Descontar de Insumo:</label>
+                    <input type="number" step="0.000001" name="quantity_required" id="editExtraQty" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-warning">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editComponent(id, name, qty) {
+    document.getElementById('editCompRowId').value = id;
+    document.getElementById('editCompName').textContent = name;
+    document.getElementById('editCompQty').value = qty;
+    new bootstrap.Modal(document.getElementById('modalEditComponent')).show();
+}
+
+function editExtra(id, name, price, qty) {
+    document.getElementById('editExtraRowId').value = id;
+    document.getElementById('editExtraName').textContent = name;
+    document.getElementById('editExtraPrice').value = price;
+    document.getElementById('editExtraQty').value = qty;
+    new bootstrap.Modal(document.getElementById('modalEditExtra')).show();
+}
+</script>

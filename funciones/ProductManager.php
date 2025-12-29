@@ -212,6 +212,12 @@ class ProductManager
         }
     }
 
+    public function updateComponentQuantity($rowId, $newQuantity)
+    {
+        $stmt = $this->db->prepare("UPDATE product_components SET quantity = ? WHERE id = ?");
+        return $stmt->execute([$newQuantity, $rowId]);
+    }
+
     public function removeComponent($id)
     {
         $stmt = $this->db->prepare("DELETE FROM product_components WHERE id = ?");
@@ -302,23 +308,29 @@ class ProductManager
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function addValidExtra($productId, $rawMaterialId, $priceOverride = null)
+    public function addValidExtra($productId, $rawMaterialId, $priceOverride = null, $qtyRequired = 1.00)
     {
         // Verificar si ya existe para no duplicar
         $check = $this->db->prepare("SELECT id FROM product_valid_extras WHERE product_id = ? AND raw_material_id = ?");
         $check->execute([$productId, $rawMaterialId]);
 
         if ($check->fetch()) {
-            // Si existe, actualizamos el precio
-            $sql = "UPDATE product_valid_extras SET price_override = ? WHERE product_id = ? AND raw_material_id = ?";
+            // Si existe, actualizamos el precio y la cantidad
+            $sql = "UPDATE product_valid_extras SET price_override = ?, quantity_required = ? WHERE product_id = ? AND raw_material_id = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$priceOverride, $productId, $rawMaterialId]);
+            return $stmt->execute([$priceOverride, $qtyRequired, $productId, $rawMaterialId]);
         } else {
             // Si no, insertamos
-            $sql = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override) VALUES (?, ?, ?)";
+            $sql = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override, quantity_required) VALUES (?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$productId, $rawMaterialId, $priceOverride]);
+            return $stmt->execute([$productId, $rawMaterialId, $priceOverride, $qtyRequired]);
         }
+    }
+
+    public function updateValidExtraQuantity($rowId, $priceOverride, $qtyRequired)
+    {
+        $stmt = $this->db->prepare("UPDATE product_valid_extras SET price_override = ?, quantity_required = ? WHERE id = ?");
+        return $stmt->execute([$priceOverride, $qtyRequired, $rowId]);
     }
 
     public function removeValidExtra($extraId)
@@ -397,12 +409,13 @@ class ProductManager
             $rawExtras = $stmtExtras->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($rawExtras as $extra) {
-                $sqlAddExtra = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override) VALUES (?, ?, ?)";
+                $sqlAddExtra = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override, quantity_required) VALUES (?, ?, ?, ?)";
                 $stmtAddEx = $this->db->prepare($sqlAddExtra);
                 $stmtAddEx->execute([
                     $newId,
                     $extra['raw_material_id'],
-                    $extra['price_override']
+                    $extra['price_override'],
+                    $extra['quantity_required'] ?? 1.000000 // Fallback si el original no tenía esto seteado
                 ]);
             }
 

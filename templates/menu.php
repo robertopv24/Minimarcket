@@ -46,6 +46,7 @@
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">MANUFACTURA</div>
                         <a href="../admin/insumos.php" class="nav-item nav-link">1. Materia Prima</a>
                         <a href="../admin/manufactura.php" class="nav-item nav-link">2. Recetas y Producción</a>
+                        <a href="../admin/estandarizador.php" class="nav-item nav-link">3. Estandarizador</a>
 
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">FINANZAS</div>
                         <a href="../admin/caja_chica.php" class="nav-item nav-link">Tesorería General</a>

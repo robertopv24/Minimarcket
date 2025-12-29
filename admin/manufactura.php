@@ -41,6 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete_recipe_item') {
         $productionManager->removeIngredientFromRecipe($_POST['recipe_id']);
     }
+
+    // 5. Editar ingrediente de receta
+    if ($action === 'update_recipe_item') {
+        $productionManager->updateRecipeIngredientQuantity($_POST['recipe_id'], $_POST['qty']);
+        $mensaje = '<div class="alert alert-success">Cantidad actualizada en la receta.</div>';
+    }
 }
 
 // 5. Configurar Receta (desde Configurar Receta Modal)
@@ -107,12 +113,19 @@ require_once '../templates/menu.php';
                                         <span><?= floatval($r['quantity_required']) ?> <small
                                                 class="text-muted"><?= $r['material_unit'] ?></small> de
                                             <strong><?= $r['material_name'] ?></strong></span>
-                                        <form method="POST" style="display:inline;">
-                                            <input type="hidden" name="action" value="delete_recipe_item">
-                                            <input type="hidden" name="recipe_id" value="<?= $r['id'] ?>">
-                                            <button type="submit" class="btn btn-sm text-danger hover-scale" title="Eliminar"><i
-                                                    class="fa fa-times"></i></button>
-                                        </form>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm text-warning hover-scale me-1" 
+                                                    onclick="openEditRecipeModal(<?= $r['id'] ?>, '<?= addslashes($r['material_name']) ?>', <?= floatval($r['quantity_required']) ?>)" 
+                                                    title="Editar Cantidad">
+                                                <i class="fa fa-edit"></i>
+                                            </button>
+                                            <form method="POST" style="display:inline;" onsubmit="return confirm('¿Quitar ingrediente?')">
+                                                <input type="hidden" name="action" value="delete_recipe_item">
+                                                <input type="hidden" name="recipe_id" value="<?= $r['id'] ?>">
+                                                <button type="submit" class="btn btn-sm text-danger hover-scale" title="Eliminar"><i
+                                                        class="fa fa-times"></i></button>
+                                            </form>
+                                        </div>
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
@@ -199,6 +212,29 @@ require_once '../templates/menu.php';
     </div>
 </div>
 
+<div class="modal fade" id="modalEditRecipe" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Editar Cantidad: <span id="editRecipeMaterialName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="action" value="update_recipe_item">
+                <input type="hidden" name="recipe_id" id="editRecipeId">
+
+                <div class="mb-3">
+                    <label>Nueva Cantidad Requerida</label>
+                    <input type="number" step="0.000001" name="qty" id="editRecipeQty" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-warning">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="modalProduce" tabindex="-1">
     <div class="modal-dialog">
         <form method="POST" class="modal-content">
@@ -233,6 +269,13 @@ require_once '../templates/menu.php';
         document.getElementById('recipeTargetName').textContent = name;
         document.getElementById('recipeTargetUnit').textContent = unit;
         new bootstrap.Modal(document.getElementById('modalRecipe')).show();
+    }
+
+    function openEditRecipeModal(id, name, qty) {
+        document.getElementById('editRecipeId').value = id;
+        document.getElementById('editRecipeMaterialName').textContent = name;
+        document.getElementById('editRecipeQty').value = qty;
+        new bootstrap.Modal(document.getElementById('modalEditRecipe')).show();
     }
 
     function openProduceModal(id, name, unit) {
