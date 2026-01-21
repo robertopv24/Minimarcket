@@ -60,3 +60,12 @@ Thumbs.db
 tv/ejemplo/1/musica_fondo.mp3
 tv/ejemplo/2/musica_fondo.mp3
 uploads/tv/audio/musica_fondo.mp3
+admin/0.php
+admin/fix_packaging_categories.php
+admin/fix_whoppers.php
+debug_inventory.php
+debug_prod.php
+fix_schema_final.php
+test_debug.php
+test_perm.php
+tests/check_schema.php
