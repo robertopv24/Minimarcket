@@ -10,11 +10,14 @@ if (!isset($_GET['cart_id'])) {
 $cartId = $_GET['cart_id'];
 
 // 1. Obtener producto del carrito
-$stmt = $db->prepare("SELECT c.*, p.name, p.product_type, p.id as pid FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ?");
+$stmt = $db->prepare("SELECT c.*, p.name, p.product_type, p.id as pid, p.max_sides FROM cart c JOIN products p ON c.product_id = p.id WHERE c.id = ?");
 $stmt->execute([$cartId]);
 $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$item) { echo json_encode(['error' => 'Producto no encontrado']); exit; }
+if (!$item) {
+    echo json_encode(['error' => 'Producto no encontrado']);
+    exit;
+}
 
 $response = [
     'product_name' => $item['name'],
@@ -28,13 +31,32 @@ if ($item['product_type'] === 'compound') {
     $components = $productManager->getProductComponents($item['pid']);
     $idx = 0;
     foreach ($components as $comp) {
+        // AHORA SOPORTAMOS 'product' Y 'manufactured'
         if ($comp['component_type'] == 'product') {
             $qty = intval($comp['quantity']);
             for ($i = 0; $i < $qty; $i++) {
                 $subProd = $productManager->getProductById($comp['component_id']);
-                // Pasamos la DB para consultar extras específicos
                 $response['sub_items'][] = buildSubItemStructure($db, $productManager, $subProd, $idx);
                 $idx++;
+            }
+        } elseif ($comp['component_type'] == 'manufactured') {
+            // Lógica para Productos de Cocina (Hamburguesas, etc.)
+            $qty = intval($comp['quantity']);
+
+            // Obtener el nombre directamente de la tabla (Hack rápido hasta tener método en PM)
+            $stmtMan = $db->prepare("SELECT * FROM manufactured_products WHERE id = ?");
+            $stmtMan->execute([$comp['component_id']]);
+            $manProd = $stmtMan->fetch(PDO::FETCH_ASSOC);
+
+            if ($manProd) {
+                // Adaptamos al formato de "producto" para la función constructora
+                $manProd['product_type'] = 'manufactured'; // Flag interno
+                $manProd['max_sides'] = 0; // Por defecto no tienen contornos definidos en product_valid_sides
+
+                for ($i = 0; $i < $qty; $i++) {
+                    $response['sub_items'][] = buildSubItemStructure($db, $productManager, $manProd, $idx, 'manufactured');
+                    $idx++;
+                }
             }
         }
     }
@@ -51,49 +73,89 @@ $response['saved_mods'] = $stmtM->fetchAll(PDO::FETCH_ASSOC);
 echo json_encode($response);
 
 // --- FUNCIÓN CONSTRUCTORA MEJORADA ---
-function buildSubItemStructure($db, $pm, $product, $index) {
-    // A. Ingredientes Quitables (Receta Base)
-    $productId = $product['id'] ?? $product['pid'];
-    $comps = $pm->getProductComponents($productId);
+function buildSubItemStructure($db, $pm, $product, $index, $forceType = 'product')
+{
+    // El ID real
+    $id = isset($product['pid']) ? $product['pid'] : $product['id'];
     $removables = [];
+    $extras = [];
+    $sides = [];
 
-    foreach ($comps as $c) {
-        if ($c['component_type'] == 'raw') {
-            $n = strtolower($c['item_name']);
-            if (strpos($n, 'caja')===false && strpos($n, 'papel')===false && strpos($n, 'aceite')===false) {
+    // A. RECETA BASE (Ingredientes Quitables)
+    if ($forceType === 'manufactured') {
+        // Buscar en production_recipes
+        $sqlRec = "SELECT pr.raw_material_id, rm.name, rm.category 
+                   FROM production_recipes pr 
+                   JOIN raw_materials rm ON pr.raw_material_id = rm.id 
+                   WHERE pr.manufactured_product_id = ?";
+        $stmtRec = $db->prepare($sqlRec);
+        $stmtRec->execute([$id]);
+        $recipes = $stmtRec->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($recipes as $r) {
+            if ($r['category'] !== 'packaging') {
+                $removables[] = ['id' => $r['raw_material_id'], 'name' => $r['name']];
+            }
+        }
+    } else {
+        // Es un Producto (Simple/Prepared)
+        $comps = $pm->getProductComponents($id);
+
+        // Obtener empaques configurados
+        $packagingLinks = $pm->getProductPackaging($id);
+        $packagingIds = array_column($packagingLinks, 'raw_material_id');
+
+        foreach ($comps as $c) {
+            if ($c['component_type'] == 'raw') {
+                $stmtCat = $db->prepare("SELECT category FROM raw_materials WHERE id = ?");
+                $stmtCat->execute([$c['component_id']]);
+                $category = $stmtCat->fetchColumn();
+
+                if ($category !== 'packaging' && !in_array($c['component_id'], $packagingIds)) {
+                    $removables[] = ['id' => $c['component_id'], 'name' => $c['item_name']];
+                }
+            } elseif ($c['component_type'] == 'manufactured') {
+                // MODIFICACIÓN: Mostrar el producto manufacturado como un ítem único "Quitable"
+                // en lugar de explotar sus ingredientes (receta interna).
+                // Esto cumple el requerimiento: "que en la lista de ingredientes se muestren los productos manufacturados"
                 $removables[] = ['id' => $c['component_id'], 'name' => $c['item_name']];
             }
         }
     }
 
-    // B. EXTRAS VÁLIDOS (Consulta Específica por Producto)
-    // Buscamos solo lo que esté en la tabla 'product_valid_extras' para este ID
-    $extras = [];
-    $sqlExtras = "SELECT rm.id, rm.name,
-                         COALESCE(pve.price_override, 1.00) as price
-                  FROM product_valid_extras pve
-                  JOIN raw_materials rm ON pve.raw_material_id = rm.id
-                  WHERE pve.product_id = ?";
+    // B. EXTRAS VÁLIDOS (Solo para Productos reales por ahora)
+    if ($forceType === 'product') {
+        $sqlExtras = "SELECT rm.id, rm.name, COALESCE(pve.price_override, 1.00) as price
+                      FROM product_valid_extras pve
+                      JOIN raw_materials rm ON pve.raw_material_id = rm.id
+                      WHERE pve.product_id = ?";
+        $stmtEx = $db->prepare($sqlExtras);
+        $stmtEx->execute([$id]);
+        $rawExtras = $stmtEx->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmtEx = $db->prepare($sqlExtras);
-    $stmtEx->execute([$productId]);
-    $rawExtras = $stmtEx->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rawExtras as $e) {
+            $extras[] = ['id' => $e['id'], 'name' => $e['name'], 'price' => floatval($e['price'])];
+        }
 
-    // Si la tabla está vacía para este producto, fallback básico (opcional)
-    // O mostramos vacío para obligar a configurar. Aquí mostramos vacío si no hay configuración.
-    foreach($rawExtras as $e) {
-        $extras[] = [
-            'id' => $e['id'],
-            'name' => $e['name'],
-            'price' => floatval($e['price'])
-        ];
+        // C. CONTORNOS
+        $sides = $pm->getValidSides($id);
+    }
+
+    // FIX MAX SIDES: Si el producto tiene contornos pero el límite es 0 (configuración faltante), permitir ilimitado (99).
+    $maxSides = intval($product['max_sides'] ?? 0);
+    if ($maxSides === 0 && count($sides) > 0) {
+        $maxSides = 99;
     }
 
     return [
         'index' => $index,
         'name' => $product['name'],
+        'max_sides' => $maxSides,
         'removables' => $removables,
-        'available_extras' => $extras // <--- AHORA VIAJA AQUÍ, ESPECÍFICO POR ÍTEM
+        'available_extras' => $extras,
+        'available_sides' => $sides,
+        'component_type' => $forceType, // Útil para debug 
+        'component_id' => $id
     ];
 }
 ?>

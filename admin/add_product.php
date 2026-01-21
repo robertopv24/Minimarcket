@@ -23,7 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $precio_usd = $_POST['precio_usd'] ?? 0;
     $precio_ves = $_POST['precio_ves'] ?? 0;
     $stock = $_POST['stock'] ?? 0;
-    $profit_margin = $_POST['profit_margin'] ?? 20.00; // <--- NUEVO CAMPO
+    $min_stock = $_POST['min_stock'] ?? 5;
+    $profit_margin = $_POST['profit_margin'] ?? 20.00;
 
     // Procesar imagen (RCE FIX)
     $rutaImagen = 'default.jpg';
@@ -37,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Usar ProductManager para crear (Limpio y Seguro)
-    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin)) {
+    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock)) {
         $mensaje = '<div class="alert alert-success">Producto creado con éxito.</div>';
     } else {
         $mensaje = '<div class="alert alert-danger">Error al crear el producto en base de datos.</div>';
@@ -99,9 +100,17 @@ require_once '../templates/menu.php';
                     </div>
 
                     <div class="col-md-6">
-                        <div class="mb-3">
-                            <label for="stock" class="form-label">Stock Inicial</label>
-                            <input type="number" class="form-control" id="stock" name="stock" value="0" required>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label for="stock" class="form-label text-warning">Stock Inicial</label>
+                                <input type="number" class="form-control border-warning" id="stock" name="stock"
+                                    value="0" required>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label for="min_stock" class="form-label text-danger">Stock Mínimo (Alerta)</label>
+                                <input type="number" class="form-control border-danger" id="min_stock" name="min_stock"
+                                    value="5" required>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="imagen" class="form-label">Imagen del Producto</label>

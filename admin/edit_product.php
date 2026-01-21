@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $precio_usd = $_POST['precio_usd'];
     $precio_ves = $_POST['precio_ves'];
     $stock = $_POST['stock'];
-    $profit_margin = $_POST['profit_margin']; // <--- NUEVO CAMPO
+    $min_stock = $_POST['min_stock'];
+    $profit_margin = $_POST['profit_margin'];
 
     // Procesar imagen
     // Procesar imagen
@@ -45,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Actualizar usando ProductManager
-    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin)) {
+    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock)) {
         $mensaje = '<div class="alert alert-success">Producto actualizado con éxito.</div>';
         $producto = $productManager->getProductById($id); // Refrescar datos
     } else {
@@ -108,10 +109,17 @@ require_once '../templates/menu.php';
                     </div>
 
                     <div class="col-md-6">
-                        <div class="mb-3">
-                            <label class="form-label">Stock</label>
-                            <input type="number" class="form-control" name="stock" value="<?= $producto['stock'] ?>"
-                                required>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Stock Actual</label>
+                                <input type="number" class="form-control" name="stock" value="<?= $producto['stock'] ?>"
+                                    required>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label text-danger">Stock Mínimo (Alerta)</label>
+                                <input type="number" class="form-control border-danger" name="min_stock"
+                                    value="<?= $producto['min_stock'] ?? 5 ?>" required>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Imagen Actual</label>

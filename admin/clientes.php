@@ -48,9 +48,17 @@ if (isset($_GET['delete'])) {
     if ($debt > 0.01) {
         $error = "❌ No se puede eliminar. Cliente tiene deuda pendiente: $$debt";
     } else {
-        $stmt = $db->prepare("DELETE FROM clients WHERE id = ?");
-        $stmt->execute([$id]);
-        $mensaje = "✅ Cliente eliminado.";
+        try {
+            $stmt = $db->prepare("DELETE FROM clients WHERE id = ?");
+            $stmt->execute([$id]);
+            $mensaje = "✅ Cliente eliminado.";
+        } catch (PDOException $e) {
+            if ($e->getCode() == '23000') {
+                $error = "❌ No se puede eliminar este cliente porque tiene historial de transacciones (Ventas/Pagos antiguos).";
+            } else {
+                $error = "❌ Error al eliminar: " . $e->getMessage();
+            }
+        }
     }
 }
 

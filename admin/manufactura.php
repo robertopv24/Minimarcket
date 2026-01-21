@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 1. Crear Producto Manufacturado
     if ($action === 'create_product') {
-        if ($productionManager->createManufacturedProduct($_POST['name'], $_POST['unit'])) {
+        if ($productionManager->createManufacturedProduct($_POST['name'], $_POST['unit'], $_POST['min_stock'])) {
             $mensaje = '<div class="alert alert-success">Producto creado. Ahora define su receta.</div>';
         }
     }
@@ -46,6 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_recipe_item') {
         $productionManager->updateRecipeIngredientQuantity($_POST['recipe_id'], $_POST['qty']);
         $mensaje = '<div class="alert alert-success">Cantidad actualizada en la receta.</div>';
+    }
+
+    // 6. Editar Información Básica
+    if ($action === 'update_info') {
+        if ($productionManager->updateManufacturedProduct($_POST['manuf_id'], $_POST['name'], $_POST['unit'], $_POST['min_stock'])) {
+            $mensaje = '<div class="alert alert-success">Información del producto actualizada.</div>';
+        }
     }
 }
 
@@ -95,7 +102,11 @@ require_once '../templates/menu.php';
                 <div class="card shadow-sm h-100">
                     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                         <h5 class="m-0"><?= htmlspecialchars($p['name']) ?></h5>
-                        <span class="badge bg-warning text-dark">Stock: <?= floatval($p['stock']) ?>
+                        <?php
+                        $isLow = $p['stock'] <= ($p['min_stock'] ?? 0);
+                        $stockBadgeClass = $isLow ? 'bg-danger' : 'bg-warning text-dark';
+                        ?>
+                        <span class="badge <?= $stockBadgeClass ?>">Stock: <?= floatval($p['stock']) ?>
                             <?= $p['unit'] ?></span>
                     </div>
                     <div class="card-body">
@@ -114,12 +125,13 @@ require_once '../templates/menu.php';
                                                 class="text-muted"><?= $r['material_unit'] ?></small> de
                                             <strong><?= $r['material_name'] ?></strong></span>
                                         <div class="btn-group">
-                                            <button type="button" class="btn btn-sm text-warning hover-scale me-1" 
-                                                    onclick="openEditRecipeModal(<?= $r['id'] ?>, '<?= addslashes($r['material_name']) ?>', <?= floatval($r['quantity_required']) ?>)" 
-                                                    title="Editar Cantidad">
+                                            <button type="button" class="btn btn-sm text-warning hover-scale me-1"
+                                                onclick="openEditRecipeModal(<?= $r['id'] ?>, '<?= addslashes($r['material_name']) ?>', <?= floatval($r['quantity_required']) ?>)"
+                                                title="Editar Cantidad">
                                                 <i class="fa fa-edit"></i>
                                             </button>
-                                            <form method="POST" style="display:inline;" onsubmit="return confirm('¿Quitar ingrediente?')">
+                                            <form method="POST" style="display:inline;"
+                                                onsubmit="return confirm('¿Quitar ingrediente?')">
                                                 <input type="hidden" name="action" value="delete_recipe_item">
                                                 <input type="hidden" name="recipe_id" value="<?= $r['id'] ?>">
                                                 <button type="submit" class="btn btn-sm text-danger hover-scale" title="Eliminar"><i
@@ -132,10 +144,20 @@ require_once '../templates/menu.php';
                         <?php endif; ?>
 
                         <div class="d-grid gap-2">
-                            <button class="btn btn-outline-primary btn-sm"
-                                onclick="openRecipeModal(<?= $p['id'] ?>, '<?= $p['name'] ?>', '<?= $p['unit'] ?>')">
-                                <i class="fa fa-edit"></i> Editar Receta
-                            </button>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <button class="btn btn-outline-secondary btn-sm w-100"
+                                        onclick="openEditInfoModal(<?= $p['id'] ?>, '<?= htmlspecialchars($p['name']) ?>', '<?= $p['unit'] ?>', <?= floatval($p['min_stock']) ?>)">
+                                        <i class="fa fa-info-circle"></i> Info
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="openRecipeModal(<?= $p['id'] ?>, '<?= $p['name'] ?>', '<?= $p['unit'] ?>')">
+                                        <i class="fa fa-list"></i> Receta
+                                    </button>
+                                </div>
+                            </div>
                             <button class="btn btn-success btn-sm"
                                 onclick="openProduceModal(<?= $p['id'] ?>, '<?= $p['name'] ?>', '<?= $p['unit'] ?>')"
                                 <?= empty($recipe) ? 'disabled' : '' ?>>
@@ -163,12 +185,16 @@ require_once '../templates/menu.php';
                     <input type="text" name="name" class="form-control" required>
                 </div>
                 <div class="mb-3">
-                    <label>Unidad de Medida (kg o und)</label>
+                    <label>Unidad de Medida</label>
                     <select name="unit" class="form-select">
-                        <option value="und">Unidades</option>
-                        <option value="kg">Kilogramos</option>
-                        <option value="lt">Litros</option>
+                        <option value="und">Unidades (und)</option>
+                        <option value="kg">Kilogramos (kg)</option>
+                        <option value="lt">Litros (lt)</option>
                     </select>
+                </div>
+                <div class="mb-3">
+                    <label>Stock Mínimo (Alerta)</label>
+                    <input type="number" step="0.000001" name="min_stock" class="form-control" value="0">
                 </div>
             </div>
             <div class="modal-footer">
@@ -263,6 +289,40 @@ require_once '../templates/menu.php';
     </div>
 </div>
 
+<div class="modal fade" id="modalEditInfo" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title">Editar Información Básica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="action" value="update_info">
+                <input type="hidden" name="manuf_id" id="editInfoId">
+                <div class="mb-3">
+                    <label>Nombre del Producto</label>
+                    <input type="text" name="name" id="editInfoName" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label>Unidad de Medida</label>
+                    <select name="unit" id="editInfoUnit" class="form-select">
+                        <option value="und">Unidades (und)</option>
+                        <option value="kg">Kilogramos (kg)</option>
+                        <option value="lt">Litros (lt)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label>Stock Mínimo (Alerta)</label>
+                    <input type="number" step="0.000001" name="min_stock" id="editInfoMinStock" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary w-100">Guardar Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     function openRecipeModal(id, name, unit) {
         document.getElementById('recipeManufId').value = id;
@@ -283,6 +343,14 @@ require_once '../templates/menu.php';
         document.getElementById('produceName').textContent = name;
         document.getElementById('produceUnit').textContent = unit;
         new bootstrap.Modal(document.getElementById('modalProduce')).show();
+    }
+
+    function openEditInfoModal(id, name, unit, minStock) {
+        document.getElementById('editInfoId').value = id;
+        document.getElementById('editInfoName').value = name;
+        document.getElementById('editInfoUnit').value = unit;
+        document.getElementById('editInfoMinStock').value = minStock;
+        new bootstrap.Modal(document.getElementById('modalEditInfo')).show();
     }
 </script>
 

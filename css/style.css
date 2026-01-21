@@ -470,3 +470,89 @@ img {
         -webkit-overflow-scrolling: touch;
     }
 }
+
+/* =========================================================
+   SELECT2 DARK THEME PATCH
+   ========================================================= */
+
+/* Main container and selection box */
+.select2-container--default .select2-selection--single {
+    background-color: var(--surface) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    height: 40px !important;
+    border-radius: var(--radius-sm) !important;
+    display: flex;
+    align-items: center;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--text-main) !important;
+    padding-left: 12px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 38px !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: var(--text-muted) transparent transparent transparent !important;
+}
+
+/* Dropdown Menu */
+.select2-dropdown {
+    background-color: var(--surface) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-main) !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Search field inside dropdown */
+.select2-search--dropdown {
+    background-color: var(--surface) !important;
+    padding: 8px !important;
+}
+
+.select2-search--dropdown .select2-search__field {
+    background-color: var(--background) !important;
+    border: 1px solid var(--primary) !important;
+    color: var(--text-main) !important;
+    border-radius: 4px !important;
+    padding: 6px !important;
+}
+
+/* Results and Options */
+.select2-results {
+    background-color: var(--surface) !important;
+}
+
+.select2-results__options {
+    background-color: var(--surface) !important;
+}
+
+.select2-results__option {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+    padding: 8px 12px !important;
+}
+
+.select2-results__option--selectable {
+    background-color: var(--surface) !important;
+    color: var(--text-main) !important;
+}
+
+/* Hover/Highlighted state */
+.select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+    background-color: var(--primary) !important;
+    color: #ffffff !important;
+}
+
+/* Selected state */
+.select2-container--default .select2-results__option--selected {
+    background-color: rgba(37, 99, 235, 0.3) !important;
+    color: #ffffff !important;
+}
+
+/* Fix for Select2 inside Modals */
+.select2-container {
+    z-index: 2000 !important;
+}

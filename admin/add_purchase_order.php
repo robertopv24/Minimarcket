@@ -124,8 +124,17 @@ require_once '../templates/menu.php';
                         </h5>
                         <div class="row">
                             <div class="col-md-6">
+                                <label class="form-label fw-bold">Estado del Pago</label>
+                                <select name="payment_status" id="paymentStatus" class="form-select" required
+                                    onchange="togglePaymentMethod()">
+                                    <option value="paid" selected>Pagado de Contado</option>
+                                    <option value="pending">A Crédito (Pendiente)</option>
+                                    <option value="partial">Pago Parcial</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" id="paymentMethodDiv">
                                 <label class="form-label fw-bold">Método de Pago (Origen de Fondos)</label>
-                                <select name="payment_method_id" class="form-select" required>
+                                <select name="payment_method_id" id="paymentMethodId" class="form-select" required>
                                     <option value="">Seleccione cómo pagó...</option>
                                     <?php foreach ($methods as $method): ?>
                                         <option value="<?= $method['id'] ?>">
@@ -137,15 +146,28 @@ require_once '../templates/menu.php';
                                 <small class="text-muted">Si seleccionas "Efectivo", se descontará automáticamente de la
                                     Bóveda Central.</small>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Estado del Pago</label>
-                                <select name="payment_status" class="form-select" disabled>
-                                    <option value="paid" selected>Pagado de Contado</option>
-                                </select>
-                            </div>
                         </div>
                     </div>
                 </div>
+
+                <script>
+                    function togglePaymentMethod() {
+                        const status = document.getElementById('paymentStatus').value;
+                        const methodDiv = document.getElementById('paymentMethodDiv');
+                        const methodSelect = document.getElementById('paymentMethodId');
+
+                        if (status === 'pending') {
+                            methodDiv.style.opacity = '0.5';
+                            methodDiv.style.pointerEvents = 'none';
+                            methodSelect.required = false;
+                            methodSelect.value = ''; // Limpiar selección
+                        } else {
+                            methodDiv.style.opacity = '1';
+                            methodDiv.style.pointerEvents = 'auto';
+                            methodSelect.required = true;
+                        }
+                    }
+                </script>
 
                 <div class="d-grid">
                     <button type="submit" class="btn btn-success btn-lg">Confirmar Compra y Registrar Gasto</button>

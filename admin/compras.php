@@ -102,11 +102,35 @@ require_once '../templates/menu.php';
                                     </td>
 
                                     <td>
-                                        <?php if ($pago): ?>
-                                            <small class="d-block text-muted">Método:</small>
-                                            <strong><?= $pago['name'] ?></strong>
-                                        <?php else: ?>
-                                            <span class="badge bg-secondary">N/A</span>
+                                        <?php
+                                        // LOGICA CORREGIDA PARA DATOS HISTORICOS:
+                                        // Si existe un registro de pago ($pago), asumimos que está PAGADO,
+                                        // independiente de lo que diga la nueva columna 'payment_status' (que por defecto es 'pending').
+                                        $paymentStatus = $order['payment_status'] ?? 'paid';
+
+                                        if ($pago) {
+                                            $paymentStatus = 'paid';
+                                        }
+
+                                        $payBadge = match ($paymentStatus) {
+                                            'paid' => 'bg-success',
+                                            'pending' => 'bg-warning text-dark',
+                                            'partial' => 'bg-info text-dark',
+                                            default => 'bg-secondary'
+                                        };
+                                        $payLabel = match ($paymentStatus) {
+                                            'paid' => 'PAGADO',
+                                            'pending' => 'CRÉDITO PENDIENTE',
+                                            'partial' => 'PARCIAL',
+                                            default => 'DESCONOCIDO'
+                                        };
+                                        ?>
+                                        <span class="badge <?= $payBadge ?> d-block mb-1"><?= $payLabel ?></span>
+
+                                        <?php if ($pago && $paymentStatus === 'paid'): ?>
+                                            <small class="d-block text-muted" style="font-size: 0.75rem;">
+                                                <i class="fa fa-money-bill"></i> <?= $pago['name'] ?>
+                                            </small>
                                         <?php endif; ?>
                                     </td>
 

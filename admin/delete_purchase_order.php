@@ -28,7 +28,7 @@ require_once '../templates/menu.php';
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" value="<?= $purchaseOrder['id'] ?>">
         <button type="submit" class="btn btn-danger">Eliminar Orden de Compra</button>
-        <a href="list_purchase_orders.php" class="btn btn-secondary">Cancelar</a>
+        <a href="compras.php" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
 

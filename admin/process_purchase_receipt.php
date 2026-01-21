@@ -23,11 +23,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $purchaseOrderId = $_POST['purchase_order_id'] ?? 0;
             $receiptDate = $_POST['receipt_date'] ?? '';
 
-            if ($purchaseReceiptManager->createPurchaseReceipt($purchaseOrderId, $receiptDate)) {
-                header('Location: compras.php');
+            try {
+                $purchaseReceiptManager->createPurchaseReceipt($purchaseOrderId, $receiptDate);
+                header('Location: compras.php?msg=received_success');
                 exit;
-            } else {
-                echo "Error al registrar la recepción de mercancía.";
+            } catch (Exception $e) {
+                echo '<div style="color: red; padding: 20px;">
+                        <h3>Error al recibir mercancía</h3>
+                        <p>' . $e->getMessage() . '</p>
+                        <a href="add_purchase_receipt.php?order_id=' . $purchaseOrderId . '">Volver a intentar</a>
+                      </div>';
             }
             break;
         default:

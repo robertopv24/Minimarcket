@@ -23,11 +23,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cost = $_POST['cost'];
         $min = $_POST['min_stock'];
         $type = $_POST['is_cooking_supply'];
+        $category = $_POST['category'] ?? 'ingredient';
 
-        if ($rawMaterialManager->createMaterial($name, $unit, $cost, $min, $type)) {
+        if ($rawMaterialManager->createMaterial($name, $unit, $cost, $min, $type, $category)) {
             $mensaje = '<div class="alert alert-success">Insumo creado correctamente.</div>';
         } else {
             $mensaje = '<div class="alert alert-danger">Error al crear insumo.</div>';
+        }
+    }
+
+    if ($action === 'update') {
+        $id = $_POST['id'];
+        $name = $_POST['name'];
+        $unit = $_POST['unit'];
+        $min = $_POST['min_stock'];
+        $type = $_POST['is_cooking_supply'];
+        $category = $_POST['category'];
+
+        if ($rawMaterialManager->updateMaterial($id, $name, $unit, $min, $type, $category)) {
+            $mensaje = '<div class="alert alert-success">Insumo actualizado correctamente.</div>';
+        } else {
+            $mensaje = '<div class="alert alert-danger">Error al actualizar insumo.</div>';
         }
     }
 
@@ -96,6 +112,7 @@ require_once '../templates/menu.php';
                         <tr>
                             <th>Nombre</th>
                             <th>Tipo</th>
+                            <th>Categoría</th>
                             <th>Stock Actual</th>
                             <th>Costo Unit. Promedio</th>
                             <th>Estado</th>
@@ -110,6 +127,16 @@ require_once '../templates/menu.php';
                             <tr>
                                 <td class="fw-bold"><?= htmlspecialchars($m['name']) ?></td>
                                 <td><?= $typeLabel ?></td>
+                                <td>
+                                    <?php
+                                    $catLabels = [
+                                        'ingredient' => '<span class="badge bg-primary">Ingrediente</span>',
+                                        'packaging' => '<span class="badge bg-success">Empaque</span>',
+                                        'supply' => '<span class="badge bg-info">Suministro</span>'
+                                    ];
+                                    echo $catLabels[$m['category'] ?? 'ingredient'];
+                                    ?>
+                                </td>
                                 <td>
                                     <span class="fs-5 fw-bold <?= $lowStock ? 'text-danger' : 'text-success' ?>">
                                         <?= floatval($m['stock_quantity']) ?>
@@ -126,9 +153,14 @@ require_once '../templates/menu.php';
                                 </td>
                                 <td class="text-end">
                                     <button class="btn btn-sm btn-success me-1"
-                                        onclick="openAddStock(<?= $m['id'] ?>, '<?= $m['name'] ?>', '<?= $m['unit'] ?>')"
+                                        onclick="openAddStock(<?= $m['id'] ?>, '<?= addslashes($m['name']) ?>', '<?= $m['unit'] ?>')"
                                         title="Registrar Compra">
                                         <i class="fa fa-plus"></i> Stock
+                                    </button>
+                                    <button class="btn btn-sm btn-warning me-1"
+                                        onclick="openEditMaterial(<?= htmlspecialchars(json_encode($m)) ?>)"
+                                        title="Editar Insumo">
+                                        <i class="fa fa-edit"></i>
                                     </button>
                                     <form method="POST" class="d-inline" onsubmit="return confirm('¿Borrar este insumo?');">
                                         <input type="hidden" name="action" value="delete">
@@ -181,6 +213,15 @@ require_once '../templates/menu.php';
                                 <option value="1">Insumo Indirecto/Gasto (Aceite, Gas)</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Categoría</label>
+                        <select name="category" class="form-select">
+                            <option value="ingredient">Ingrediente (Carne, Harina)</option>
+                            <option value="packaging">Empaque (Cajas, Bolsas)</option>
+                            <option value="supply">Suministro (Limpieza, Papelería)</option>
+                        </select>
                     </div>
 
                     <div class="row">
@@ -237,12 +278,85 @@ require_once '../templates/menu.php';
     </div>
 </div>
 
+<div class="modal fade" id="modalEdit" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Editar Insumo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="id" id="editId">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre del Material</label>
+                        <input type="text" name="name" id="editName" class="form-control" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Unidad de Medida</label>
+                            <select name="unit" id="editUnit" class="form-select">
+                                <option value="kg">Kilogramos (kg)</option>
+                                <option value="gr">Gramos (gr)</option>
+                                <option value="lt">Litros (lt)</option>
+                                <option value="ml">Mililitros (ml)</option>
+                                <option value="und">Unidad (und)</option>
+                                <option value="m">Metros (m)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tipo de Uso</label>
+                            <select name="is_cooking_supply" id="editType" class="form-select">
+                                <option value="0">Ingrediente Directo</option>
+                                <option value="1">Insumo Indirecto/Gasto</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Categoría</label>
+                            <select name="category" id="editCategory" class="form-select">
+                                <option value="ingredient">Ingrediente</option>
+                                <option value="packaging">Empaque</option>
+                                <option value="supply">Suministro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Alerta Stock Mínimo</label>
+                            <input type="number" step="0.000001" name="min_stock" id="editMinStock"
+                                class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Actualizar Insumo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     function openAddStock(id, name, unit) {
         document.getElementById('stockId').value = id;
         document.getElementById('stockName').textContent = name;
         document.getElementById('stockUnit').textContent = unit;
         new bootstrap.Modal(document.getElementById('modalStock')).show();
+    }
+
+    function openEditMaterial(material) {
+        document.getElementById('editId').value = material.id;
+        document.getElementById('editName').value = material.name;
+        document.getElementById('editUnit').value = material.unit;
+        document.getElementById('editType').value = material.is_cooking_supply;
+        document.getElementById('editCategory').value = material.category;
+        document.getElementById('editMinStock').value = material.min_stock;
+        new bootstrap.Modal(document.getElementById('modalEdit')).show();
     }
 </script>
 

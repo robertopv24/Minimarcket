@@ -619,7 +619,9 @@ require_once '../templates/menu.php';
                                             </span>
                                         </td>
                                         <td class="fw-bold"><?= htmlspecialchars($prod['name']) ?></td>
-                                        <td><span class="badge bg-info"><?= ucfirst($prod['kitchen_station']) ?></span></td>
+                                        <td><span
+                                                class="badge bg-info"><?= ucfirst($prod['kitchen_station'] ?? '') ?></span>
+                                        </td>
                                         <td class="text-end"><?= number_format($prod['qty_sold']) ?></td>
                                         <td class="text-end text-success fw-bold">
                                             $<?= number_format($prod['revenue_usd'], 2) ?></td>
@@ -779,7 +781,7 @@ require_once '../templates/menu.php';
         type: 'pie',
         data: {
             labels: [<?php foreach ($categoryData as $c)
-                echo "'" . ucfirst($c['kitchen_station']) . "',"; ?>],
+                echo "'" . ucfirst($c['kitchen_station'] ?? '') . "',"; ?>],
             datasets: [{
                 data: [<?php foreach ($categoryData as $c)
                     echo $c['revenue'] . ','; ?>],

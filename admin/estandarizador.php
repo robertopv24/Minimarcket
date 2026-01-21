@@ -88,22 +88,29 @@ require_once '../templates/menu.php';
                         <label class="form-label fw-bold">Producto Final (Destino):</label>
                         <div class="input-group mb-2">
                             <span class="input-group-text bg-dark border-0 text-white"><i class="fa fa-list"></i></span>
-                            <select id="target_product_select" name="target_product_id" class="form-select bg-dark text-white border-0">
+                            <select id="target_product_select" name="target_product_id"
+                                class="form-select bg-dark text-white border-0">
                                 <option value="">-- Seleccionar Existente --</option>
                                 <?php foreach ($manufacturedProducts as $mp): ?>
-                                    <option value="<?= $mp['id'] ?>" data-unit="<?= $mp['unit'] ?>"><?= htmlspecialchars($mp['name']) ?> (<?= $mp['unit'] ?>)</option>
+                                    <option value="<?= $mp['id'] ?>" data-unit="<?= $mp['unit'] ?>">
+                                        <?= htmlspecialchars($mp['name']) ?> (<?= $mp['unit'] ?>)
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="input-group mb-2">
                             <span class="input-group-text bg-dark border-0 text-white"><i class="fa fa-plus"></i></span>
-                            <input type="text" id="new_product_name" name="new_product_name" class="form-control bg-dark text-white border-0" placeholder="Nombre de producto nuevo...">
-                            <select name="new_product_unit" id="new_product_unit" class="form-select bg-dark text-white border-0" style="max-width: 80px;">
+                            <input type="text" id="new_product_name" name="new_product_name"
+                                class="form-control bg-dark text-white border-0"
+                                placeholder="Nombre de producto nuevo...">
+                            <select name="new_product_unit" id="new_product_unit"
+                                class="form-select bg-dark text-white border-0" style="max-width: 80px;">
                                 <option value="kg">kg</option>
                                 <option value="und">und</option>
                             </select>
                         </div>
-                        <small class="text-info mt-1 d-block">Si seleccionas uno existente, cargaré su receta actual.</small>
+                        <small class="text-info mt-1 d-block">Si seleccionas uno existente, cargaré su receta
+                            actual.</small>
                     </div>
 
                     <hr class="bg-light">
@@ -112,19 +119,29 @@ require_once '../templates/menu.php';
                     <div id="ingredient_rows">
                         <!-- Filas de ingredientes dinámicas -->
                         <div class="row g-2 mb-2 ingredient-row align-items-center">
-                            <div class="col-7">
+                            <div class="col-5">
                                 <select class="form-select form-select-sm bg-dark text-white border-0 raw-select">
                                     <option value="">-- Materia Prima --</option>
                                     <?php foreach ($rawMaterials as $rm): ?>
-                                        <option value="<?= $rm['id'] ?>" data-name="<?= htmlspecialchars($rm['name']) ?>"><?= htmlspecialchars($rm['name']) ?> (<?= $rm['unit'] ?>)</option>
+                                        <option value="<?= $rm['id'] ?>" data-name="<?= htmlspecialchars($rm['name']) ?>"
+                                            data-unit="<?= $rm['unit'] ?>"><?= htmlspecialchars($rm['name']) ?>
+                                            (<?= $rm['unit'] ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+                            <div class="col-2">
+                                <input type="number" step="0.0001"
+                                    class="form-control form-control-sm bg-dark text-white border-0 qty-input"
+                                    placeholder="Cant.">
+                            </div>
                             <div class="col-3">
-                                <input type="number" step="0.0001" class="form-control form-control-sm bg-dark text-white border-0 qty-input" placeholder="Cant.">
+                                <input type="number" step="0.0001" style="display:none;"
+                                    class="form-control form-control-sm bg-dark text-warning border-0 unit-weight-input"
+                                    placeholder="Peso/Ud (kg)">
                             </div>
                             <div class="col-2 text-end">
-                                <button type="button" class="btn btn-sm text-danger remove-row"><i class="fa fa-times"></i></button>
+                                <button type="button" class="btn btn-sm text-danger remove-row"><i
+                                        class="fa fa-times"></i></button>
                             </div>
                         </div>
                     </div>
@@ -135,13 +152,16 @@ require_once '../templates/menu.php';
 
                     <div class="mt-4 pt-3 border-top border-light">
                         <label class="form-label fw-bold text-warning">Peso Resultante de la Mezcla (Kg):</label>
-                        <input type="number" id="total_yield" step="0.0001" class="form-control bg-dark text-warning border-0 fw-bold" placeholder="Ej: 5.400">
-                        <p class="small text-muted mt-1 italic">El peso real obtenido después del proceso (fermentación, cocción, etc.)</p>
+                        <input type="number" id="total_yield" step="0.0001"
+                            class="form-control bg-dark text-warning border-0 fw-bold" placeholder="Ej: 5.400">
+                        <p class="small text-muted mt-1 italic">El peso real obtenido después del proceso (fermentación,
+                            cocción, etc.)</p>
                     </div>
 
                     <div id="units_produced_container" class="mt-3" style="display:none;">
                         <label class="form-label fw-bold text-info">Unidades Producidas (und):</label>
-                        <input type="number" id="units_produced" step="1" class="form-control bg-dark text-info border-0 fw-bold" placeholder="Ej: 50">
+                        <input type="number" id="units_produced" step="1"
+                            class="form-control bg-dark text-info border-0 fw-bold" placeholder="Ej: 50">
                         <p class="small text-muted mt-1 italic">¿Cuántas piezas / unidades salieron de esta mezcla?</p>
                     </div>
 
@@ -156,9 +176,11 @@ require_once '../templates/menu.php';
         <div class="col-lg-7">
             <div class="card shadow border-0 h-100">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">2. Análisis y Normalización (<span id="norm_unit_title">1 Kg</span>)</h5>
+                    <h5 class="card-title mb-0">2. Análisis y Normalización (<span id="norm_unit_title">1 Kg</span>)
+                    </h5>
                     <div class="text-end">
-                        <span id="label_total_input" class="badge bg-secondary d-block mb-1">Total Insumos: 0.000 kg</span>
+                        <span id="label_total_input" class="badge bg-secondary d-block mb-1">Total Insumos: 0.000
+                            kg</span>
                         <span id="label_units_per_kg" class="badge bg-info d-none">0.00 und / kg</span>
                     </div>
                 </div>
@@ -189,11 +211,14 @@ require_once '../templates/menu.php';
                             </tfoot>
                         </table>
 
-                        <div class="alert mt-4 d-flex align-items-center border-success" style="background-color: #161c22;">
+                        <div class="alert mt-4 d-flex align-items-center border-success"
+                            style="background-color: #161c22;">
                             <i class="fa fa-check-circle fa-2x me-3 text-success"></i>
                             <div>
                                 <h6 class="mb-1 text-success">¿Todo listo?</h6>
-                                <p class="mb-0 small text-white">Ahora puedes guardar estos valores para <span class="badge bg-success" id="export_unit_label">1 kg</span> como la receta oficial del producto seleccionado.</p>
+                                <p class="mb-0 small text-white">Ahora puedes guardar estos valores para <span
+                                        class="badge bg-success" id="export_unit_label">1 kg</span> como la receta
+                                    oficial del producto seleccionado.</p>
                             </div>
                         </div>
 
@@ -216,38 +241,41 @@ require_once '../templates/menu.php';
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const ingredientRows = document.getElementById('ingredient_rows');
-    const addBtn = document.getElementById('add_ingredient');
-    const calcBtn = document.getElementById('btn_calculate');
-    const resultsPlaceholder = document.getElementById('results_placeholder');
-    const resultsContainer = document.getElementById('results_table_container');
-    const resultsBody = document.getElementById('results_body');
-    const totalInputLabel = document.getElementById('label_total_input');
-    const unitsPerKgLabel = document.getElementById('label_units_per_kg');
-    const hiddenInputs = document.getElementById('hidden_inputs');
-    const unitsContainer = document.getElementById('units_produced_container');
-    const unitsInput = document.getElementById('units_produced');
-    const normUnitTitle = document.getElementById('norm_unit_title');
-    const colNormHeader = document.getElementById('col_norm_header');
-    const exportUnitLabel = document.getElementById('export_unit_label');
-    const totalNormCell = document.getElementById('total_norm');
+    document.addEventListener('DOMContentLoaded', function () {
+        const ingredientRows = document.getElementById('ingredient_rows');
+        const addBtn = document.getElementById('add_ingredient');
+        const calcBtn = document.getElementById('btn_calculate');
+        const resultsPlaceholder = document.getElementById('results_placeholder');
+        const resultsContainer = document.getElementById('results_table_container');
+        const resultsBody = document.getElementById('results_body');
+        const totalInputLabel = document.getElementById('label_total_input');
+        const unitsPerKgLabel = document.getElementById('label_units_per_kg');
+        const hiddenInputs = document.getElementById('hidden_inputs');
+        const unitsContainer = document.getElementById('units_produced_container');
+        const unitsInput = document.getElementById('units_produced');
+        const normUnitTitle = document.getElementById('norm_unit_title');
+        const colNormHeader = document.getElementById('col_norm_header');
+        const exportUnitLabel = document.getElementById('export_unit_label');
+        const totalNormCell = document.getElementById('total_norm');
 
-    let currentTargetUnit = 'kg';
+        let currentTargetUnit = 'kg';
 
-    // Plantilla para nueva fila
-    const rowTemplate = `
+        // Plantilla para nueva fila
+        const rowTemplate = `
         <div class="row g-2 mb-2 ingredient-row align-items-center">
-            <div class="col-7">
+            <div class="col-5">
                 <select class="form-select form-select-sm bg-dark text-white border-0 raw-select">
                     <option value="">-- Materia Prima --</option>
                     <?php foreach ($rawMaterials as $rm): ?>
-                        <option value="<?= $rm['id'] ?>" data-name="<?= htmlspecialchars($rm['name']) ?>"><?= htmlspecialchars($rm['name']) ?> (<?= $rm['unit'] ?>)</option>
+                        <option value="<?= $rm['id'] ?>" data-name="<?= htmlspecialchars($rm['name']) ?>" data-unit="<?= $rm['unit'] ?>"><?= htmlspecialchars($rm['name']) ?> (<?= $rm['unit'] ?>)</option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-3">
+            <div class="col-2">
                 <input type="number" step="0.0001" class="form-control form-control-sm bg-dark text-white border-0 qty-input" placeholder="Cant.">
+            </div>
+            <div class="col-3">
+                 <input type="number" step="0.0001" style="display:none;" class="form-control form-control-sm bg-dark text-warning border-0 unit-weight-input" placeholder="Peso/Ud (kg)">
             </div>
             <div class="col-2 text-end">
                 <button type="button" class="btn btn-sm text-danger remove-row"><i class="fa fa-times"></i></button>
@@ -255,238 +283,317 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     `;
 
-    addBtn.addEventListener('click', () => {
-        addIngredientRow();
-    });
+        addBtn.addEventListener('click', () => {
+            addIngredientRow();
+        });
 
-    function addIngredientRow(id = '', qty = '') {
-        const div = document.createElement('div');
-        div.innerHTML = rowTemplate;
-        const row = div.firstElementChild;
-        if (id) row.querySelector('.raw-select').value = id;
-        if (qty) row.querySelector('.qty-input').value = qty;
-        ingredientRows.appendChild(row);
-    }
+        function addIngredientRow(id = '', qty = '') {
+            const div = document.createElement('div');
+            div.innerHTML = rowTemplate;
+            const row = div.firstElementChild;
+            const select = row.querySelector('.raw-select');
+            
+            if (id) {
+                select.value = id;
+                // Check if we need to show weight input immediately
+                const option = select.options[select.selectedIndex];
+                const unit = option.getAttribute('data-unit') || '';
+                if (unit.toLowerCase() === 'und' || unit.toLowerCase() === 'pz' || unit.toLowerCase() === 'unidad') {
+                     const wInput = row.querySelector('.unit-weight-input');
+                     wInput.style.display = 'block';
+                     wInput.required = true;
+                }
+            }
+            if (qty) row.querySelector('.qty-input').value = qty;
+            ingredientRows.appendChild(row);
+        }
 
-    ingredientRows.addEventListener('click', (e) => {
-        if (e.target.closest('.remove-row')) {
-            const row = e.target.closest('.ingredient-row');
-            if (document.querySelectorAll('.ingredient-row').length > 1) {
-                row.remove();
+        ingredientRows.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-row')) {
+                const row = e.target.closest('.ingredient-row');
+                if (document.querySelectorAll('.ingredient-row').length > 1) {
+                    row.remove();
+                } else {
+                    // Si es la última, solo limpiarla
+                    row.querySelector('.raw-select').value = '';
+                    row.querySelector('.qty-input').value = '';
+                    row.querySelector('.unit-weight-input').style.display = 'none';
+                    row.querySelector('.unit-weight-input').value = '';
+                }
+            }
+        });
+
+        // Delegación de eventos para detectar cambio en select y mostrar input de peso unitario
+        ingredientRows.addEventListener('change', (e) => {
+            if (e.target.classList.contains('raw-select')) {
+                const select = e.target;
+                const row = select.closest('.ingredient-row');
+                const unitWeightInput = row.querySelector('.unit-weight-input');
+                const option = select.options[select.selectedIndex];
+                const unit = option.getAttribute('data-unit') || '';
+
+                if (unit.toLowerCase() === 'und' || unit.toLowerCase() === 'pz' || unit.toLowerCase() === 'unidad') {
+                    unitWeightInput.style.display = 'block';
+                    unitWeightInput.required = true;
+                } else {
+                    unitWeightInput.style.display = 'none';
+                    unitWeightInput.required = false;
+                    unitWeightInput.value = '';
+                }
+            }
+        });
+
+        // Cargar receta de producto seleccionado
+        document.getElementById('target_product_select').addEventListener('change', function () {
+            const id = this.value;
+            const option = this.options[this.selectedIndex];
+            currentTargetUnit = option.getAttribute('data-unit') || 'kg';
+
+            if (!id) {
+                currentTargetUnit = 'kg';
+                unitsContainer.style.display = 'none';
+                updateUIForUnit();
+                return;
+            }
+
+            // Mostrar campo de unidades si el producto es 'und'
+            if (currentTargetUnit === 'und') {
+                unitsContainer.style.display = 'block';
             } else {
-                // Si es la última, solo limpiarla
-                row.querySelector('.raw-select').value = '';
-                row.querySelector('.qty-input').value = '';
+                unitsContainer.style.display = 'none';
+            }
+            updateUIForUnit();
+
+            // Limpiar nombre nuevo si selecciona existente
+            document.getElementById('new_product_name').value = '';
+
+            fetch(`estandarizador.php?action=get_recipe&id=${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        ingredientRows.innerHTML = '';
+                        data.forEach(item => {
+                            addIngredientRow(item.raw_material_id, item.quantity_required);
+                        });
+
+                        if (currentTargetUnit === 'kg') {
+                            document.getElementById('total_yield').value = 1;
+                        } else {
+                            // Si es por unidad, no sabemos el rendimiento original pero podemos poner 1
+                            document.getElementById('total_yield').value = 1;
+                            document.getElementById('units_produced').value = 1;
+                        }
+                        calcBtn.click(); // Auto-calcular
+                    }
+                });
+        });
+
+        function updateUIForUnit() {
+            if (currentTargetUnit === 'und') {
+                normUnitTitle.textContent = '1 Unidad';
+                colNormHeader.textContent = 'Para 1 Unidad (Receta)';
+                exportUnitLabel.textContent = '1 unidad';
+                totalNormCell.textContent = '1.00 und';
+            } else {
+                normUnitTitle.textContent = '1 Kg';
+                colNormHeader.textContent = 'Para 1 Kg (Receta)';
+                exportUnitLabel.textContent = '1 kg';
+                totalNormCell.textContent = '1.000 kg';
             }
         }
-    });
 
-    // Cargar receta de producto seleccionado
-    document.getElementById('target_product_select').addEventListener('change', function() {
-        const id = this.value;
-        const option = this.options[this.selectedIndex];
-        currentTargetUnit = option.getAttribute('data-unit') || 'kg';
+        document.getElementById('new_product_name').addEventListener('input', function () {
+            if (this.value.trim() !== '') {
+                document.getElementById('target_product_select').value = '';
+                currentTargetUnit = document.getElementById('new_product_unit').value;
+                unitsContainer.style.display = (currentTargetUnit === 'und') ? 'block' : 'none';
+                updateUIForUnit();
+            }
+        });
 
-        if (!id) {
-            currentTargetUnit = 'kg';
-            unitsContainer.style.display = 'none';
-            updateUIForUnit();
-            return;
+        document.getElementById('new_product_unit').addEventListener('change', function () {
+            if (document.getElementById('new_product_name').value.trim() !== '') {
+                currentTargetUnit = this.value;
+                unitsContainer.style.display = (currentTargetUnit === 'und') ? 'block' : 'none';
+                updateUIForUnit();
+            }
+        });
+
+        function getBaseValue(qty, unit) {
+            const u = unit.toLowerCase();
+            if (u === 'gr' || u === 'ml') return qty / 1000;
+            return qty;
         }
 
-        // Mostrar campo de unidades si el producto es 'und'
-        if (currentTargetUnit === 'und') {
-            unitsContainer.style.display = 'block';
-        } else {
-            unitsContainer.style.display = 'none';
-        }
-        updateUIForUnit();
+        calcBtn.addEventListener('click', () => {
+            const rows = document.querySelectorAll('.ingredient-row');
+            const yieldVal = parseFloat(document.getElementById('total_yield').value);
+            const unitsProd = parseFloat(unitsInput.value) || 0;
 
-        // Limpiar nombre nuevo si selecciona existente
-        document.getElementById('new_product_name').value = '';
+            if (!yieldVal || yieldVal <= 0) {
+                alert('Por favor ingresa un peso resultante válido mayor a cero.');
+                return;
+            }
 
-        fetch(`estandarizador.php?action=get_recipe&id=${id}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.length > 0) {
-                    ingredientRows.innerHTML = '';
-                    data.forEach(item => {
-                        addIngredientRow(item.raw_material_id, item.quantity_required);
-                    });
-                    
-                    if (currentTargetUnit === 'kg') {
-                        document.getElementById('total_yield').value = 1;
+            if (currentTargetUnit === 'und' && (!unitsProd || unitsProd <= 0)) {
+                alert('Por favor ingresa la cantidad de unidades producidas.');
+                return;
+            }
+
+            let totalIn = 0;
+            const data = [];
+
+            rows.forEach(row => {
+                const select = row.querySelector('.raw-select');
+                const qtyInput = row.querySelector('.qty-input');
+                const weightInput = row.querySelector('.unit-weight-input');
+                const id = select.value;
+                const name = select.options[select.selectedIndex].getAttribute('data-name');
+                const unit = select.options[select.selectedIndex].getAttribute('data-unit');
+                const qtyRaw = parseFloat(qtyInput.value);
+
+                if (id && qtyRaw > 0) {
+                    let qtyBase = 0;
+
+                    // Lógica de conversión corregida
+                    if (unit.toLowerCase() === 'und' || unit.toLowerCase() === 'pz') {
+                        const unitWeight = parseFloat(weightInput.value);
+                        if (!unitWeight || unitWeight <= 0) {
+                            alert(`Por favor ingresa el peso por unidad en kg para: ${name}`);
+                            throw new Error("Missing unit weight"); // Interrumpir flujo
+                        }
+                        qtyBase = qtyRaw * unitWeight;
                     } else {
-                        // Si es por unidad, no sabemos el rendimiento original pero podemos poner 1
-                        document.getElementById('total_yield').value = 1;
-                        document.getElementById('units_produced').value = 1;
+                        qtyBase = getBaseValue(qtyRaw, unit);
                     }
-                    calcBtn.click(); // Auto-calcular
+
+                    totalIn += qtyBase;
+                    data.push({ id, name, unit, qtyRaw, qtyBase });
                 }
             });
-    });
 
-    function updateUIForUnit() {
-        if (currentTargetUnit === 'und') {
-            normUnitTitle.textContent = '1 Unidad';
-            colNormHeader.textContent = 'Para 1 Unidad (Receta)';
-            exportUnitLabel.textContent = '1 unidad';
-            totalNormCell.textContent = '1.00 und';
-        } else {
-            normUnitTitle.textContent = '1 Kg';
-            colNormHeader.textContent = 'Para 1 Kg (Receta)';
-            exportUnitLabel.textContent = '1 kg';
-            totalNormCell.textContent = '1.000 kg';
-        }
-    }
-
-    document.getElementById('new_product_name').addEventListener('input', function() {
-        if (this.value.trim() !== '') {
-            document.getElementById('target_product_select').value = '';
-            currentTargetUnit = document.getElementById('new_product_unit').value;
-            unitsContainer.style.display = (currentTargetUnit === 'und') ? 'block' : 'none';
-            updateUIForUnit();
-        }
-    });
-
-    document.getElementById('new_product_unit').addEventListener('change', function() {
-        if (document.getElementById('new_product_name').value.trim() !== '') {
-            currentTargetUnit = this.value;
-            unitsContainer.style.display = (currentTargetUnit === 'und') ? 'block' : 'none';
-            updateUIForUnit();
-        }
-    });
-
-    calcBtn.addEventListener('click', () => {
-        const rows = document.querySelectorAll('.ingredient-row');
-        const yieldVal = parseFloat(document.getElementById('total_yield').value);
-        const unitsProd = parseFloat(unitsInput.value) || 0;
-        
-        if (!yieldVal || yieldVal <= 0) {
-            alert('Por favor ingresa un peso resultante válido mayor a cero.');
-            return;
-        }
-
-        if (currentTargetUnit === 'und' && (!unitsProd || unitsProd <= 0)) {
-            alert('Por favor ingresa la cantidad de unidades producidas.');
-            return;
-        }
-
-        let totalIn = 0;
-        const data = [];
-
-        rows.forEach(row => {
-            const select = row.querySelector('.raw-select');
-            const qtyInput = row.querySelector('.qty-input');
-            const id = select.value;
-            const name = select.options[select.selectedIndex].getAttribute('data-name');
-            const qty = parseFloat(qtyInput.value);
-
-            if (id && qty > 0) {
-                totalIn += qty;
-                data.push({ id, name, qty });
+            if (data.length === 0) {
+                alert('Añade al menos un ingrediente con cantidad mayor a cero.');
+                return;
             }
+
+            renderResults(data, yieldVal, totalIn, unitsProd);
         });
 
-        if (data.length === 0) {
-            alert('Añade al menos un ingrediente con cantidad mayor a cero.');
-            return;
-        }
+        function renderResults(data, yieldVal, totalIn, unitsProd) {
+            resultsPlaceholder.style.display = 'none';
+            resultsContainer.style.display = 'block';
+            resultsBody.innerHTML = '';
+            hiddenInputs.innerHTML = '';
+            totalInputLabel.textContent = `Total Insumos: ${totalIn.toFixed(3)} kg`;
 
-        renderResults(data, yieldVal, totalIn, unitsProd);
-    });
-
-    function renderResults(data, yieldVal, totalIn, unitsProd) {
-        resultsPlaceholder.style.display = 'none';
-        resultsContainer.style.display = 'block';
-        resultsBody.innerHTML = '';
-        hiddenInputs.innerHTML = '';
-        totalInputLabel.textContent = `Total Insumos: ${totalIn.toFixed(3)} kg`;
-
-        if (currentTargetUnit === 'und' && unitsProd > 0) {
-            const upk = unitsProd / yieldVal;
-            unitsPerKgLabel.textContent = `${upk.toFixed(2)} und / kg`;
-            unitsPerKgLabel.classList.remove('d-none');
-        } else {
-            unitsPerKgLabel.classList.add('d-none');
-        }
-
-        data.forEach(item => {
-            let normalizedQty;
-            let displayUnit = 'kg';
-
-            if (currentTargetUnit === 'und') {
-                // Cantidad por unidad = (Cant Batch / Unidades Batch)
-                normalizedQty = (item.qty / unitsProd);
-                displayUnit = 'und'; // Realmente es kg/und, pero mostramos la meta
+            if (currentTargetUnit === 'und' && unitsProd > 0) {
+                const upk = unitsProd / yieldVal;
+                unitsPerKgLabel.textContent = `${upk.toFixed(2)} und / kg`;
+                unitsPerKgLabel.classList.remove('d-none');
             } else {
-                // Cantidad para 1kg = (Cant Batch / Rendimiento Batch)
-                normalizedQty = (item.qty / yieldVal);
+                unitsPerKgLabel.classList.add('d-none');
             }
-            
-            const pct = (item.qty / totalIn) * 100; // Porcentaje sobre la mezcla (insumos)
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="fw-bold">${item.name}</td>
+            data.forEach(item => {
+                let normalizedQty;
+                const itemQtyBase = item.qtyBase;
+
+                if (currentTargetUnit === 'und') {
+                    // Cantidad por unidad = (Cant Batch / Unidades Batch)
+                    // Mantener en unidad original del material (gr, kg, etc) para la receta
+                    normalizedQty = (item.qtyRaw / unitsProd);
+                } else {
+                    // Cantidad para 1kg = (Cant Batch / Rendimiento Batch)
+                    normalizedQty = (item.qtyRaw / yieldVal);
+                }
+
+                const pct = (itemQtyBase / totalIn) * 100; // Porcentaje sobre la mezcla usando unidades base
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                <td class="fw-bold">${item.name} <small class="text-muted">(${item.unit})</small></td>
                 <td class="text-center font-monospace">${pct.toFixed(2)}%</td>
-                <td class="text-center fw-bold text-primary">${normalizedQty.toFixed(6)} kg</td>
+                <td class="text-center fw-bold text-primary">${normalizedQty.toFixed(6)} ${item.unit}</td>
             `;
-            resultsBody.appendChild(tr);
+                resultsBody.appendChild(tr);
 
-            // Preparar inputs para exportar
-            const idInput = document.createElement('input');
-            idInput.type = 'hidden';
-            idInput.name = 'raw_ids[]';
-            idInput.value = item.id;
-            
-            const qInput = document.createElement('input');
-            qInput.type = 'hidden';
-            qInput.name = 'normalized_quantities[]';
-            qInput.value = normalizedQty.toFixed(6);
+                // Preparar inputs para exportar
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'raw_ids[]';
+                idInput.value = item.id;
 
-            hiddenInputs.appendChild(idInput);
-            hiddenInputs.appendChild(qInput);
+                const qInput = document.createElement('input');
+                qInput.type = 'hidden';
+                qInput.name = 'normalized_quantities[]';
+                qInput.value = normalizedQty.toFixed(6);
+
+                hiddenInputs.appendChild(idInput);
+                hiddenInputs.appendChild(qInput);
+            });
+        }
+
+        document.getElementById('form_export').addEventListener('submit', function (e) {
+            const targetId = document.getElementById('target_product_select').value;
+            const newName = document.getElementById('new_product_name').value.trim();
+
+            if (!targetId && !newName) {
+                e.preventDefault();
+                alert('Debes seleccionar un producto existente o escribir un nombre para el nuevo producto.');
+                return;
+            }
+
+            document.getElementById('export_manuf_id').value = targetId;
+            document.getElementById('export_new_name').value = newName;
+            document.getElementById('export_new_unit').value = document.getElementById('new_product_unit').value;
+
+            const confirmMsg = targetId
+                ? '¿Estás seguro de que deseas REEMPLAZAR la receta actual de este producto?'
+                : `¿Estás seguro de que deseas CREAR el producto "${newName}" con esta receta?`;
+
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+            }
         });
-    }
-
-    document.getElementById('form_export').addEventListener('submit', function(e) {
-        const targetId = document.getElementById('target_product_select').value;
-        const newName = document.getElementById('new_product_name').value.trim();
-
-        if (!targetId && !newName) {
-            e.preventDefault();
-            alert('Debes seleccionar un producto existente o escribir un nombre para el nuevo producto.');
-            return;
-        }
-
-        document.getElementById('export_manuf_id').value = targetId;
-        document.getElementById('export_new_name').value = newName;
-        document.getElementById('export_new_unit').value = document.getElementById('new_product_unit').value;
-        
-        const confirmMsg = targetId 
-            ? '¿Estás seguro de que deseas REEMPLAZAR la receta actual de este producto?' 
-            : `¿Estás seguro de que deseas CREAR el producto "${newName}" con esta receta?`;
-
-        if(!confirm(confirmMsg)) {
-            e.preventDefault();
-        }
     });
-});
 </script>
 
 <style>
-.bg-secondary { background-color: #2c3e50 !important; }
-.bg-dark { background-color: #1a252f !important; }
-.card { border-radius: 15px; }
-.form-control, .form-select { border: 1px solid rgba(255,255,255,0.1); }
-.form-control:focus, .form-select:focus { 
-    box-shadow: 0 0 0 0.25rem rgba(255,193,7, 0.25); 
-    border-color: #ffc107;
-}
-.hover-scale { transition: transform 0.2s; }
-.hover-scale:hover { transform: scale(1.02); }
-.italic { font-style: italic; }
+    .bg-secondary {
+        background-color: #2c3e50 !important;
+    }
+
+    .bg-dark {
+        background-color: #1a252f !important;
+    }
+
+    .card {
+        border-radius: 15px;
+    }
+
+    .form-control,
+    .form-select {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+        border-color: #ffc107;
+    }
+
+    .hover-scale {
+        transition: transform 0.2s;
+    }
+
+    .hover-scale:hover {
+        transform: scale(1.02);
+    }
+
+    .italic {
+        font-style: italic;
+    }
 </style>
 
 <?php require_once '../templates/footer.php'; ?>
