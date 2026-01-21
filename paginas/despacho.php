@@ -8,7 +8,12 @@ require_once '../templates/autoload.php';
 session_start();
 
 // PERMISOS
-require_once '../templates/kitchen_check.php';
+// Security Check (Refactored to UserManager)
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+$userManager->requireKitchenAccess($_SESSION);
 
 // PROCESAR CAMBIO DE ESTADO
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -92,9 +97,12 @@ require_once '../templates/menu.php';
             <h2>🚀 Centro de Despacho</h2>
             <p class="text-muted">Vista operativa de pedidos en curso</p>
         </div>
-        <div>
-            <a href="kds_tv.php" target="_blank" class="btn btn-dark shadow">
-                <i class="fa fa-tv me-2"></i> Pantalla Cocina (TV)
+        <div class="btn-group shadow">
+            <a href="kds_cocina_tv.php" target="_blank" class="btn btn-dark">
+                <i class="fa fa-tv me-2"></i> KDS Cocina
+            </a>
+            <a href="kds_pizza_tv.php" target="_blank" class="btn btn-danger">
+                <i class="fa fa-pizza-slice me-2"></i> KDS Pizza
             </a>
         </div>
     </div>
@@ -126,7 +134,7 @@ require_once '../templates/menu.php';
                         <button class="btn btn-success w-100 fw-bold text-white"><i class="fa fa-bell"></i> ¡LISTO PARA SERVIR!</button>
                     </form>';
             } elseif ($o['status'] == 'ready') {
-                $cardClass = 'card-ready shadow-lg'; // Resaltar
+                $cardClass = 'card-ready shadow-lg';
                 $headerClass = 'header-ready';
                 $statusLabel = '<span class="badge bg-white text-success fw-bold">✅ PARA ENTREGAR</span>';
                 $btnAction = '
@@ -170,10 +178,18 @@ require_once '../templates/menu.php';
                                 if ($item['product_type'] == 'compound') {
                                     $comps = $productManager->getProductComponents($item['product_id']);
                                     foreach ($comps as $c) {
+                                        $sName = "";
                                         if ($c['component_type'] == 'product') {
                                             $p = $productManager->getProductById($c['component_id']);
+                                            $sName = $p['name'];
+                                        } elseif ($c['component_type'] == 'manufactured') {
+                                            $stmtM = $db->prepare("SELECT name FROM manufactured_products WHERE id = ?");
+                                            $stmtM->execute([$c['component_id']]);
+                                            $sName = $stmtM->fetchColumn() ?: 'ITEM COCINA';
+                                        }
+                                        if ($sName) {
                                             for ($k = 0; $k < $c['quantity']; $k++)
-                                                $subNames[] = $p['name'];
+                                                $subNames[] = $sName;
                                         }
                                     }
                                 }
@@ -210,9 +226,16 @@ require_once '../templates/menu.php';
 
                                         <?php foreach ($currentMods as $m): ?>
                                             <?php if ($m['modifier_type'] == 'remove'): ?>
-                                                <span class="mod-text text-danger">❌ SIN <?= $m['ingredient_name'] ?></span>
-                                            <?php elseif ($m['modifier_type'] == 'add'): ?>
-                                                <span class="mod-text text-success">➕ EXTRA <?= $m['ingredient_name'] ?></span>
+                                                <span class="mod-text text-danger">-- SIN
+                                                    <?= htmlspecialchars($m['ingredient_name']) ?></span>
+                                            <?php elseif ($m['modifier_type'] == 'add' || $m['modifier_type'] == 'side'): ?>
+                                                <?php
+                                                $isPaid = (floatval($m['price_adjustment_usd'] ?? 0) > 0);
+                                                $prefix = ($isPaid) ? '++ EXTRA ' : '🔘 ';
+                                                $colorClass = ($isPaid) ? 'text-success' : 'text-primary';
+                                                ?>
+                                                <span
+                                                    class="mod-text <?= $colorClass ?>"><?= $prefix . htmlspecialchars($m['ingredient_name']) ?></span>
                                             <?php endif; ?>
                                         <?php endforeach; ?>
 

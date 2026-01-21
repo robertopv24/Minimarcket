@@ -33,23 +33,89 @@ require_once '../templates/menu.php';
                 <div class="card-header bg-secondary text-white">
                     <h5 class="mb-0"><i class="fa fa-list-alt me-2"></i>Resumen</h5>
                 </div>
-                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
-                    <?php foreach ($cartItems as $item): ?>
-                        <div class="list-group-item d-flex justify-content-between align-items-start py-2">
-                            <div class="me-auto">
-                                <div class="fw-bold small"><?= htmlspecialchars($item['name']) ?> x<?= $item['quantity'] ?>
-                                </div>
+                <div class="list-group list-group-flush shadow-sm">
+                    <?php foreach ($cartItems as $item):
+                        $cId = $item['id'];
+                        $isCombo = ($item['product_type'] == 'compound');
+                        $groupedMods = $item['modifiers_grouped'] ?? [];
+                        ?>
+                        <div class="list-group-item p-0 border-0 mb-2 shadow-sm rounded overflow-hidden">
+                            <div class="bg-light px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-primary small">
+                                    <i class="fa <?= $isCombo ? 'fa-cubes' : 'fa-tag' ?> me-1"></i>
+                                    <?= htmlspecialchars($item['name']) ?>
+                                </span>
+                                <span class="badge bg-white text-dark border fw-bold">x<?= $item['quantity'] ?></span>
+                            </div>
+
+                            <div class="p-2">
                                 <?php
-                                $grouped = $item['modifiers_grouped'] ?? [];
-                                if (!empty($grouped)) {
-                                    foreach ($grouped as $idx => $data) {
-                                        $icon = ($data['is_takeaway'] == 1) ? '🥡' : '🍽️';
-                                        echo "<div class='text-muted' style='font-size:0.75em'>$icon #" . ($idx + 1) . "</div>";
+                                if ($isCombo) {
+                                    $components = $productManager->getProductComponents($item['product_id']);
+                                    $idx = 0;
+                                    foreach ($components as $comp) {
+                                        $qty = intval($comp['quantity']);
+
+                                        // Obtener nombre del sub-ítem
+                                        if ($comp['component_type'] == 'product') {
+                                            $subP = $productManager->getProductById($comp['component_id']);
+                                            $subName = $subP['name'];
+                                        } elseif ($comp['component_type'] == 'manufactured') {
+                                            $stmtMan = $db->prepare("SELECT name FROM manufactured_products WHERE id = ?");
+                                            $stmtMan->execute([$comp['component_id']]);
+                                            $subName = $stmtMan->fetchColumn() ?: 'Item Cocina';
+                                        } else {
+                                            $subName = 'Ingrediente';
+                                        }
+
+                                        for ($i = 0; $i < $qty; $i++) {
+                                            $myMods = $groupedMods[$idx] ?? ['is_takeaway' => 0, 'desc' => []];
+                                            $icon = ($myMods['is_takeaway'] == 1) ? '🥡' : '🍽️';
+                                            ?>
+                                            <div class="ps-2 py-1 mb-1 border-start border-3 <?= ($myMods['is_takeaway'] == 1) ? 'border-warning' : 'border-info' ?>"
+                                                style="font-size: 0.8rem;">
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong><?= $icon ?>                 <?= htmlspecialchars($subName) ?></strong></span>
+                                                </div>
+                                                <?php if (!empty($myMods['desc'])): ?>
+                                                    <div class="text-muted small ps-2 mt-1">
+                                                        <?php foreach ($myMods['desc'] as $d): ?>
+                                                            <div class="lh-1 mb-1">• <?= htmlspecialchars($d) ?></div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                            <?php
+                                            $idx++;
+                                        }
                                     }
+                                } else {
+                                    // Simple Product
+                                    $myMods = $groupedMods[0] ?? ['is_takeaway' => 0, 'desc' => []];
+                                    $icon = ($myMods['is_takeaway'] == 1) ? '🥡' : '🍽️';
+                                    ?>
+                                    <div class="ps-2 py-1 border-start border-3 <?= ($myMods['is_takeaway'] == 1) ? 'border-warning' : 'border-info' ?>"
+                                        style="font-size: 0.8rem;">
+                                        <?php if (!empty($myMods['desc'])): ?>
+                                            <div class="text-muted small">
+                                                <?php foreach ($myMods['desc'] as $d): ?>
+                                                    <div class="lh-1 mb-1">• <?= htmlspecialchars($d) ?></div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="text-muted small fst-italic">
+                                                <?= ($myMods['is_takeaway'] == 1) ? 'Orden para llevar' : 'Sin modificaciones' ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php
                                 }
                                 ?>
                             </div>
-                            <span class="fw-bold small">$<?= number_format($item['total_price'], 2) ?></span>
+                            <div class="bg-light px-3 py-1 text-end border-top">
+                                <span class="fw-bold text-success small">Subtotal:
+                                    $<?= number_format($item['total_price'], 2) ?></span>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -79,11 +145,12 @@ require_once '../templates/menu.php';
                         <div class="row g-2 mb-3">
                             <div class="col-md-6">
                                 <input type="text" class="form-control" name="customer_name"
-                                    placeholder="Nombre Cliente (Opcional)">
+                                    placeholder="Nota (Opcional)">
                             </div>
                             <div class="col-md-6">
-                                <input type="text" class="form-control" name="shipping_address" value="Tienda Física"
-                                    placeholder="Nota/Mesa">
+                                <input type="text" class="form-control" name="shipping_address"
+                                    value="<?= htmlspecialchars($_SESSION['pos_client_name'] ?? '') ?>"
+                                    placeholder="Nombre Del Cliente">
                             </div>
                         </div>
 

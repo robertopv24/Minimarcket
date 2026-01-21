@@ -117,7 +117,7 @@ try {
     if (!$orderId)
         throw new Exception("Error al crear la orden.");
 
-    $orderManager->updateOrderStatus($orderId, 'paid');
+    $orderManager->updateOrderStatus($orderId, 'preparing');
 
     // B. REGISTRAR PAGOS (INGRESOS)
     // El Manager ya no calcula vueltos, solo registra lo que entró.

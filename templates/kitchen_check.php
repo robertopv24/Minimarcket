@@ -1,12 +1,13 @@
 <?php
-// KITCHEN GUARD
-// Incluir despues de session_start y autoload
-if (!isset($userManager) || !isset($_SESSION)) {
-    die("Access Error: Security headers missing.");
-}
+// DEPRECATED - DO NOT USE
+// Logic has been moved to UserManager::requireKitchenAccess()
+// to prevent server-side permission errors.
 
-if (!$userManager->hasKitchenAccess($_SESSION)) {
-    // Si es un cliente normal, lo mandamos a ver el estatus de su pedido, no a la cocina
-    header("Location: ../paginas/status.php");
-    exit;
+// This file is kept momentarily to prevent fatal errors if some legacy file still tries to include it.
+// But it should NOT be used for logic.
+
+if (isset($userManager) && isset($_SESSION)) {
+    // Forward to new logic if included by legacy code
+    $userManager->requireKitchenAccess($_SESSION);
 }
+?>

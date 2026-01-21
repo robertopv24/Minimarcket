@@ -1,5 +1,5 @@
 <?php
-// paginas/kds_tv.php
+// paginas/kds_pizza_tv.php
 require_once '../templates/autoload.php';
 session_start();
 
@@ -11,29 +11,26 @@ if (!isset($_SESSION['user_id'])) {
 }
 $userManager->requireKitchenAccess($_SESSION);
 
+$targetStation = 'pizza';
+
 // 1. OBTENER ÓRDENES (Paid o Preparing)
-$sql = "SELECT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address
+$sql = "SELECT DISTINCT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address
         FROM orders o
         JOIN users u ON o.user_id = u.id
         WHERE o.status IN ('paid', 'preparing')
         ORDER BY o.created_at ASC";
 
 $stmt = $db->query($sql);
-$ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$ordenesRaw = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 2. PROCESAMIENTO UNIFICADO
-$listaPizza = [];
-$listaCocina = [];
+$ordenesFiltradas = [];
 
-foreach ($ordenes as $orden) {
-    $items = $orderManager->getOrderItems($orden['id']);
-    $itemsParaPizza = [];
-    $itemsParaCocina = [];
+foreach ($ordenesRaw as $orden) {
+    $itemsRaw = $orderManager->getOrderItems($orden['id']);
+    $itemsParaEstaEstacion = [];
 
-    foreach ($items as $item) {
+    foreach ($itemsRaw as $item) {
         $pInfo = $productManager->getProductById($item['product_id']);
-
-        // 1. FILTRAR PRODUCTOS SIN ESTACIÓN (REVENTA)
         if (!$pInfo || empty($pInfo['kitchen_station']))
             continue;
 
@@ -44,7 +41,6 @@ foreach ($ordenes as $orden) {
 
         $isCompound = ($item['product_type'] == 'compound');
 
-        // 2. OBTENER COMPONENTES DE COMBO
         $subItems = [];
         if ($isCompound) {
             $comps = $productManager->getProductComponents($item['product_id']);
@@ -58,7 +54,6 @@ foreach ($ordenes as $orden) {
                     $compData = $stmtM->fetch(PDO::FETCH_ASSOC);
                 }
 
-                // Guardamos TODO para el contexto del combo
                 for ($k = 0; $k < $c['quantity']; $k++) {
                     $subItems[] = [
                         'name' => $compData['name'] ?? 'ITEM',
@@ -68,6 +63,36 @@ foreach ($ordenes as $orden) {
             }
         }
 
+        // AÑADIMOS HEADER DEL PRODUCTO (Título principal del ticket)
+        $hasItemsForThisStation = false;
+        if (!$isCompound) {
+            if ($pInfo['kitchen_station'] == $targetStation)
+                $hasItemsForThisStation = true;
+        } else {
+            foreach ($subItems as $si) {
+                if ($si['station'] == $targetStation) {
+                    $hasItemsForThisStation = true;
+                    break;
+                }
+            }
+        }
+
+        if (!$hasItemsForThisStation)
+            continue;
+
+        // Si llegamos aquí, el producto (o combo) tiene algo para nosotros.
+        // 1. Agregamos el "Header" (Título principal)
+        $itemsParaEstaEstacion[] = [
+            'num' => 0,
+            'qty' => $item['quantity'],
+            'name' => $item['name'],
+            'is_combo' => $isCompound,
+            'is_main' => true,
+            'mods' => [],
+            'is_takeaway' => false
+        ];
+
+        // 3. DETERMINAR BUCLE DE ÍTEMS / COMPONENTES
         $maxIdx = $isCompound ? count($subItems) : $item['quantity'];
         foreach (array_keys($groupedMods) as $idx)
             if ($idx >= $maxIdx)
@@ -75,11 +100,22 @@ foreach ($ordenes as $orden) {
 
         for ($i = 0; $i <= $maxIdx; $i++) {
             $currentMods = $groupedMods[$i] ?? [];
+
+            // Si es un componente individual
+            $compName = "";
+            $compStation = $pInfo['kitchen_station'];
+            if ($isCompound && isset($subItems[$i])) {
+                $compName = $subItems[$i]['name'];
+                $compStation = $subItems[$i]['station'];
+            }
+
+            // FILTRADO ESTRICTO: Solo mostramos lo que es de esta estación (evitamos reventa)
+            if (empty($compStation) || $compStation != $targetStation)
+                continue;
+
             if (empty($currentMods) && $isCompound && !isset($subItems[$i]))
                 continue;
             if (empty($currentMods) && !$isCompound && $i > 0)
-                continue;
-            if (!$isCompound && $i == 0 && $item['quantity'] == 0)
                 continue;
 
             $isTakeaway = false;
@@ -100,45 +136,20 @@ foreach ($ordenes as $orden) {
                 }
             }
 
-            $note = ($i == 0 || $i == -1) ? ($orderManager->getItemModifiers($item['id'], -1)[0]['note'] ?? "") : "";
-
-            $compName = "";
-            $compStation = $pInfo['kitchen_station'];
-
-            if ($isCompound && isset($subItems[$i])) {
-                $compName = $subItems[$i]['name'];
-                $compStation = $subItems[$i]['station'];
-            }
-
-            // Filtrado ESTRICTO de estacíón para todos los componentes (evita que reventa aparezca en cocina)
-            if (empty($compStation) || !in_array($compStation, ['pizza', 'kitchen', 'bar']))
-                continue;
-
-            $processedSub = [
+            $itemsParaEstaEstacion[] = [
                 'num' => $i + 1,
+                'qty' => 1,
                 'name' => $compName ?: ($i == 0 ? $item['name'] : ""),
-                'station' => $compStation,
-                'is_takeaway' => $isTakeaway,
+                'is_combo' => $isCompound,
+                'is_main' => false,
                 'mods' => $modsList,
-                'note' => $note
+                'is_takeaway' => $isTakeaway
             ];
-
-            if ($i == 0 && $isCompound && empty($compName) && empty($modsList))
-                continue;
-
-            // En kds_tv.php: enviamos a la columna correspondiente
-            if ($processedSub['station'] == 'pizza')
-                $itemsParaPizza[] = $processedSub + ['main_name' => $item['name']];
-            elseif ($processedSub['station'] == 'kitchen' || $processedSub['station'] == 'bar') {
-                $itemsParaCocina[] = $processedSub + ['main_name' => $item['name']];
-            }
         }
     }
 
-    if (!empty($itemsParaPizza))
-        $listaPizza[] = ['info' => $orden, 'items' => $itemsParaPizza];
-    if (!empty($itemsParaCocina))
-        $listaCocina[] = ['info' => $orden, 'items' => $itemsParaCocina];
+    if (!empty($itemsParaEstaEstacion))
+        $ordenesFiltradas[] = ['info' => $orden, 'items' => $itemsParaEstaEstacion];
 }
 ?>
 <!DOCTYPE html>
@@ -146,7 +157,7 @@ foreach ($ordenes as $orden) {
 
 <head>
     <meta charset="UTF-8">
-    <title>KDS - MONITOR TV</title>
+    <title>KDS - MONITOR PIZZAS</title>
     <meta http-equiv="refresh" content="15">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -156,10 +167,8 @@ foreach ($ordenes as $orden) {
             --bg-dark: #0f172a;
             --card-white: #ffffff;
             --accent-red: #ef4444;
-            --accent-orange: #f59e0b;
             --accent-blue: #3b82f6;
             --text-dark: #1e293b;
-            --text-muted: #64748b;
         }
 
         body {
@@ -168,48 +177,34 @@ foreach ($ordenes as $orden) {
             font-family: 'Outfit', sans-serif;
             margin: 0;
             height: 100vh;
-            overflow: hidden;
-        }
-
-        .station-col {
-            height: 100vh;
-            overflow-y: auto;
-            padding: 1rem;
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .station-header {
+            background: linear-gradient(135deg, #ef4444, #991b1b);
             font-weight: 800;
             text-align: center;
             text-transform: uppercase;
             padding: 1.25rem;
             margin-bottom: 1.5rem;
-            border-radius: 12px;
-            font-size: 1.75rem;
-            letter-spacing: 1px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            font-size: 2rem;
+            letter-spacing: 2px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
 
-        .header-pizza {
-            background: linear-gradient(135deg, #ef4444, #991b1b);
-        }
-
-        .header-cocina {
-            background: linear-gradient(135deg, #f59e0b, #92400e);
+        .grid-kds {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 1.5rem;
+            padding: 1.5rem;
         }
 
         .ticket {
             background: var(--card-white);
             color: var(--text-dark);
             border-radius: 16px;
-            margin-bottom: 1.25rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
             overflow: hidden;
             border: 4px solid transparent;
-            transition: all 0.3s ease;
         }
 
         .ticket-head {
@@ -219,7 +214,7 @@ foreach ($ordenes as $orden) {
             justify-content: space-between;
             align-items: center;
             font-weight: 600;
-            font-size: 1.25rem;
+            font-size: 1.3rem;
         }
 
         .status-paid {
@@ -227,20 +222,19 @@ foreach ($ordenes as $orden) {
         }
 
         .status-preparing {
-            background-color: var(--accent-orange);
+            background-color: #f59e0b;
         }
 
         .ticket-body {
-            padding: 1rem;
+            padding: 1.25rem;
         }
 
-        .main-item-name {
-            font-size: 1.4rem;
+        .main-item {
+            font-size: 1.5rem;
             font-weight: 800;
-            color: #111;
+            border-bottom: 2px solid #f1f5f9;
             margin-bottom: 1rem;
             padding-bottom: 0.5rem;
-            border-bottom: 2px solid #e2e8f0;
         }
 
         .sub-item-card {
@@ -268,7 +262,7 @@ foreach ($ordenes as $orden) {
             padding: 2px 10px;
             border-radius: 6px;
             font-weight: 800;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             display: inline-block;
         }
 
@@ -286,24 +280,13 @@ foreach ($ordenes as $orden) {
         .mod-bad {
             color: #dc2626;
             font-weight: 700;
-            font-size: 1rem;
+            font-size: 1.1rem;
         }
 
         .mod-good {
             color: #16a34a;
             font-weight: 700;
-            font-size: 1rem;
-        }
-
-        .note-box {
-            background: #fffbeb;
-            color: #92400e;
-            padding: 0.5rem;
-            margin-top: 0.5rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            border: 1px solid #fde68a;
+            font-size: 1.1rem;
         }
 
         .late-warning {
@@ -332,27 +315,20 @@ foreach ($ordenes as $orden) {
 </head>
 
 <body>
-    <div class="row h-100 g-0">
-        <div class="col-6 station-col">
-            <div class="station-header header-pizza"><i class="fa-solid fa-pizza-slice me-2"></i> MONITOR PIZZAS</div>
-            <?php foreach ($listaPizza as $t)
-                renderTicket($t); ?>
-        </div>
-        <div class="col-6 station-col">
-            <div class="station-header header-cocina"><i class="fa-solid fa-burger me-2"></i> MONITOR COCINA</div>
-            <?php foreach ($listaCocina as $t)
-                renderTicket($t); ?>
-        </div>
+    <div class="station-header"><i class="fa-solid fa-pizza-slice me-2"></i> MONITOR PIZZAS</div>
+    <div class="grid-kds">
+        <?php foreach ($ordenesFiltradas as $t)
+            renderTicket($t); ?>
     </div>
 </body>
 
 </html>
 
 <?php
-function renderTicket($data)
+function renderTicket($orderData)
 {
-    $orden = $data['info'];
-    $items = $data['items'];
+    $orden = $orderData['info'];
+    $items = $orderData['items'];
     $mins = round((time() - strtotime($orden['created_at'])) / 60);
     if ($mins < 0)
         $mins = 0;
@@ -366,34 +342,28 @@ function renderTicket($data)
             <span><i class="fa-regular fa-clock me-1"></i> <?= $mins ?>m</span>
         </div>
         <div class="ticket-body">
-            <?php
-            $lastMain = "";
-            foreach ($items as $it):
-                if ($it['main_name'] !== $lastMain):
-                    $lastMain = $it['main_name']; ?>
-                    <div class="main-item-name"><?= strtoupper($it['main_name']) ?></div>
+            <?php foreach ($items as $it): ?>
+                <?php if ($it['is_main']): ?>
+                    <div class="main-item"><?= $it['qty'] ?> x <?= strtoupper($it['name']) ?></div>
                 <?php endif; ?>
 
-                <div class="sub-item-card text-center">
-                    <span class="tag <?= $it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein' ?>">
-                        <?= $it['is_takeaway'] ? 'LLEVAR' : 'MESA' ?>
-                    </span>
-                    <div class="item-num">#<?= $it['num'] ?></div>
-                    <div class="item-name">(<?= strtoupper($it['name']) ?>)</div>
+                <?php if ($it['num'] > 0): ?>
+                    <div class="sub-item-card text-center">
+                        <span class="tag <?= $it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein' ?>">
+                            <?= $it['is_takeaway'] ? 'LLEVAR' : 'MESA' ?>
+                        </span>
+                        <div class="item-num">#<?= $it['num'] ?></div>
+                        <div class="item-name">(<?= strtoupper($it['name']) ?>)</div>
 
-                    <?php if (!empty($it['mods'])): ?>
-                        <div class="mt-2 text-start px-2">
-                            <?php foreach ($it['mods'] as $m): ?>
-                                <div class="<?= (strpos($m, 'SIN') !== false) ? 'mod-bad' : 'mod-good' ?>"><?= strtoupper($m) ?></div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if ($it['note']): ?>
-                        <div class="note-box text-start"><i class="fa-solid fa-comment-dots me-1"></i>
-                            <?= strtoupper($it['note']) ?></div>
-                    <?php endif; ?>
-                </div>
+                        <?php if (!empty($it['mods'])): ?>
+                            <div class="mt-2 text-start px-2">
+                                <?php foreach ($it['mods'] as $m): ?>
+                                    <div class="<?= (strpos($m, 'SIN') !== false) ? 'mod-bad' : 'mod-good' ?>"><?= strtoupper($m) ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             <?php endforeach; ?>
         </div>
     </div>

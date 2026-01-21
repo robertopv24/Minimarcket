@@ -26,8 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $res = $cashRegisterManager->closeRegister($userId, $countedUsd, $countedVes);
 
     if ($res['status']) {
-        // Redirigir a una página de éxito o logout
-        echo "<script>alert('✅ Caja cerrada correctamente. Turno finalizado.'); window.location='logout.php';</script>";
+        // Redirigir a logout con mensaje de éxito
+        SessionHelper::setFlash('success', '✅ Caja cerrada correctamente. Turno finalizado.');
+        header("Location: logout.php");
         exit;
     } else {
         $mensaje = $res['message'];
@@ -68,8 +69,7 @@ require_once '../templates/menu.php';
 
                     <hr>
 
-                    <form method="POST"
-                        onsubmit="return confirm('¿Estás seguro de cerrar la caja? Esta acción es irreversible.');">
+                    <form method="POST" id="formCierreCaja" onsubmit="return confirmCierre(event)">
                         <h4 class="mb-3">💸 Arqueo de Caja (Conteo Físico)</h4>
                         <p class="text-muted">Por favor, cuenta el dinero físico en la gaveta e ingrésalo abajo.</p>
 
@@ -139,5 +139,26 @@ require_once '../templates/menu.php';
         </div>
     </div>
 </div>
+
+<script>
+    function confirmCierre(event) {
+        event.preventDefault(); // Detener envío
+        Swal.fire({
+            title: '¿Cerrar Caja?',
+            text: "Esta acción es irreversible y finalizará tu turno.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, cerrar caja',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('formCierreCaja').submit();
+            }
+        });
+        return false;
+    }
+</script>
 
 <?php require_once '../templates/footer.php'; ?>

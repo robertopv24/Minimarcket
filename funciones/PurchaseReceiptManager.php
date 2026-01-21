@@ -51,31 +51,63 @@ class PurchaseReceiptManager
                 $currentRate = 1;
 
             foreach ($items as $item) {
-                $product = $this->productManager->getProductById($item['product_id']);
+                // Determinar tipo e ID
+                $itemType = $item['item_type'] ?? 'product';
+                // Compatibilidad: si item_id es 0 o null, usar product_id
+                $itemId = (!empty($item['item_id'])) ? $item['item_id'] : $item['product_id'];
 
-                if ($product) {
-                    // A. Actualizar Stock
-                    $newStock = $product['stock'] + $item['quantity'];
+                if ($itemType === 'product') {
+                    // === LÓGICA DE PRODUCTOS (REVENTA) ===
+                    $product = $this->productManager->getProductById($itemId);
+                    if ($product) {
+                        // A. Actualizar Stock
+                        $newStock = $product['stock'] + $item['quantity'];
 
-                    // B. Calcular Nuevo Precio de Venta (USD)
-                    // CORRECCIÓN: Usamos $product['profit_margin'], no $item
-                    $margin = $product['profit_margin'];
-                    $cost = $item['unit_price'];
+                        // B. Calcular Nuevo Precio de Venta (USD)
+                        $margin = $product['profit_margin'];
+                        $cost = $item['unit_price'];
 
-                    // Fórmula: Costo + (Costo * %Margen)
-                    $newPriceUsd = $cost * (1 + ($margin / 100));
+                        // Fórmula: Costo + (Costo * %Margen)
+                        $newPriceUsd = $cost * (1 + ($margin / 100));
 
-                    // C. Calcular Nuevo Precio (VES) automáticamente
-                    $newPriceVes = $newPriceUsd * $currentRate;
+                        // C. Calcular Nuevo Precio (VES) automáticamente
+                        $newPriceVes = $newPriceUsd * $currentRate;
 
-                    // D. Actualizar todo en el Producto (Stock, USD y VES)
-                    // Usamos una consulta directa para ser eficientes y atómicos
-                    $sql = "UPDATE products SET stock = ?, price_usd = ?, price_ves = ?, updated_at = NOW() WHERE id = ?";
-                    $stmtUpdate = $this->db->prepare($sql);
-                    $stmtUpdate->execute([$newStock, $newPriceUsd, $newPriceVes, $item['product_id']]);
+                        // D. Actualizar Product
+                        $sql = "UPDATE products SET stock = ?, price_usd = ?, price_ves = ?, updated_at = NOW() WHERE id = ?";
+                        $stmtUpdate = $this->db->prepare($sql);
+                        $stmtUpdate->execute([$newStock, $newPriceUsd, $newPriceVes, $itemId]);
+                    } else {
+                        // Si falla buscando por ID, intentar buscar por product_id si difieren (legacy fallback)
+                        error_log("Producto ID $itemId no encontrado en recepción.");
+                    }
 
-                } else {
-                    throw new Exception("Producto no encontrado ID: " . $item['product_id']);
+                } elseif ($itemType === 'raw_material') {
+                    // === LÓGICA DE MATERIAS PRIMAS (INGREDIENTES/INSUMOS) ===
+                    $stmt = $this->db->prepare("SELECT stock_quantity, cost_per_unit FROM raw_materials WHERE id = ?");
+                    $stmt->execute([$itemId]);
+                    $current = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($current) {
+                        $oldStock = floatval($current['stock_quantity']);
+                        $oldCost = floatval($current['cost_per_unit']);
+                        $quantity = floatval($item['quantity']);
+                        $unitPrice = floatval($item['unit_price']);
+
+                        $newStock = $oldStock + $quantity;
+
+                        // Costo Promedio Ponderado
+                        if ($newStock > 0) {
+                            $newCost = (($oldStock * $oldCost) + ($quantity * $unitPrice)) / $newStock;
+                        } else {
+                            $newCost = $unitPrice;
+                        }
+
+                        $stmtUpd = $this->db->prepare("UPDATE raw_materials SET stock_quantity = ?, cost_per_unit = ? WHERE id = ?");
+                        $stmtUpd->execute([$newStock, $newCost, $itemId]);
+                    } else {
+                        throw new Exception("Materia Prima ID $itemId no encontrada.");
+                    }
                 }
             }
 
@@ -89,11 +121,11 @@ class PurchaseReceiptManager
         } catch (PDOException $e) {
             $this->db->rollBack();
             error_log("Error DB en recepción: " . $e->getMessage());
-            return false;
+            throw new Exception("Error DB: " . $e->getMessage());
         } catch (Exception $e) {
             $this->db->rollBack();
             error_log("Error lógico en recepción: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 

@@ -15,10 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $res = $cashRegisterManager->openRegister($_SESSION['user_id'], $usd, $ves);
 
     if ($res['status']) {
+        SessionHelper::setFlash('success', 'Caja abierta exitosamente. ¡Buen turno!');
         header("Location: tienda.php");
         exit;
     } else {
-        $mensaje = $res['message'];
+        SessionHelper::setFlash('error', $res['message']);
     }
 }
 
@@ -35,18 +36,20 @@ require_once '../templates/header.php';
                 <div class="card-body">
                     <p class="text-center">Por favor, indica el dinero en efectivo con el que inicias el turno.</p>
 
-                    <?php if($mensaje): ?>
+                    <?php if ($mensaje): ?>
                         <div class="alert alert-danger"><?= $mensaje ?></div>
                     <?php endif; ?>
 
                     <form method="POST">
                         <div class="mb-3">
                             <label class="form-label">Fondo en Dólares ($ Efectivo)</label>
-                            <input type="number" name="amount_usd" class="form-control" step="0.01" value="0.00" required>
+                            <input type="number" name="amount_usd" class="form-control" step="0.01" value="0.00"
+                                required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Fondo en Bolívares (Bs Efectivo)</label>
-                            <input type="number" name="amount_ves" class="form-control" step="0.01" value="0.00" required>
+                            <input type="number" name="amount_ves" class="form-control" step="0.01" value="0.00"
+                                required>
                         </div>
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-success btn-lg">Abrir Caja y Comenzar</button>

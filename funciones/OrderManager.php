@@ -44,8 +44,8 @@ class OrderManager
             // SQL PARA COPIAR MODIFICADORES (CORREGIDO: Column Count Match)
             // Seleccionamos '?' como primer valor para inyectar el order_item_id
             $sqlCopyMods = "INSERT INTO order_item_modifiers
-                            (order_item_id, modifier_type, raw_material_id, quantity_adjustment, price_adjustment_usd, note, sub_item_index, is_takeaway)
-                            SELECT ?, modifier_type, raw_material_id, quantity_adjustment, price_adjustment, note, sub_item_index, is_takeaway
+                            (order_item_id, modifier_type, component_id, component_type, quantity_adjustment, price_adjustment_usd, note, sub_item_index, is_takeaway)
+                            SELECT ?, modifier_type, component_id, component_type, quantity_adjustment, price_adjustment, note, sub_item_index, is_takeaway
                             FROM cart_item_modifiers
                             WHERE cart_id = ?";
 
@@ -104,6 +104,9 @@ class OrderManager
             // 1. Procesar el producto principal (y sus sub-recetas recursivamente)
             // Pasamos el order_item_id para buscar sus modificadores específicos
             $this->processProductDeduction($item['product_id'], $item['quantity'], $item['order_item_id']);
+
+            // 2. Procesar el empaque vinculado a este producto (NUEVO)
+            $this->processPackagingDeduction($item['product_id'], $item['quantity']);
         }
     }
 
@@ -211,10 +214,10 @@ class OrderManager
 
     private function processExtras($orderItemId, $targetIndex)
     {
-        // Buscar modificadores 'add' para este índice
-        $sql = "SELECT raw_material_id, quantity_adjustment 
+        // Buscar modificadores 'add' y 'side' para este índice
+        $sql = "SELECT modifier_type, component_id, component_type, quantity_adjustment 
                 FROM order_item_modifiers 
-                WHERE order_item_id = ? AND modifier_type = 'add'";
+                WHERE order_item_id = ? AND modifier_type IN ('add', 'side')";
 
         $params = [$orderItemId];
 
@@ -222,8 +225,6 @@ class OrderManager
             $sql .= " AND sub_item_index = ?";
             $params[] = $targetIndex;
         } else {
-            // Si es null (nivel raíz), buscamos los que tengan index 0 o null (si es producto simple)
-            // Asumiremos 0 para simples
             $sql .= " AND sub_item_index = 0";
         }
 
@@ -232,10 +233,31 @@ class OrderManager
         $modifiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($modifiers as $mod) {
-            // Descontar ingrediente extra (ej: 50g de Salsa)
-            // Valor default 0.050 si no viene definido, o lo que diga la BD
-            $qty = floatval($mod['quantity_adjustment']) > 0 ? $mod['quantity_adjustment'] : 0.050;
-            $this->updateStock('raw_materials', $mod['raw_material_id'], $qty);
+            $qty = floatval($mod['quantity_adjustment']) > 0 ? $mod['quantity_adjustment'] : 1;
+            $type = $mod['component_type'] ?? 'raw';
+            $id = $mod['component_id'];
+
+            if ($type == 'raw') {
+                $this->updateStock('raw_materials', $id, $qty);
+            } elseif ($type == 'manufactured') {
+                $this->updateStock('manufactured_products', $id, $qty);
+            } elseif ($type == 'product') {
+                // RECURSIVIDAD: Si el contorno es un producto (ej: un combo que deja elegir otro producto)
+                $this->processProductDeduction($id, $qty);
+            }
+        }
+    }
+
+    private function processPackagingDeduction($productId, $qty)
+    {
+        $sql = "SELECT raw_material_id, quantity FROM product_packaging WHERE product_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$productId]);
+        $packaging = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($packaging as $pack) {
+            $totalNeeded = $pack['quantity'] * $qty;
+            $this->updateStock('raw_materials', $pack['raw_material_id'], $totalNeeded);
         }
     }
 
@@ -282,9 +304,16 @@ class OrderManager
 
     public function getItemModifiers($orderItemId)
     {
-        $sql = "SELECT m.*, rm.name as ingredient_name
+        $sql = "SELECT m.*, 
+                    CASE 
+                        WHEN m.component_type = 'raw' OR m.component_type IS NULL THEN rm.name
+                        WHEN m.component_type = 'manufactured' THEN mp.name
+                        WHEN m.component_type = 'product' THEN p.name
+                    END as ingredient_name
                 FROM order_item_modifiers m
-                LEFT JOIN raw_materials rm ON m.raw_material_id = rm.id
+                LEFT JOIN raw_materials rm ON m.component_id = rm.id AND (m.component_type = 'raw' OR m.component_type IS NULL)
+                LEFT JOIN manufactured_products mp ON m.component_id = mp.id AND m.component_type = 'manufactured'
+                LEFT JOIN products p ON m.component_id = p.id AND m.component_type = 'product'
                 WHERE m.order_item_id = ?
                 ORDER BY m.sub_item_index ASC";
         $stmt = $this->db->prepare($sql);
@@ -373,6 +402,13 @@ class OrderManager
     public function getTotalVentasDia()
     {
         $query = "SELECT SUM(total_price) AS total FROM orders WHERE DATE(created_at) = CURDATE()";
+        $stmt = $this->db->query($query);
+        return $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    }
+
+    public function getCountVentasDia()
+    {
+        $query = "SELECT COUNT(*) AS total FROM orders WHERE DATE(created_at) = CURDATE() AND (status = 'paid' OR status = 'delivered' OR status = 'pending')";
         $stmt = $this->db->query($query);
         return $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     }

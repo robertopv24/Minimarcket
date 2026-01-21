@@ -85,91 +85,94 @@ function line()
 // ---------------------------------------------------------
 // CONSTRUCCIÓN DEL TICKET
 // ---------------------------------------------------------
-$ticket = "";
+// ---------------------------------------------------------
+// CONSTRUCCIÓN DEL TICKET CLIENTE
+// ---------------------------------------------------------
+$customerTicket = "";
+$customerTicket .= center($companyName) . EOL;
+$customerTicket .= center("ORDEN #" . str_pad($orderId, 6, '0', STR_PAD_LEFT)) . EOL;
+$customerTicket .= center(date('d/m/Y h:i A', strtotime($order['created_at']))) . EOL;
+$customerTicket .= EOL;
+$customerTicket .= "CAJERO : " . clean(substr($order['customer_name'], 0, 20)) . EOL;
+$customerTicket .= "CLIENTE: " . clean(substr($order['shipping_address'] ?? 'MOSTRADOR', 0, 20)) . EOL;
+$customerTicket .= line();
 
-// CABECERA
-$ticket .= center($companyName) . EOL;
-$ticket .= center("ORDEN #" . str_pad($orderId, 6, '0', STR_PAD_LEFT)) . EOL;
-$ticket .= center(date('d/m/Y h:i A', strtotime($order['created_at']))) . EOL;
-$ticket .= EOL;
-$ticket .= "CAJERO : " . clean(substr($order['customer_name'], 0, 20)) . EOL;
-$ticket .= "CLIENTE: " . clean(substr($order['shipping_address'] ?? 'MOSTRADOR', 0, 20)) . EOL;
-$ticket .= line();
-
-// ÍTEMS
-$ticket .= "CANT DESCRIPCION           TOTAL" . EOL;
-$ticket .= line();
+$customerTicket .= "CANT DESCRIPCION           TOTAL" . EOL;
+$customerTicket .= line();
 
 foreach ($items as $item) {
     $totalItem = $item['price'] * $item['quantity'];
     $mods = $orderManager->getItemModifiers($item['id']);
 
-    $qtyName = str_pad($item['quantity'], 2, ' ', STR_PAD_LEFT) . " " . clean(substr($item['name'], 0, 18));
+    $qtyName = str_pad($item['quantity'], 2, ' ', STR_PAD_LEFT) . " " . clean($item['name']);
     $priceTxt = number_format($totalItem, 2);
-    $ticket .= row($qtyName, $priceTxt) . EOL;
+    $customerTicket .= row($qtyName, $priceTxt) . EOL;
 
-    // Desglose Combo
     if ($item['product_type'] == 'compound') {
         $comps = $productManager->getProductComponents($item['product_id']);
-        $subs = [];
+        $subsNames = [];
         foreach ($comps as $c) {
+            $subName = "";
             if ($c['component_type'] == 'product') {
                 $p = $productManager->getProductById($c['component_id']);
-                $subs[] = clean($p['name']);
+                $subName = $p['name'];
+            } elseif ($c['component_type'] == 'manufactured') {
+                $stmtM = $db->prepare("SELECT name FROM manufactured_products WHERE id = ?");
+                $stmtM->execute([$c['component_id']]);
+                $subName = $stmtM->fetchColumn() ?: 'ITEM COCINA';
+            }
+            if ($subName) {
+                $cQty = intval($c['quantity']);
+                $subsNames[] = clean($subName) . ($cQty > 1 ? " (X$cQty)" : "");
             }
         }
-        if (!empty($subs)) {
-            $incStr = " > INC: " . implode(",", $subs);
-            if (strlen($incStr) > WIDTH) {
-                $ticket .= substr($incStr, 0, WIDTH) . EOL;
-                $rest = substr($incStr, WIDTH);
-                if ($rest)
-                    $ticket .= "   " . substr($rest, 0, WIDTH - 3) . EOL;
-            } else {
-                $ticket .= $incStr . EOL;
+        if (!empty($subsNames)) {
+            $customerTicket .= "  > INC: " . EOL;
+            $countS = count($subsNames);
+            foreach ($subsNames as $i => $sn) {
+                $comma = ($i < $countS - 1) ? "," : "";
+                $customerTicket .= $sn . $comma . EOL;
             }
         }
     }
 
-    // Extras Cobrados
     foreach ($mods as $m) {
         if ($m['modifier_type'] == 'add' && $m['price_adjustment_usd'] > 0) {
-            $extraName = "  + " . clean($m['ingredient_name']);
+            $extraName = "   " . clean($m['ingredient_name']);
             $extraPrice = number_format($m['price_adjustment_usd'] * $item['quantity'], 2);
-            $ticket .= row($extraName, $extraPrice) . EOL;
+            $customerTicket .= row($extraName, $extraPrice) . EOL;
         }
     }
 }
 
-$ticket .= line();
+$customerTicket .= line();
+$customerTicket .= row("TOTAL:", "$" . number_format($order['total_price'], 2)) . EOL;
 
-// TOTALES
-$ticket .= row("TOTAL:", "$" . number_format($order['total_price'], 2)) . EOL;
-
-// PAGOS DETALLADOS
 foreach ($payments as $pay) {
     $sym = ($pay['currency'] == 'USD') ? '$' : 'Bs ';
-    $ticket .= row(substr($pay['method'], 0, 18) . ":", $sym . number_format($pay['amount'], 2)) . EOL;
+    $customerTicket .= row(substr($pay['method'], 0, 18) . ":", $sym . number_format($pay['amount'], 2)) . EOL;
 }
 
-// CAMBIO REAL
 if ($changeTx) {
     $sym = ($changeTx['currency'] == 'USD') ? '$' : 'Bs ';
-    $ticket .= row("SU CAMBIO:", $sym . number_format($changeTx['amount'], 2)) . EOL;
+    $customerTicket .= row("SU CAMBIO:", $sym . number_format($changeTx['amount'], 2)) . EOL;
 } else {
-    $ticket .= row("SU CAMBIO:", "$0.00") . EOL;
+    $customerTicket .= row("SU CAMBIO:", "$0.00") . EOL;
 }
 
-$ticket .= EOL;
-$ticket .= center("*** GRACIAS POR SU COMPRA ***") . EOL;
-$ticket .= EOL . EOL;
+$customerTicket .= EOL;
+$customerTicket .= center("*** GRACIAS POR SU COMPRA ***") . EOL;
+$customerTicket .= EOL . EOL;
 
-// COMANDA COCINA
-$ticket .= center("- - - CORTE COCINA - - -") . EOL;
-$ticket .= EOL;
-$ticket .= center("ORDEN #" . $orderId) . EOL;
-$ticket .= center(clean(substr($order['shipping_address'] ?? '', 0, 30))) . EOL;
-$ticket .= line();
+// ---------------------------------------------------------
+// CONSTRUCCIÓN DEL TICKET COCINA (COMANDA)
+// ---------------------------------------------------------
+$kitchenTicket = "";
+$kitchenTicket .= center("- - - CORTE COCINA - - -") . EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= center("ORDEN #" . $orderId) . EOL;
+$kitchenTicket .= center(clean(substr($order['shipping_address'] ?? '', 0, 30))) . EOL;
+$kitchenTicket .= line();
 
 foreach ($items as $item) {
     $mods = $orderManager->getItemModifiers($item['id']);
@@ -182,21 +185,31 @@ foreach ($items as $item) {
     if ($item['product_type'] == 'compound') {
         $comps = $productManager->getProductComponents($item['product_id']);
         foreach ($comps as $c) {
+            $sName = "";
             if ($c['component_type'] == 'product') {
                 $p = $productManager->getProductById($c['component_id']);
-                for ($k = 0; $k < $c['quantity']; $k++)
-                    $subNames[] = clean($p['name']);
+                $sName = $p['name'];
+            } elseif ($c['component_type'] == 'manufactured') {
+                $stmtM = $db->prepare("SELECT name FROM manufactured_products WHERE id = ?");
+                $stmtM->execute([$c['component_id']]);
+                $sName = $stmtM->fetchColumn() ?: 'ITEM COCINA';
+            }
+            if ($sName) {
+                for ($k = 0; $k < $c['quantity']; $k++) {
+                    $subNames[] = clean($sName);
+                }
             }
         }
     }
 
-    $loop = $item['quantity'];
-    if ($item['product_type'] == 'compound' && !empty($subNames))
-        $loop = count($subNames);
+    $loopCount = $item['quantity'];
+    if ($item['product_type'] == 'compound' && !empty($subNames)) {
+        $loopCount = count($subNames);
+    }
 
-    $ticket .= ">> " . $item['quantity'] . " X " . clean($item['name']) . EOL;
+    $kitchenTicket .= ">> " . $item['quantity'] . " X " . clean($item['name']) . EOL;
 
-    for ($i = 0; $i < $loop; $i++) {
+    for ($i = 0; $i < $loopCount; $i++) {
         $currentMods = $groupedMods[$i] ?? [];
         $isTakeaway = false;
         foreach ($currentMods as $m) {
@@ -205,29 +218,33 @@ foreach ($items as $item) {
         }
 
         $tag = $isTakeaway ? '[LLEVAR]' : '[MESA]';
-        $specName = isset($subNames[$i]) ? $subNames[$i] : '';
+        $componentLabel = isset($subNames[$i]) ? " " . $subNames[$i] : '';
 
-        $ticket .= "   $tag #" . ($i + 1) . " $specName" . EOL;
+        $kitchenTicket .= "   $tag #" . ($i + 1) . $componentLabel . EOL;
 
         foreach ($currentMods as $m) {
-            if ($m['modifier_type'] == 'remove')
-                $ticket .= "     -- SIN " . clean($m['ingredient_name']) . EOL;
-            if ($m['modifier_type'] == 'add')
-                $ticket .= "     ++ EXTRA " . clean($m['ingredient_name']) . EOL;
+            if ($m['modifier_type'] == 'remove') {
+                $kitchenTicket .= "     -- SIN " . clean($m['ingredient_name']) . EOL;
+            } elseif ($m['modifier_type'] == 'add' || $m['modifier_type'] == 'side') {
+                $isPaid = (floatval($m['price_adjustment_usd']) > 0);
+                $prefix = ($isPaid) ? '++ EXTRA ' : '🔘 ';
+                $kitchenTicket .= "     " . $prefix . clean($m['ingredient_name']) . EOL;
+            }
         }
 
         if ($i == 0) {
             foreach ($mods as $gm) {
                 if ($gm['sub_item_index'] == -1 && $gm['modifier_type'] == 'info' && !empty($gm['note'])) {
-                    $ticket .= "   NOTA: " . clean($gm['note']) . EOL;
+                    $kitchenTicket .= "   NOTA: " . clean($gm['note']) . EOL;
                 }
             }
         }
-        $ticket .= EOL;
+        $kitchenTicket .= EOL;
     }
-    $ticket .= str_repeat("=", WIDTH) . EOL;
+    $kitchenTicket .= str_repeat("=", WIDTH) . EOL;
 }
-$ticket .= ".";
+$kitchenTicket .= ".";
+?>
 ?>
 <?php
 // ... (PHP Logic from lines 1-231 remains unchanged, handled by startLine below)
@@ -268,9 +285,11 @@ require_once '../templates/menu.php';
         font-size: 13px;
         font-weight: bold;
         line-height: 1.2;
-        white-space: pre-wrap;
-        margin: 0;
-        text-align: center;
+        white-space: pre;
+        margin: 0 auto;
+        display: block;
+        width: fit-content;
+        text-align: left;
     }
 
     /* Acciones flotantes o estáticas */
@@ -319,55 +338,107 @@ require_once '../templates/menu.php';
     }
 </style>
 
-<div class="container ticket-container">
+<div class="container py-4">
+    <div class="row">
+        <!-- TICKET CLIENTE -->
+        <div class="col-md-6 ticket-container">
+            <h4 class="text-white mb-3"><i class="fa fa-user me-2"></i>RECIBO CLIENTE</h4>
+            <div class="ticket-wrapper" id="customerTicketWrapper">
+                <pre class="ticket-content"><?= $customerTicket ?></pre>
+            </div>
+            <div class="ticket-actions no-print">
+                <button onclick="printSelect('customer')" class="btn btn-primary btn-lg w-100 mb-2">
+                    <i class="fa fa-print"></i> Imprimir (Windows)
+                </button>
+                <button onclick="printServer('customer', this)" class="btn btn-warning btn-lg w-100 text-dark">
+                    <i class="fa fa-server"></i> Imprimir (Server USB)
+                </button>
+            </div>
+        </div>
 
-    <!-- TICKET DE PAPEL -->
-    <div class="ticket-wrapper">
-        <pre class="ticket-content"><?= $ticket ?></pre>
+        <!-- TICKET COCINA -->
+        <div class="col-md-6 ticket-container">
+            <h4 class="text-white mb-3"><i class="fa fa-fire me-2"></i>COMANDA COCINA</h4>
+            <div class="ticket-wrapper" id="kitchenTicketWrapper">
+                <pre class="ticket-content"><?= $kitchenTicket ?></pre>
+            </div>
+            <div class="ticket-actions no-print">
+                <button onclick="printSelect('kitchen')" class="btn btn-primary btn-lg w-100 mb-2">
+                    <i class="fa fa-print"></i> Imprimir (Windows)
+                </button>
+                <button onclick="printServer('kitchen', this)" class="btn btn-warning btn-lg w-100 text-dark">
+                    <i class="fa fa-server"></i> Imprimir (Server USB)
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- BOTONES DE ACCIÓN -->
-    <div class="ticket-actions no-print">
-        <button onclick="window.print()" class="btn btn-lg btn-primary hover-scale">
-            <i class="fa fa-print"></i> Imprimir (Windows)
-        </button>
-
-        <button id="btnLinux" class="btn btn-lg btn-warning hover-scale text-dark">
-            <i class="fa fa-server"></i> Imprimir (Server USB)
-        </button>
-
-        <a href="tienda.php" class="btn btn-lg btn-secondary hover-scale">
-            <i class="fa fa-arrow-left"></i> Volver a Tienda
+    <!-- BOTÓN VOLVER -->
+    <div class="text-center mt-4 no-print">
+        <hr class="border-secondary">
+        <a href="tienda.php" class="btn btn-lg btn-secondary hover-scale px-5">
+            <i class="fa fa-arrow-left me-2"></i> Volver a Tienda
         </a>
     </div>
-
 </div>
 
+<style>
+    /* Estilos específicos para Impresión Selectiva */
+    @media print {
+        .ticket-container {
+            display: none !important;
+        }
+
+        .print-only {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .ticket-wrapper.print-only {
+            box-shadow: none !important;
+            transform: none !important;
+        }
+    }
+</style>
+
 <script>
-    $(document).ready(function () {
-        $('#btnLinux').click(function () {
-            const btn = $(this);
-            const originalText = btn.html();
+    function printSelect(type) {
+        // Marcamos el que queremos imprimir
+        $('.ticket-container').removeClass('print-only');
+        if (type === 'customer') {
+            $('#customerTicketWrapper').closest('.ticket-container').addClass('print-only');
+        } else {
+            $('#kitchenTicketWrapper').closest('.ticket-container').addClass('print-only');
+        }
+        window.print();
+    }
 
-            btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Enviando...');
+    function printServer(type, btn) {
+        const jBtn = $(btn);
+        const originalText = jBtn.html();
 
-            $.post('../ajax/imprimir_ticket.php', { order_id: <?= $orderId ?> }, function (res) {
-                if (res.status === 'ok') {
-                    btn.removeClass('btn-warning').addClass('btn-success').html('<i class="fa fa-check"></i> ¡Impreso!');
-                    setTimeout(() => {
-                        btn.removeClass('btn-success').addClass('btn-warning').html(originalText).prop('disabled', false);
-                    }, 3000);
-                } else {
-                    alert("❌ Error: " + res.message);
-                    btn.prop('disabled', false).html(originalText);
-                }
-            }, 'json')
-                .fail(function () {
-                    alert("Error de conexión con el servidor.");
-                    btn.prop('disabled', false).html(originalText);
-                });
+        jBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Enviando...');
+
+        $.post('../ajax/imprimir_ticket.php', {
+            order_id: <?= $orderId ?>,
+            type: type
+        }, function (res) {
+            if (res.status === 'ok') {
+                jBtn.removeClass('btn-warning').addClass('btn-success').html('<i class="fa fa-check"></i> ¡Impreso!');
+                setTimeout(() => {
+                    jBtn.removeClass('btn-success').addClass('btn-warning').html(originalText).prop('disabled', false);
+                }, 3000);
+            } else {
+                alert("❌ Error: " + res.message);
+                jBtn.prop('disabled', false).html(originalText);
+            }
+        }, 'json').fail(function () {
+            alert("Error de conexión con el servidor.");
+            jBtn.prop('disabled', false).html(originalText);
         });
-    });
+    }
 </script>
 
 <?php require_once '../templates/footer.php'; ?>

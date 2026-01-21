@@ -30,10 +30,103 @@ class ProductionManager
         return $this->searchManufacturedProducts();
     }
 
-    public function createManufacturedProduct($name, $unit)
+    public function createManufacturedProduct($name, $unit, $minStock = 0)
     {
-        $stmt = $this->db->prepare("INSERT INTO manufactured_products (name, unit, stock) VALUES (?, ?, 0)");
-        return $stmt->execute([$name, $unit]);
+        $stmt = $this->db->prepare("INSERT INTO manufactured_products (name, unit, stock, min_stock) VALUES (?, ?, 0, ?)");
+        return $stmt->execute([$name, $unit, $minStock]);
+    }
+
+    public function updateManufacturedProduct($id, $name, $unit, $minStock)
+    {
+        $stmt = $this->db->prepare("UPDATE manufactured_products SET name = ?, unit = ?, min_stock = ? WHERE id = ?");
+        return $stmt->execute([$name, $unit, $minStock, $id]);
+    }
+
+    public function getLowStockManufactured()
+    {
+        // Obtener todos los productos manufacturados
+        $stmt = $this->db->query("SELECT * FROM manufactured_products ORDER BY name ASC");
+        $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $lowStockItems = [];
+
+        foreach ($all as $p) {
+            // Calcular stock virtual y obtener el ingrediente limitante
+            $analysis = $this->getVirtualStockAnalysis($p['id']);
+            $virtualStock = $analysis['max_produceable'];
+            $minStock = floatval($p['min_stock']);
+
+            // Si el stock posible es MENOR al mínimo, es alerta
+            // Si min_stock es 0, usamos un umbral por defecto (ej: 2) para alertar que se está agotando algo "crítico"
+            $alertThreshold = ($minStock > 0) ? $minStock : 3;
+
+            if ($virtualStock < $alertThreshold) {
+                // Inyectamos el valor calculado para que el dashboard lo muestre
+                $p['virtual_stock'] = $virtualStock;
+                $p['display_stock'] = $virtualStock; // Para facilitar uso en vista
+                // Agregamos info del cuello de botella
+                $p['limiting_ingredient'] = $analysis['limiting_ingredient'];
+                $lowStockItems[] = $p;
+            }
+        }
+
+        return $lowStockItems;
+    }
+
+    public function getMaxProduceableQuantity($manufId)
+    {
+        $analysis = $this->getVirtualStockAnalysis($manufId);
+        return $analysis['max_produceable'];
+    }
+
+    public function getVirtualStockAnalysis($manufId)
+    {
+        $recipe = $this->getRecipe($manufId);
+
+        // Si no tiene receta, nos basamos en stock físico (si aplica)
+        if (empty($recipe)) {
+            $stmt = $this->db->prepare("SELECT stock FROM manufactured_products WHERE id = ?");
+            $stmt->execute([$manufId]);
+            return [
+                'max_produceable' => floatval($stmt->fetchColumn() ?: 0),
+                'limiting_ingredient' => null
+            ];
+        }
+
+        $minProduceable = null;
+        $limitingIngredient = null;
+
+        foreach ($recipe as $item) {
+            $requiredQty = floatval($item['quantity_required']);
+            if ($requiredQty <= 0)
+                continue;
+
+            // Obtener stock del ingrediente (Raw Material)
+            $stmt = $this->db->prepare("SELECT name, stock_quantity, unit FROM raw_materials WHERE id = ?");
+            $stmt->execute([$item['raw_material_id']]);
+            $raw = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$raw)
+                continue;
+
+            $availableQty = floatval($raw['stock_quantity']);
+            $possible = floor($availableQty / $requiredQty);
+
+            if ($minProduceable === null || $possible < $minProduceable) {
+                $minProduceable = $possible;
+                $limitingIngredient = [
+                    'name' => $raw['name'],
+                    'available' => $availableQty,
+                    'unit' => $raw['unit'],
+                    'required_per_unit' => $requiredQty
+                ];
+            }
+        }
+
+        return [
+            'max_produceable' => ($minProduceable === null) ? 0 : $minProduceable,
+            'limiting_ingredient' => $limitingIngredient
+        ];
     }
 
     public function deleteManufacturedProduct($id)

@@ -63,6 +63,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } // End CSRF check block
 } // End POST block
 
+// Si se generó algún error durante el proceso POST, lo pasamos a flash para mostrarlo
+if (!empty($error)) {
+    // Si no está la clase cargada (raro pq autoload), asegurar
+    if (class_exists('SessionHelper')) {
+        SessionHelper::setFlash('error', $error);
+    }
+}
 
 require_once '../templates/header.php';
 
@@ -108,8 +115,8 @@ require_once '../templates/menu.php';
                         </div>
                         <a href="">Forgot Password</a>
                     </div>
-                    <button type="submit" class="btn btn-primary py-3 w-100 mb-4">Sign Up</button>
-                    <p class="text-center mb-0">Already have an Account? <a href="">Sign In</a></p>
+                    <button type="submit" class="btn btn-primary py-3 w-100 mb-4">Iniciar Sesión</button>
+                    <!-- <p class="text-center mb-0">Don't have an Account? <a href="register.php">Sign Up</a></p> -->
             </div>
             </form>
         </div>

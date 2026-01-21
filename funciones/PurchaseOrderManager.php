@@ -40,8 +40,8 @@ class PurchaseOrderManager
 
                 $totalAmount += $quantity * $unitPrice;
 
-                // Actualizar stock según tipo
-                $this->updateStockByType($itemType, $itemId, $quantity, $unitPrice);
+                // NO actualizamos stock aquí. El stock se actualiza SÓLO al recibir la mercancía (PurchaseReceiptManager)
+                // $this->updateStockByType($itemType, $itemId, $quantity, $unitPrice);
             }
 
             // Actualizamos el total calculado
@@ -54,43 +54,6 @@ class PurchaseOrderManager
             $this->db->rollBack();
             error_log("Error al crear la orden de compra: " . $e->getMessage());
             return false;
-        }
-    }
-
-    // Método auxiliar para actualizar stock según tipo
-    private function updateStockByType($itemType, $itemId, $quantity, $unitPrice)
-    {
-        switch ($itemType) {
-            case 'product':
-                // Actualizar stock de productos
-                $stmt = $this->db->prepare("UPDATE products SET stock = stock + ? WHERE id = ?");
-                $stmt->execute([$quantity, $itemId]);
-                break;
-
-            case 'raw_material':
-                // Actualizar stock y costo promedio ponderado de materias primas
-                // (incluye ingredientes, empaques e insumos según category)
-                $stmt = $this->db->prepare("SELECT stock_quantity, cost_per_unit FROM raw_materials WHERE id = ?");
-                $stmt->execute([$itemId]);
-                $current = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                if ($current) {
-                    $oldStock = $current['stock_quantity'];
-                    $oldCost = $current['cost_per_unit'];
-                    $newStock = $oldStock + $quantity;
-
-                    // Costo promedio ponderado
-                    if ($newStock > 0) {
-                        $newCost = (($oldStock * $oldCost) + ($quantity * $unitPrice)) / $newStock;
-                    } else {
-                        $newCost = $unitPrice;
-                    }
-
-                    $stmt = $this->db->prepare("UPDATE raw_materials 
-                        SET stock_quantity = ?, cost_per_unit = ? WHERE id = ?");
-                    $stmt->execute([$newStock, $newCost, $itemId]);
-                }
-                break;
         }
     }
 

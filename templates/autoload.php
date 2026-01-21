@@ -40,6 +40,7 @@ if (file_exists($envFile)) {
 
 require_once __DIR__ . '/../funciones/conexion.php';
 require_once __DIR__ . '/../funciones/Config.php';
+require_once __DIR__ . '/../funciones/SessionHelper.php';
 
 
 // Crear instancias de las clases principales para su uso global

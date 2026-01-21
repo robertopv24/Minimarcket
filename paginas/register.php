@@ -33,39 +33,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Validaciones
         if (empty($name) || empty($email) || empty($password) || empty($confirmPassword)) {
-            $error = 'Todos los campos son obligatorios.';
+            SessionHelper::setFlash('error', 'Todos los campos son obligatorios.');
         } elseif ($password !== $confirmPassword) {
-            $error = 'Las contraseñas no coinciden.';
+            SessionHelper::setFlash('error', 'Las contraseñas no coinciden.');
         } elseif (strlen($password) < 6) {
-            $error = 'La contraseña debe tener al menos 6 caracteres.';
+            SessionHelper::setFlash('error', 'La contraseña debe tener al menos 6 caracteres.');
         } else {
             try {
-                // Assuming registerUser in UserManager now handles only name, email, password
-                // If phone, document_id, address are still needed, UserManager::registerUser needs to be updated
                 $userId = $userManager->createUser($name, $email, $password, $phone, $document_id, $address);
 
                 if ($userId) {
-                    // Registro exitoso - resetear contador
                     $rateLimiter->reset('register');
 
-                    $success = 'Usuario registrado exitosamente. Ya puedes iniciar sesión.';
-
-                    // Auto-login después de registro
+                    // Auto-login
                     $_SESSION['user_id'] = $userId;
                     $_SESSION['user_name'] = $name;
                     $_SESSION['user_role'] = 'customer';
 
+                    SessionHelper::setFlash('success', '¡Registro exitoso! Bienvenido a Minimarcket.');
                     header('Location: tienda.php');
                     exit;
                 } else {
-                    // Registro fallido - contar intento
                     $rateLimiter->hit('register');
-                    $error = 'Error al registrar usuario.';
+                    SessionHelper::setFlash('error', 'Error al registrar usuario en la base de datos.');
                 }
             } catch (Exception $e) {
-                // Registro fallido - contar intento
                 $rateLimiter->hit('register');
-                $error = 'El email ya está registrado o hubo un error: ' . $e->getMessage(); // Added getMessage for more detail
+                SessionHelper::setFlash('error', 'El email ya está registrado o hubo un error técnico.');
             }
         }
     }
@@ -84,7 +78,7 @@ require_once '../templates/menu.php';
                     <h3 class="text-primary"><i class="fa fa-user-plus me-2"></i>Registro</h3>
                 </div>
 
-                <?= $mensaje ?>
+                <!-- Flash messages handled by SessionHelper/Footer -->
 
                 <form method="post">
                     <div class="form-floating mb-3">

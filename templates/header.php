@@ -54,6 +54,12 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
 
+    <!-- Select2 Stylesheet (NUEVO) -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <!-- SweetAlert2 (Alertas Modernas) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <!-- Libraries Stylesheet -->
     <link href="../lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
     <link href="../lib/tempusdominus/css/tempusdominus-bootstrap-4.min.css" rel="stylesheet" />
@@ -61,9 +67,15 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
     <!-- Customized Bootstrap Stylesheet -->
     <link href="../css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Template Stylesheet - DISABLED: Conflicts with modern_theme.css (dark mode vs light mode) -->
+    <!-- Template Stylesheet -->
     <link href="../css/style.css" rel="stylesheet">
-    <!-- <link href="../css/modern_theme.css" rel="stylesheet"> -->
+
+    <!-- JavaScript Libraries (Moved to Header for Stability) -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 </head>
 
 
@@ -105,7 +117,7 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
                                 <?php if ($user_role === 'admin'): ?>
                                     <!-- Mostrar el menú para el administrador -->
 
-                                    <a href="../paginas/Perfil.php" class="nav-item nav-link ">Perfil</a>
+                                    <a href="../paginas/perfil.php" class="nav-item nav-link ">Perfil</a>
                                     <a href="../paginas/carrito.php" class="nav-item nav-link ">Carrito</a>
                                     <a href="../paginas/logout.php" class="nav-item nav-link ">Cerras Sesión</a>
 
@@ -113,7 +125,7 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
                                 <?php elseif ($user_role === 'user'): ?>
                                     <!-- Mostrar el menú para el usuario -->
 
-                                    <a href="../paginas/Perfil.php" class="nav-item nav-link ">Perfil</a>
+                                    <a href="../paginas/perfil.php" class="nav-item nav-link ">Perfil</a>
                                     <a href="../paginas/carrito.php" class="nav-item nav-link ">Carrito</a>
                                     <a href="../paginas/logout.php" class="nav-item nav-link ">Cerras Sesión</a>
 

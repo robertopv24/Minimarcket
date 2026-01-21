@@ -35,7 +35,8 @@ class RawMaterialManager
     // Obtener insumos bajos de stock (Alerta)
     public function getLowStockMaterials()
     {
-        $stmt = $this->db->query("SELECT * FROM raw_materials WHERE stock_quantity <= min_stock ORDER BY stock_quantity ASC");
+        // Cambiado a STRICTLY LESS THAN (<) para evitar alertas cuando está exacto
+        $stmt = $this->db->query("SELECT * FROM raw_materials WHERE stock_quantity < min_stock ORDER BY stock_quantity ASC");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -48,21 +49,21 @@ class RawMaterialManager
     }
 
     // Crear nuevo insumo
-    public function createMaterial($name, $unit, $cost, $minStock, $isCookingSupply)
+    public function createMaterial($name, $unit, $cost, $minStock, $isCookingSupply, $category = 'ingredient')
     {
         try {
-            $stmt = $this->db->prepare("INSERT INTO raw_materials (name, unit, cost_per_unit, min_stock, is_cooking_supply, stock_quantity) VALUES (?, ?, ?, ?, ?, 0)");
-            return $stmt->execute([$name, $unit, $cost, $minStock, $isCookingSupply]);
+            $stmt = $this->db->prepare("INSERT INTO raw_materials (name, unit, cost_per_unit, min_stock, is_cooking_supply, category, stock_quantity) VALUES (?, ?, ?, ?, ?, ?, 0)");
+            return $stmt->execute([$name, $unit, $cost, $minStock, $isCookingSupply, $category]);
         } catch (PDOException $e) {
             return "Error: " . $e->getMessage();
         }
     }
 
-    // Actualizar datos básicos
-    public function updateMaterial($id, $name, $unit, $minStock, $isCookingSupply)
+    // Actualizar datos básicos (Incluyendo categoría)
+    public function updateMaterial($id, $name, $unit, $minStock, $isCookingSupply, $category = 'ingredient')
     {
-        $stmt = $this->db->prepare("UPDATE raw_materials SET name = ?, unit = ?, min_stock = ?, is_cooking_supply = ? WHERE id = ?");
-        return $stmt->execute([$name, $unit, $minStock, $isCookingSupply, $id]);
+        $stmt = $this->db->prepare("UPDATE raw_materials SET name = ?, unit = ?, min_stock = ?, is_cooking_supply = ?, category = ? WHERE id = ?");
+        return $stmt->execute([$name, $unit, $minStock, $isCookingSupply, $category, $id]);
     }
 
     // Sumar Stock (Compra) y actualizar costo promedio

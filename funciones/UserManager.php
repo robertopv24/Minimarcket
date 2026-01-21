@@ -247,6 +247,22 @@ class UserManager
 
         return false;
     }
+
+    /**
+     * Enforce kitchen access. Redirects if validation fails.
+     * Replaces templates/kitchen_check.php to avoid permission errors.
+     */
+    public function requireKitchenAccess($session)
+    {
+        if (!$this->hasKitchenAccess($session)) {
+            if (isset($session['user_id'])) {
+                header("Location: ../paginas/status.php");
+            } else {
+                header("Location: ../paginas/login.php");
+            }
+            exit;
+        }
+    }
 }
 
 // Uso de la clase
