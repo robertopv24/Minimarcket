@@ -1,50 +1,65 @@
 <?php
 
-class CartManager {
+class CartManager
+{
     private $db;
     private $table_name = 'cart';
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->db = $db;
     }
 
     // 1. AGREGAR AL CARRITO
-    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in') {
+    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in')
+    {
         try {
             $this->db->beginTransaction();
 
             $productManager = new ProductManager($this->db);
             $product = $productManager->getProductById($product_id);
 
-            if (!$product) throw new Exception("Producto no encontrado.");
+            if (!$product)
+                throw new Exception("Producto no encontrado.");
 
             $availableStock = ($product['product_type'] === 'simple')
                 ? intval($product['stock'])
                 : $productManager->getVirtualStock($product_id);
 
-            if ($availableStock < $quantity) throw new Exception("Stock insuficiente.");
+            if ($availableStock < $quantity)
+                throw new Exception("Stock insuficiente.");
 
             $stmt = $this->db->prepare("INSERT INTO {$this->table_name} (user_id, product_id, quantity, consumption_type) VALUES (?, ?, ?, ?)");
             $stmt->execute([$user_id, $product_id, $quantity, $consumptionType]);
             $cartId = $this->db->lastInsertId();
 
             if (!empty($modifiers)) {
-                $this->updateItemModifiers($cartId, $modifiers);
+                $result = $this->updateItemModifiers($cartId, $modifiers);
+                if ($result !== true) {
+                    throw new Exception($result);
+                }
             }
 
             $this->db->commit();
             return true;
 
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return "Error: " . $e->getMessage();
         }
     }
 
     // 2. ACTUALIZAR MODIFICADORES (Lógica Simplificada)
-    public function updateItemModifiers($cartId, $data) {
+    public function updateItemModifiers($cartId, $data)
+    {
+        $startedTransaction = false;
         try {
-            if (!$this->db->inTransaction()) $this->db->beginTransaction();
+            if (!$this->db->inTransaction()) {
+                $this->db->beginTransaction();
+                $startedTransaction = true;
+            }
 
             // A. Limpiar todo lo anterior de este ítem
             $this->db->prepare("DELETE FROM cart_item_modifiers WHERE cart_id = ?")->execute([$cartId]);
@@ -71,7 +86,7 @@ class CartManager {
 
                     // 2. Guardar Remociones
                     if (!empty($subItem['remove'])) {
-                        $stmtRem = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, raw_material_id) VALUES (?, 'remove', ?, ?)");
+                        $stmtRem = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type) VALUES (?, 'remove', ?, ?, 'raw')");
                         foreach ($subItem['remove'] as $rawId) {
                             $stmtRem->execute([$cartId, $idx, $rawId]);
                         }
@@ -79,24 +94,48 @@ class CartManager {
 
                     // 3. Guardar Adiciones
                     if (!empty($subItem['add'])) {
-                        $stmtAdd = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, raw_material_id, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, ?, ?)");
+                        $stmtAdd = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, 'raw', ?, ?)");
                         foreach ($subItem['add'] as $extra) {
                             $stmtAdd->execute([$cartId, $idx, $extra['id'], 0.050, $extra['price']]);
+                        }
+                    }
+
+                    // 4. Guardar Contornos (NUEVO)
+                    if (!empty($subItem['sides'])) {
+                        $stmtSide = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_type, component_id, quantity_adjustment, price_adjustment) VALUES (?, 'side', ?, ?, ?, ?, ?)");
+                        foreach ($subItem['sides'] as $side) {
+                            $stmtSide->execute([
+                                $cartId,
+                                $idx,
+                                $side['type'],
+                                $side['id'],
+                                $side['qty'],
+                                $side['price'] ?? 0
+                            ]);
                         }
                     }
                 }
             }
 
-            $this->db->commit();
+            if ($startedTransaction) {
+                $this->db->commit();
+            }
             return true;
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if ($startedTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            // Si la transacción fue iniciada por un método padre, relanzamos la excepción
+            if (!$startedTransaction) {
+                throw $e;
+            }
             return "Error: " . $e->getMessage();
         }
     }
 
     // 3. OBTENER CARRITO (Lectura Limpia)
-    public function getCart($user_id) {
+    public function getCart($user_id)
+    {
         $stmt = $this->db->prepare("
             SELECT c.*, p.name, p.price_usd, p.price_ves, p.image_url, p.product_type
             FROM {$this->table_name} c
@@ -110,11 +149,18 @@ class CartManager {
             $basePrice = floatval($item['price_usd']);
             $extraPrice = 0;
 
-            // Traer modificadores
+            // Traer modificadores (Actualizado para incluir component_type e item_name polimórfico)
             $stmtMod = $this->db->prepare("
-                SELECT cim.*, rm.name as material_name
+                SELECT cim.*,
+                    CASE 
+                        WHEN cim.component_type = 'raw' OR cim.component_type IS NULL THEN rm.name
+                        WHEN cim.component_type = 'manufactured' THEN mp.name
+                        WHEN cim.component_type = 'product' THEN p2.name
+                    END as item_name
                 FROM cart_item_modifiers cim
-                LEFT JOIN raw_materials rm ON cim.raw_material_id = rm.id
+                LEFT JOIN raw_materials rm ON cim.component_id = rm.id AND (cim.component_type = 'raw' OR cim.component_type IS NULL)
+                LEFT JOIN manufactured_products mp ON cim.component_id = mp.id AND cim.component_type = 'manufactured'
+                LEFT JOIN products p2 ON cim.component_id = p2.id AND cim.component_type = 'product'
                 WHERE cim.cart_id = ?
                 ORDER BY cim.sub_item_index ASC
             ");
@@ -144,13 +190,14 @@ class CartManager {
                 if ($mod['modifier_type'] == 'info') {
                     // AQUÍ LEEMOS EL BOOLEANO DIRECTAMENTE
                     $groupedMods[$idx]['is_takeaway'] = intval($mod['is_takeaway']);
-                }
-                elseif ($mod['modifier_type'] == 'add') {
+                } elseif ($mod['modifier_type'] == 'add') {
                     $extraPrice += floatval($mod['price_adjustment']);
-                    $groupedMods[$idx]['desc'][] = "+ " . $mod['material_name'];
-                }
-                elseif ($mod['modifier_type'] == 'remove') {
-                    $groupedMods[$idx]['desc'][] = "SIN " . $mod['material_name'];
+                    $groupedMods[$idx]['desc'][] = "+ " . $mod['item_name'];
+                } elseif ($mod['modifier_type'] == 'side') {
+                    $extraPrice += floatval($mod['price_adjustment']);
+                    $groupedMods[$idx]['desc'][] = "🔘 " . $mod['item_name'];
+                } elseif ($mod['modifier_type'] == 'remove') {
+                    $groupedMods[$idx]['desc'][] = "SIN " . $mod['item_name'];
                 }
             }
 
@@ -163,7 +210,7 @@ class CartManager {
 
                 $extrasText = empty($data['desc']) ? '' : '<br><span class="small text-muted">' . implode(', ', $data['desc']) . '</span>';
 
-                $visualDesc[] = "<div class='mb-1'><strong>#".($idx+1)."</strong> $statusTag $extrasText</div>";
+                $visualDesc[] = "<div class='mb-1'><strong>#" . ($idx + 1) . "</strong> $statusTag $extrasText</div>";
             }
 
             if ($generalNote) {
@@ -180,36 +227,45 @@ class CartManager {
     }
 
     // Métodos estándar (Sin cambios)
-    public function updateCartQuantity($cartId, $quantity) {
-        if ($quantity <= 0) return $this->removeFromCart($cartId);
+    public function updateCartQuantity($cartId, $quantity)
+    {
+        if ($quantity <= 0)
+            return $this->removeFromCart($cartId);
         $this->db->prepare("UPDATE {$this->table_name} SET quantity = ? WHERE id = ?")->execute([$quantity, $cartId]);
         return true;
     }
-    
-    public function removeFromCart($cartId) {
+
+    public function removeFromCart($cartId)
+    {
         $this->db->prepare("DELETE FROM cart_item_modifiers WHERE cart_id = ?")->execute([$cartId]);
         return $this->db->prepare("DELETE FROM {$this->table_name} WHERE id = ?")->execute([$cartId]);
     }
 
-    public function emptyCart($user_id) {
-            $inTransaction = $this->db->inTransaction();
-            try {
-                if (!$inTransaction) $this->db->beginTransaction();
+    public function emptyCart($user_id)
+    {
+        $inTransaction = $this->db->inTransaction();
+        try {
+            if (!$inTransaction)
+                $this->db->beginTransaction();
 
-                $this->db->prepare("DELETE cim FROM cart_item_modifiers cim INNER JOIN cart c ON cim.cart_id = c.id WHERE c.user_id = ?")->execute([$user_id]);
-                $this->db->prepare("DELETE FROM {$this->table_name} WHERE user_id = ?")->execute([$user_id]);
+            $this->db->prepare("DELETE cim FROM cart_item_modifiers cim INNER JOIN cart c ON cim.cart_id = c.id WHERE c.user_id = ?")->execute([$user_id]);
+            $this->db->prepare("DELETE FROM {$this->table_name} WHERE user_id = ?")->execute([$user_id]);
 
-                if (!$inTransaction) $this->db->commit();
-                return true;
-            } catch (Exception $e) {
-                if (!$inTransaction) $this->db->rollBack();
-                throw $e;
-            }
+            if (!$inTransaction)
+                $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            if (!$inTransaction)
+                $this->db->rollBack();
+            throw $e;
         }
+    }
 
-    public function calculateTotal($cart_items) {
+    public function calculateTotal($cart_items)
+    {
         $total_usd = 0;
-        foreach ($cart_items as $item) $total_usd += $item['total_price'];
+        foreach ($cart_items as $item)
+            $total_usd += $item['total_price'];
         $rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1;
         return ['total_usd' => $total_usd, 'total_ves' => $total_usd * $rate];
     }
