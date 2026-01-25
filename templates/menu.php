@@ -38,7 +38,7 @@
                         <a href="../admin/ventas.php" class="nav-item nav-link">Ventas</a>
                         <a href="../admin/compras.php" class="nav-item nav-link">Compras</a>
                         <a href="../admin/productos.php" class="nav-item nav-link">Inventario</a>
-
+                        <a href="../admin/categories.php" class="nav-item nav-link">Categorías</a>
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">ANÁLISIS</div>
                         <a href="../admin/reportes.php" class="nav-item nav-link"><i class="fa fa-chart-pie me-2"></i>
                             Rentabilidad</a>
@@ -57,7 +57,8 @@
                         <a href="../admin/nomina.php" class="nav-item nav-link">Nómina de Pagos</a>
 
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">MARKETING</div>
-                        <a href="../admin/tv_config.php" class="nav-item nav-link"><i class="fa fa-tv me-2"></i>Pantalla TV</a>
+                        <a href="../admin/tv_config.php" class="nav-item nav-link"><i class="fa fa-tv me-2"></i>Pantalla
+                            TV</a>
 
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">SISTEMA</div>
                         <a href="../admin/usuarios.php" class="nav-item nav-link">Usuarios</a>

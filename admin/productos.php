@@ -108,6 +108,7 @@ require_once '../templates/menu.php';
                         <tr>
                             <th style="width: 80px;">Imagen</th>
                             <th>Producto</th>
+                            <th>Categoría</th>
                             <th>Precios (PVP)</th>
                             <th>Margen</th>
                             <th class="text-center">Stock Disponible</th>
@@ -144,8 +145,18 @@ require_once '../templates/menu.php';
                                         <?php endif; ?>
                                         <br>
                                         <small class="text-muted text-truncate d-block" style="max-width: 200px;">
-                                            <?= htmlspecialchars($producto['description']) ?>
+                                            <?= htmlspecialchars($producto['description'] ?? '') ?>
                                         </small>
+                                    </td>
+
+                                    <td>
+                                        <?php if (!empty($producto['category_name'])): ?>
+                                            <span class="badge bg-outline-primary text-primary border border-primary">
+                                                <?= htmlspecialchars($producto['category_name']) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted small">Sin Cat.</span>
+                                        <?php endif; ?>
                                     </td>
 
                                     <td>
@@ -214,6 +225,11 @@ require_once '../templates/menu.php';
                                             <a href="configurar_receta.php?id=<?= $producto['id'] ?>"
                                                 class="btn btn-sm btn-dark ms-1" title="Configurar Receta">
                                                 <i class="fa fa-cogs"></i>
+                                            </a>
+
+                                            <a href="configurar_defecto.php?id=<?= $producto['id'] ?>"
+                                                class="btn btn-sm btn-outline-primary ms-1" title="Configurar Defectos">
+                                                <i class="fa fa-wrench"></i>
                                             </a>
 
                                             <button type="button" class="btn btn-sm btn-info ms-1 text-white btn-duplicate"

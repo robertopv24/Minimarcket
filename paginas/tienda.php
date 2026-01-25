@@ -89,7 +89,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 $search = $_GET['search'] ?? '';
-$products = (!empty($search)) ? $productManager->searchProducts($search) : $productManager->getAllProducts();
+$catId = $_GET['cat'] ?? null;
+
+if (!empty($search)) {
+    $products = $productManager->searchProducts($search, $catId);
+} else {
+    $products = $productManager->getAllProducts($catId);
+}
+
+$categories = $productManager->getCategories();
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -155,13 +163,16 @@ require_once '../templates/menu.php';
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body py-3 bg-light rounded d-flex align-items-center">
                     <form method="GET" action="tienda.php" class="w-100">
+                        <?php if ($catId): ?>
+                            <input type="hidden" name="cat" value="<?= htmlspecialchars($catId) ?>">
+                        <?php endif; ?>
                         <div class="input-group input-group-lg">
                             <span class="input-group-text bg-white text-muted border-end-0"><i
                                     class="fa fa-search"></i></span>
                             <input type="text" name="search" class="form-control border-start-0 ps-0 text-center"
                                 placeholder="🔍 Buscar producto..." value="<?= htmlspecialchars($search) ?>"
                                 autocomplete="off">
-                            <?php if (!empty($search)): ?>
+                            <?php if (!empty($search) || $catId): ?>
                                 <a href="tienda.php" class="btn btn-secondary border-start-0" title="Limpiar"><i
                                         class="fa fa-times"></i></a>
                             <?php endif; ?>
@@ -172,6 +183,25 @@ require_once '../templates/menu.php';
             </div>
         </div>
 
+    </div>
+
+    <!-- Pestañas de Categoría -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="nav nav-pills justify-content-center overflow-auto flex-nowrap pb-2 gap-2 border-bottom">
+                <a href="tienda.php<?= !empty($search) ? '?search=' . urlencode($search) : '' ?>"
+                    class="nav-link border round-pill <?= !$catId ? 'active bg-primary text-white' : 'text-dark bg-light' ?>">
+                    <i class="fa fa-th-large me-1"></i> TODOS
+                </a>
+                <?php foreach ($categories as $cat): ?>
+                    <a href="tienda.php?cat=<?= $cat['id'] ?><?= !empty($search) ? '&search=' . urlencode($search) : '' ?>"
+                        class="nav-link border round-pill <?= ($catId == $cat['id']) ? 'active bg-primary text-white' : 'text-dark bg-light' ?>">
+                        <i class="fa <?= htmlspecialchars($cat['icon'] ?? '') ?> me-1"></i>
+                        <?= htmlspecialchars($cat['name'] ?? '') ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
     </div>
 
     <div class="row mt-4 align-items-center">
@@ -186,7 +216,8 @@ require_once '../templates/menu.php';
 
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-center"><?= htmlspecialchars($product['name']) ?></h5>
-                            <p class="card-text small text-center flex-grow-1"><?= htmlspecialchars($product['description']) ?>
+                            <p class="card-text small text-center flex-grow-1">
+                                <?= htmlspecialchars($product['description'] ?? '') ?>
                             </p>
 
                             <?php

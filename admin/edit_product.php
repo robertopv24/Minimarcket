@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stock = $_POST['stock'];
     $min_stock = $_POST['min_stock'];
     $profit_margin = $_POST['profit_margin'];
+    $category_id = $_POST['category_id'] ?: null;
 
     // Procesar imagen
     // Procesar imagen
@@ -46,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Actualizar usando ProductManager
-    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock)) {
+    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id)) {
         $mensaje = '<div class="alert alert-success">Producto actualizado con éxito.</div>';
         $producto = $productManager->getProductById($id); // Refrescar datos
     } else {
@@ -80,6 +81,17 @@ require_once '../templates/menu.php';
                             <label class="form-label">Descripción</label>
                             <textarea class="form-control" name="descripcion"
                                 rows="3"><?= htmlspecialchars($producto['description']) ?></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Categoría</label>
+                            <select name="category_id" class="form-select border-primary shadow-sm">
+                                <option value="">-- Sin Categoría --</option>
+                                <?php foreach ($productManager->getCategories() as $cat): ?>
+                                    <option value="<?= $cat['id'] ?>" <?= ($producto['category_id'] == $cat['id']) ? 'selected' : '' ?>>
+                                        <?= strtoupper($cat['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="card border-warning mb-3">

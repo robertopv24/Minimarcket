@@ -43,14 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 4. AGREGAR EXTRA VÁLIDO (NUEVA LÓGICA)
     if ($action === 'add_valid_extra') {
-        $rawId = $_POST['extra_raw_id'];
+        $compId = $_POST['extra_component_id'];
+        $type = $_POST['extra_component_type'] ?? 'raw';
         // Si el precio viene vacío, mandamos NULL (usará precio base en lógica futura)
         // O mandamos el precio que el admin escriba.
         $price = !empty($_POST['extra_price']) ? $_POST['extra_price'] : 1.00; // Default $1 si no escribe nada
 
         $qty = !empty($_POST['extra_qty']) ? $_POST['extra_qty'] : 1.000000;
 
-        if ($productManager->addValidExtra($productId, $rawId, $price, $qty)) {
+        if ($productManager->addValidExtra($productId, $compId, $price, $qty, $type)) {
             $mensaje = '<div class="alert alert-success">Extra permitido agregado correctamente.</div>';
         }
     }
@@ -317,14 +318,29 @@ require_once '../templates/menu.php';
                                 <input type="hidden" name="action" value="add_valid_extra">
 
                                 <div class="mb-2">
-                                    <label class="form-label fw-bold small">Ingrediente (Materia Prima):</label>
-                                    <select name="extra_raw_id" class="form-select form-select-sm" required>
+                                    <label class="form-label fw-bold small">Tipo de Componente:</label>
+                                    <select name="extra_component_type" id="extra_type_select"
+                                        class="form-select form-select-sm" required onchange="toggleExtraInputs()">
+                                        <option value="raw">Materia Prima</option>
+                                        <option value="manufactured">Cocina (Preparado)</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold small">Seleccionar:</label>
+                                    <select name="extra_component_id" id="extra_component_select"
+                                        class="form-select form-select-sm select2" required>
                                         <?php foreach ($rawMaterials as $r):
-                                            // Filtramos empaques para que no salgan aquí
                                             if ($r['category'] == 'packaging')
                                                 continue;
                                             ?>
-                                            <option value="<?= $r['id'] ?>"><?= $r['name'] ?> (<?= $r['unit'] ?>)</option>
+                                            <option value="<?= $r['id'] ?>" class="opt-raw-extra"><?= $r['name'] ?>
+                                                (<?= $r['unit'] ?>)</option>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($manufactured as $m): ?>
+                                            <option value="<?= $m['id'] ?>" class="opt-manuf-extra" style="display:none;">
+                                                <?= $m['name'] ?> (<?= $m['unit'] ?>)
+                                            </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -542,9 +558,12 @@ require_once '../templates/menu.php';
                                 <tr>
                                     <td>
                                         <?= htmlspecialchars($ve['name']) ?>
+                                        <span
+                                            class="badge bg-light text-dark border small"><?= $ve['component_type'] == 'raw' ? 'Insumo' : 'Cocina' ?></span>
                                     </td>
                                     <td class="fw-bold">
-                                        <?= floatval($ve['quantity_required']) ?> <small class="text-muted">insumo</small>
+                                        <?= floatval($ve['quantity_required']) ?> <small
+                                            class="text-muted">descuento</small>
                                     </td>
                                     <td class="fw-bold text-success">
                                         $<?= number_format((float) $ve['price_override'], 2) ?>
@@ -846,10 +865,44 @@ require_once '../templates/menu.php';
 </div>
 
 <script>
+    function toggleExtraInputs() {
+        const type = document.getElementById('extra_type_select').value;
+        const select = document.getElementById('extra_component_select');
+        const optsRaw = select.querySelectorAll('.opt-raw-extra');
+        const optsManuf = select.querySelectorAll('.opt-manuf-extra');
+
+        if (type === 'raw') {
+            optsRaw.forEach(o => o.style.display = '');
+            optsManuf.forEach(o => o.style.display = 'none');
+            // Seleccionar el primero visible si el actual no lo es
+            if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
+                if (optsRaw.length > 0) select.value = optsRaw[0].value;
+            }
+        } else {
+            optsRaw.forEach(o => o.style.display = 'none');
+            optsManuf.forEach(o => o.style.display = '');
+            if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
+                if (optsManuf.length > 0) select.value = optsManuf[0].value;
+            }
+        }
+
+        // Refrescar Select2 si existe
+        if (typeof $ !== 'undefined' && $(select).data('select2')) {
+            $(select).trigger('change');
+        }
+    }
+
+    // Ejecutar al cargar para inicializar estado
+    document.addEventListener('DOMContentLoaded', function () {
+        if (document.getElementById('extra_type_select')) {
+            toggleExtraInputs();
+        }
+    });
+
     // Función Universal de Confirmación para Eliminación
     function confirmDelete(event, form, message) {
         event.preventDefault(); // Detener envío automático
-        
+
         Swal.fire({
             title: '¿Estás seguro?',
             text: message,
@@ -871,7 +924,7 @@ require_once '../templates/menu.php';
     function submitCopyForm() {
         // Obtenemos el form dentro del modal
         const form = document.querySelector('#modalCopyConfig form');
-        
+
         Swal.fire({
             title: '¿Confirmar Copiado?',
             text: "Se sobreescribirán configuraciones en el destino si ya existen.",

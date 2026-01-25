@@ -179,6 +179,7 @@ require_once '../templates/menu.php';
                             <hr>
 
                             <form action="process_purchase_order.php" method="POST">
+                                <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
                                 <input type="hidden" name="action" value="pay_credit">
                                 <input type="hidden" name="purchase_id" value="<?= $purchaseOrder['id'] ?>">
 

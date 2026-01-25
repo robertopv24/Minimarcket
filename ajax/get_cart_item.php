@@ -125,16 +125,29 @@ function buildSubItemStructure($db, $pm, $product, $index, $forceType = 'product
 
     // B. EXTRAS VÁLIDOS (Solo para Productos reales por ahora)
     if ($forceType === 'product') {
-        $sqlExtras = "SELECT rm.id, rm.name, COALESCE(pve.price_override, 1.00) as price
+        $sqlExtras = "SELECT pve.component_id as id, pve.component_type as type,
+                             CASE 
+                                WHEN pve.component_type = 'raw' THEN rm.name
+                                WHEN pve.component_type = 'manufactured' THEN mp.name
+                             END as name,
+                             COALESCE(pve.price_override, 1.00) as price,
+                             pve.quantity_required
                       FROM product_valid_extras pve
-                      JOIN raw_materials rm ON pve.raw_material_id = rm.id
+                      LEFT JOIN raw_materials rm ON pve.component_id = rm.id AND pve.component_type = 'raw'
+                      LEFT JOIN manufactured_products mp ON pve.component_id = mp.id AND pve.component_type = 'manufactured'
                       WHERE pve.product_id = ?";
         $stmtEx = $db->prepare($sqlExtras);
         $stmtEx->execute([$id]);
         $rawExtras = $stmtEx->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($rawExtras as $e) {
-            $extras[] = ['id' => $e['id'], 'name' => $e['name'], 'price' => floatval($e['price'])];
+            $extras[] = [
+                'id' => $e['id'],
+                'type' => $e['type'],
+                'name' => $e['name'],
+                'price' => floatval($e['price']),
+                'qty' => floatval($e['quantity_required'])
+            ];
         }
 
         // C. CONTORNOS

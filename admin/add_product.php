@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stock = $_POST['stock'] ?? 0;
     $min_stock = $_POST['min_stock'] ?? 5;
     $profit_margin = $_POST['profit_margin'] ?? 20.00;
+    $category_id = $_POST['category_id'] ?: null;
 
     // Procesar imagen (RCE FIX)
     $rutaImagen = 'default.jpg';
@@ -38,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Usar ProductManager para crear (Limpio y Seguro)
-    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock)) {
+    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id)) {
         $mensaje = '<div class="alert alert-success">Producto creado con éxito.</div>';
     } else {
         $mensaje = '<div class="alert alert-danger">Error al crear el producto en base de datos.</div>';
@@ -68,6 +69,15 @@ require_once '../templates/menu.php';
                         <div class="mb-3">
                             <label for="descripcion" class="form-label">Descripción</label>
                             <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="category_id" class="form-label fw-bold">Categoría</label>
+                            <select name="category_id" id="category_id" class="form-select border-primary shadow-sm">
+                                <option value="">-- Sin Categoría --</option>
+                                <?php foreach ($productManager->getCategories() as $cat): ?>
+                                    <option value="<?= $cat['id'] ?>"><?= strtoupper($cat['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="card bg-light mb-3">

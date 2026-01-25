@@ -30,6 +30,19 @@ class ProductionManager
         return $this->searchManufacturedProducts();
     }
 
+    public function getManufacturedProductById($id)
+    {
+        $stmt = $this->db->prepare("SELECT * FROM manufactured_products WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    // Alias para compatibilidad con vistas de configuración
+    public function getProductionById($id)
+    {
+        return $this->getManufacturedProductById($id);
+    }
+
     public function createManufacturedProduct($name, $unit, $minStock = 0)
     {
         $stmt = $this->db->prepare("INSERT INTO manufactured_products (name, unit, stock, min_stock) VALUES (?, ?, 0, ?)");

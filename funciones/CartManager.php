@@ -33,6 +33,68 @@ class CartManager
             $stmt->execute([$user_id, $product_id, $quantity, $consumptionType]);
             $cartId = $this->db->lastInsertId();
 
+            if (empty($modifiers)) {
+                $explodedDefaults = $productManager->getProductExplodedDefaults($product_id);
+
+                if (!empty($explodedDefaults)) {
+                    $modifiers['items'] = [];
+                    // Agrupar por sub_item_index
+                    foreach ($explodedDefaults as $def) {
+                        $idx = $def['sub_item_index'];
+                        // Nota Global
+                        if ($idx == -1) {
+                            $modifiers['general_note'] = $def['note'];
+                            continue;
+                        }
+
+                        if (!isset($modifiers['items'][$idx])) {
+                            $modifiers['items'][$idx] = [
+                                'index' => $idx,
+                                'consumption' => $consumptionType,
+                                'remove' => [],
+                                'add' => [],
+                                'sides' => []
+                            ];
+                        }
+
+                        if ($def['modifier_type'] == 'info') {
+                            $modifiers['items'][$idx]['consumption'] = ($def['is_takeaway'] == 1) ? 'takeaway' : 'dine_in';
+                        } elseif ($def['modifier_type'] == 'add') {
+                            $modifiers['items'][$idx]['add'][] = [
+                                'id' => $def['component_id'],
+                                'type' => $def['component_type'],
+                                'qty' => $def['quantity_adjustment'],
+                                'price' => $def['price_adjustment']
+                            ];
+                        } elseif ($def['modifier_type'] == 'side') {
+                            $modifiers['items'][$idx]['sides'][] = [
+                                'id' => $def['component_id'],
+                                'type' => $def['component_type'],
+                                'qty' => $def['quantity_adjustment'],
+                                'price' => $def['price_adjustment']
+                            ];
+                        } elseif ($def['modifier_type'] == 'remove') {
+                            $modifiers['items'][$idx]['remove'][] = $def['component_id'];
+                        }
+                    }
+
+                    // Si el producto se agrega con cantidad > 1, replicar los modificadores para cada unidad
+                    // PERO: Si los defaults ya venían para múltiples unidades (por ejemplo en un combo pre-configurado),
+                    // tal vez sea mejor no replicar ciegamente. 
+                    // Regla simple: Si solo hay un set de modificadores (idx 0), y qty > 1, replicar.
+                    // Si ya hay varios idx, dejar como está.
+                    $maxIdx = count($modifiers['items']) > 0 ? max(array_keys($modifiers['items'])) : 0;
+                    if ($maxIdx == 0 && $quantity > 1) {
+                        $baseItem = $modifiers['items'][0];
+                        for ($j = 1; $j < $quantity; $j++) {
+                            $newItem = $baseItem;
+                            $newItem['index'] = $j;
+                            $modifiers['items'][$j] = $newItem;
+                        }
+                    }
+                }
+            }
+
             if (!empty($modifiers)) {
                 $result = $this->updateItemModifiers($cartId, $modifiers);
                 if ($result !== true) {
@@ -94,9 +156,11 @@ class CartManager
 
                     // 3. Guardar Adiciones
                     if (!empty($subItem['add'])) {
-                        $stmtAdd = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, 'raw', ?, ?)");
+                        $stmtAdd = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, ?, ?, ?)");
                         foreach ($subItem['add'] as $extra) {
-                            $stmtAdd->execute([$cartId, $idx, $extra['id'], 0.050, $extra['price']]);
+                            $type = $extra['type'] ?? 'raw';
+                            $qty = $extra['qty'] ?? 1.00;
+                            $stmtAdd->execute([$cartId, $idx, $extra['id'], $type, $qty, $extra['price']]);
                         }
                     }
 

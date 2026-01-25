@@ -14,10 +14,10 @@ $userManager->requireKitchenAccess($_SESSION);
 $targetStation = 'kitchen';
 
 // 1. OBTENER ÓRDENES (Paid o Preparing)
-$sql = "SELECT DISTINCT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address
+$sql = "SELECT DISTINCT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address, o.kds_kitchen_ready, o.kds_pizza_ready
         FROM orders o
         JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'preparing')
+        WHERE o.status IN ('paid', 'preparing') AND o.kds_kitchen_ready = 0
         ORDER BY o.created_at ASC";
 
 $stmt = $db->query($sql);
@@ -61,7 +61,7 @@ foreach ($ordenesRaw as $orden) {
                 for ($k = 0; $k < $c['quantity']; $k++) {
                     $subItems[] = [
                         'name' => $compData['name'] ?? 'ITEM',
-                        'station' => $compData['kitchen_station'] ?? ''
+                        'station' => $compData['category_station'] ?? $compData['kitchen_station'] ?? ''
                     ];
                 }
             }
@@ -70,11 +70,12 @@ foreach ($ordenesRaw as $orden) {
         // AÑADIMOS HEADER DEL PRODUCTO (Título principal del ticket)
         $hasItemsForThisStation = false;
         if (!$isCompound) {
-            if ($pInfo['kitchen_station'] == $targetStation || $pInfo['kitchen_station'] == 'bar')
+            $currentStation = $pInfo['category_station'] ?? $pInfo['kitchen_station'];
+            if ($currentStation == $targetStation)
                 $hasItemsForThisStation = true;
         } else {
             foreach ($subItems as $si) {
-                if ($si['station'] == $targetStation || $si['station'] == 'bar') {
+                if ($si['station'] == $targetStation) {
                     $hasItemsForThisStation = true;
                     break;
                 }
@@ -92,6 +93,7 @@ foreach ($ordenesRaw as $orden) {
             'name' => $item['name'],
             'is_combo' => $isCompound,
             'is_main' => true,
+            'is_contour' => false, // Evitar Advertencia
             'mods' => [],
             'is_takeaway' => false
         ];
@@ -103,18 +105,27 @@ foreach ($ordenesRaw as $orden) {
                 $maxIdx = $idx + 1;
 
         for ($i = 0; $i <= $maxIdx; $i++) {
+            // NUCLEAR RESET: Asegurar que nada gotee de la iteración anterior
+            $currentMods = [];
+            $modsList = [];
+            $isTakeaway = false;
+            $compName = "";
+            $note = "";
+
             $currentMods = $groupedMods[$i] ?? [];
 
-            // Si es un componente individual
+            // Si es un componente individual (Combo) o el producto base
             $compName = "";
-            $compStation = $pInfo['kitchen_station'];
+            $compStation = $pInfo['category_station'] ?? $pInfo['kitchen_station'];
+
             if ($isCompound && isset($subItems[$i])) {
                 $compName = $subItems[$i]['name'];
                 $compStation = $subItems[$i]['station'];
             }
 
-            // FILTRADO ESTRICTO: Solo mostramos lo que es de esta estación (evitamos reventa)
-            if (empty($compStation) || ($compStation != $targetStation && $compStation != 'bar'))
+            // FILTRADO ESTRICTO: Solo mostramos lo que es de esta estación (evitamos reventa y bar)
+            $compStation = strtolower($compStation);
+            if (empty($compStation) || $compStation != $targetStation)
                 continue;
 
             if (empty($currentMods) && $isCompound && !isset($subItems[$i]))
@@ -130,22 +141,23 @@ foreach ($ordenesRaw as $orden) {
             $modsList = [];
             foreach ($currentMods as $m) {
                 if ($m['modifier_type'] == 'remove')
-                    $modsList[] = "-- SIN " . $m['ingredient_name'];
+                    $modsList[] = "-- " . strtoupper($m['ingredient_name']);
                 elseif ($m['modifier_type'] == 'side')
-                    $modsList[] = "🔘 " . strtoupper($m['ingredient_name']);
+                    $modsList[] = "** " . strtoupper($m['ingredient_name']);
                 elseif ($m['modifier_type'] == 'add') {
-                    $isPaid = (floatval($m['price_adjustment_usd'] ?? 0) > 0);
-                    $prefix = $isPaid ? "++ EXTRA " : "🔘 ";
-                    $modsList[] = $prefix . $m['ingredient_name'];
+                    $modsList[] = "++ " . strtoupper($m['ingredient_name']);
                 }
             }
 
             $itemsParaEstaEstacion[] = [
+                'order_item_id' => $item['id'],
+                'sub_item_index' => $i,
                 'num' => $i + 1,
                 'qty' => 1,
-                'name' => $compName ?: ($i == 0 ? $item['name'] : ""),
+                'name' => $compName ?: "",
                 'is_combo' => $isCompound,
-                'is_main' => false, // Las líneas de detalle NO son el header principal
+                'is_contour' => (!empty($compName)), // Marcamos si es contorno
+                'is_main' => false,
                 'mods' => $modsList,
                 'is_takeaway' => $isTakeaway
             ];
@@ -163,7 +175,7 @@ foreach ($ordenesRaw as $orden) {
 <head>
     <meta charset="UTF-8">
     <title>KDS - MONITOR COCINA</title>
-    <meta http-equiv="refresh" content="15">
+    <meta http-equiv="refresh" content="30">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -182,6 +194,7 @@ foreach ($ordenesRaw as $orden) {
             font-family: 'Outfit', sans-serif;
             margin: 0;
             height: 100vh;
+            font-size: 13px;
         }
 
         .station-header {
@@ -189,37 +202,43 @@ foreach ($ordenesRaw as $orden) {
             font-weight: 800;
             text-align: center;
             text-transform: uppercase;
-            padding: 1.25rem;
-            margin-bottom: 1.5rem;
-            font-size: 2rem;
-            letter-spacing: 2px;
+            padding: 0.35rem;
+            margin-bottom: 0.35rem;
+            font-size: 1rem;
+            letter-spacing: 1px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
         }
 
         .grid-kds {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-            gap: 1.5rem;
-            padding: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.4rem;
+            padding: 0.4rem;
         }
 
         .ticket {
             background: var(--card-white);
             color: var(--text-dark);
-            border-radius: 16px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            border: 4px solid transparent;
+            border: 1px solid transparent;
         }
 
         .ticket-head {
-            padding: 0.75rem 1rem;
+            padding: 0.25rem 0.5rem;
             color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-weight: 600;
-            font-size: 1.3rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .ticket-head:hover {
+            opacity: 0.8;
         }
 
         .status-paid {
@@ -231,67 +250,53 @@ foreach ($ordenesRaw as $orden) {
         }
 
         .ticket-body {
-            padding: 1.25rem;
+            padding: 0.35rem;
         }
 
-        .main-item {
-            font-size: 1.5rem;
-            font-weight: 800;
-            border-bottom: 2px solid #f1f5f9;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
+        .minimal-row {
+            border-bottom: 1px solid #f1f5f9;
+            padding: 1px 0;
         }
 
-        .sub-item-card {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-            border: 1px solid #e2e8f0;
+        .minimal-row:last-child {
+            border-bottom: none;
         }
 
-        .item-num {
-            font-size: 1.3rem;
-            font-weight: 800;
-            color: #1e293b;
-            margin: 0.25rem 0;
-        }
-
-        .item-name {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #111;
-        }
-
-        .tag {
-            padding: 2px 10px;
-            border-radius: 6px;
-            font-weight: 800;
+        .main-item-line {
             font-size: 0.85rem;
-            display: inline-block;
+            font-weight: 800;
+            color: #ef4444;
+            margin-bottom: 0.2rem;
+            display: block;
         }
 
-        .tag-takeaway {
-            background: #000;
-            color: #fff;
-        }
-
-        .tag-dinein {
-            background: #fff;
-            color: #000;
-            border: 2px solid #000;
-        }
-
-        .mod-bad {
-            color: #dc2626;
+        .sub-item-line {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.75rem;
             font-weight: 700;
-            font-size: 1.1rem;
         }
 
-        .mod-good {
-            color: #16a34a;
+        .item-index {
+            background: #334155;
+            color: white;
+            padding: 0 3px;
+            border-radius: 2px;
+            font-size: 0.6rem;
+        }
+
+        .tag-mini {
+            font-size: 0.55rem;
+            font-weight: 800;
+            padding: 0 2px;
+            border: 1px solid currentColor;
+            border-radius: 2px;
+        }
+
+        .mod-line {
+            font-size: 0.65rem;
             font-weight: 700;
-            font-size: 1.1rem;
         }
 
         .late-warning {
@@ -325,6 +330,65 @@ foreach ($ordenesRaw as $orden) {
         <?php foreach ($ordenesFiltradas as $t)
             renderTicket($t); ?>
     </div>
+
+    <script>
+        const STATION = '<?= $targetStation ?>';
+        const lastOrderId = <?= count($ordenesFiltradas) > 0 ? max(array_column(array_column($ordenesFiltradas, 'info'), 'id')) : 0 ?>;
+
+        // Sound logic
+        function playPing() {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = context.createOscillator();
+            const gainNode = context.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, context.currentTime); // A5
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+
+            gainNode.gain.setValueAtTime(0, context.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, context.currentTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
+
+            oscillator.start();
+            oscillator.stop(context.currentTime + 0.5);
+        }
+
+        // Check for new orders
+        const storedLastId = localStorage.getItem('kds_last_order_id_' + STATION);
+        if (storedLastId && lastOrderId > parseInt(storedLastId)) {
+            playPing();
+        }
+        localStorage.setItem('kds_last_order_id_' + STATION, lastOrderId);
+
+        // Click handler for marking order as ready
+        document.querySelectorAll('.ticket-head').forEach(head => {
+            head.addEventListener('click', function () {
+                const orderId = this.dataset.orderId;
+                // Eliminada confirmación para mayor rapidez
+
+                fetch('../ajax/update_kds_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        station: 'kitchen',
+                        status: 'ready'
+                    })
+                }).then(res => res.json()).then(data => {
+                    if (data.success) {
+                        this.closest('.ticket').style.opacity = '0.3';
+                        this.closest('.ticket').style.transform = 'scale(0.95)';
+                        this.closest('.ticket').style.pointerEvents = 'none';
+                        setTimeout(() => location.reload(), 300);
+                    }
+                });
+            });
+        });
+
+        // Auto refresh
+        setTimeout(() => location.reload(), 30000);
+    </script>
 </body>
 
 </html>
@@ -342,33 +406,45 @@ function renderTicket($orderData)
     $borderClass = ($mins > 25) ? 'late-warning' : (($mins > 15) ? 'medium-warning' : '');
     ?>
     <div class="ticket <?= $borderClass ?>">
-        <div class="ticket-head <?= $bgStatus ?>">
-            <span>#<?= $orden['id'] ?> <small class="ms-2 opacity-75"><?= strtoupper($orden['cliente']) ?></small></span>
-            <span><i class="fa-regular fa-clock me-1"></i> <?= $mins ?>m</span>
+        <div class="ticket-head <?= $bgStatus ?> d-flex justify-content-between align-items-center"
+            data-order-id="<?= $orden['id'] ?>" title="Clic para marcar como LISTO">
+            <div>
+                <span class="fw-bold">#<?= $orden['id'] ?></span>
+                <small class="ms-1 opacity-75 d-none d-sm-inline"><?= substr(strtoupper($orden['cliente']), 0, 8) ?></small>
+                <?php if ($orden['kds_kitchen_ready']): ?><i class="fa fa-fire ms-2 text-success"
+                        title="Cocina Lista"></i><?php endif; ?>
+                <?php if ($orden['kds_pizza_ready']): ?><i class="fa fa-pizza-slice ms-1 text-danger"
+                        title="Pizza Lista"></i><?php endif; ?>
+            </div>
+            <span><?= $mins ?>m</span>
         </div>
         <div class="ticket-body">
             <?php foreach ($items as $it): ?>
-                <?php if ($it['is_main']): ?>
-                    <div class="main-item"><?= $it['qty'] ?> x <?= strtoupper($it['name']) ?></div>
-                <?php endif; ?>
+                <div class="minimal-row">
+                    <?php if ($it['is_main']): ?>
+                        <span class="main-item-line"><?= $it['qty'] ?> x <?= strtoupper($it['name']) ?></span>
+                    <?php endif; ?>
 
-                <?php if ($it['num'] > 0): ?>
-                    <div class="sub-item-card text-center">
-                        <span class="tag <?= $it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein' ?>">
-                            <?= $it['is_takeaway'] ? 'LLEVAR' : 'MESA' ?>
-                        </span>
-                        <div class="item-num">#<?= $it['num'] ?></div>
-                        <div class="item-name">(<?= strtoupper($it['name']) ?>)</div>
+                    <?php if (!$it['is_main'] && ($it['num'] > 0 || !empty($it['name']))): ?>
+                        <div class="sub-item-line">
+                            <span class="item-index">#<?= $it['num'] ?></span>
+                            <span
+                                class="tag-mini fw-bold px-1 <?= $it['is_takeaway'] ? 'bg-danger text-white border-danger' : 'bg-primary text-white border-primary' ?>"
+                                style="font-size: 0.6rem;">
+                                <?= $it['is_takeaway'] ? 'LLEVAR' : 'LOCAL' ?>
+                            </span>
+                            <?= ($it['is_contour'] && !empty($it['name'])) ? "(" . strtoupper($it['name']) . ")" : (!empty($it['name']) ? strtoupper($it['name']) : "") ?>
+                        </div>
 
                         <?php if (!empty($it['mods'])): ?>
-                            <div class="mt-2 text-start px-2">
-                                <?php foreach ($it['mods'] as $m): ?>
-                                    <div class="<?= (strpos($m, 'SIN') !== false) ? 'mod-bad' : 'mod-good' ?>"><?= strtoupper($m) ?></div>
-                                <?php endforeach; ?>
-                            </div>
+                            <?php foreach ($it['mods'] as $m): ?>
+                                <div class="mod-line <?= (strpos($m, '--') === 0) ? 'text-danger' : 'text-success' ?>">
+                                    <?= $m ?>
+                                </div>
+                            <?php endforeach; ?>
                         <?php endif; ?>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             <?php endforeach; ?>
         </div>
     </div>

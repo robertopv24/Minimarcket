@@ -263,6 +263,19 @@ class UserManager
             exit;
         }
     }
+
+    public function requireAdminAccess($session)
+    {
+        if (!isset($session['user_id'])) {
+            header("Location: ../paginas/login.php");
+            exit;
+        }
+        $user = $this->getUserById($session['user_id']);
+        if (!$user || $user['role'] !== 'admin') {
+            header("Location: ../paginas/index.php");
+            exit;
+        }
+    }
 }
 
 // Uso de la clase

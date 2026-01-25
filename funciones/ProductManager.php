@@ -6,22 +6,25 @@ class ProductManager
 {
     private $db;
 
-    public function __construct($db)
+    public function __construct($db = null)
     {
-        $this->db = Database::getConnection();
+        $this->db = $db ?: Database::getConnection();
     }
 
     // Crear un producto con márgenes de ganancia
-    public function createProduct($name, $description, $price_usd, $price_ves, $stock, $image_url = 'default.jpg', $profit_margin = 20.00, $min_stock = 5)
+    public function createProduct($name, $description, $price_usd, $price_ves, $stock, $image_url = 'default.jpg', $profit_margin = 20.00, $min_stock = 5, $category_id = null)
     {
-        $stmt = $this->db->prepare("INSERT INTO products (name, description, price_usd, price_ves, stock, image_url, profit_margin, min_stock, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image_url, $profit_margin, $min_stock]);
+        $stmt = $this->db->prepare("INSERT INTO products (name, description, price_usd, price_ves, stock, image_url, profit_margin, min_stock, category_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image_url, $profit_margin, $min_stock, $category_id]);
     }
 
     // Obtener un producto por ID
     public function getProductById($id)
     {
-        $stmt = $this->db->prepare("SELECT * FROM products WHERE id = ?");
+        $stmt = $this->db->prepare("SELECT p.*, c.name as category_name, c.kitchen_station as category_station 
+                                    FROM products p 
+                                    LEFT JOIN categories c ON p.category_id = c.id 
+                                    WHERE p.id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
@@ -41,19 +44,43 @@ class ProductManager
         return $stmt->execute([$newPriceVes, $productId]);
     }
 
-    // Obtener todos los productos
-    public function getAllProducts()
+    // Obtener todos los productos (Opcionalmente filtrados por categoría)
+    public function getAllProducts($categoryId = null)
     {
-        $stmt = $this->db->prepare("SELECT * FROM products ORDER BY created_at DESC");
-        $stmt->execute();
+        $sql = "SELECT p.*, c.name as category_name FROM products p 
+                LEFT JOIN categories c ON p.category_id = c.id";
+
+        if ($categoryId) {
+            $sql .= " WHERE p.category_id = ?";
+        }
+        $sql .= " ORDER BY p.created_at DESC";
+
+        $stmt = $this->db->prepare($sql);
+        if ($categoryId) {
+            $stmt->execute([$categoryId]);
+        } else {
+            $stmt->execute();
+        }
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Buscar productos por nombre
-    public function searchProducts($keyword)
+    // Buscar productos por nombre (Opcionalmente dentro de una categoría)
+    public function searchProducts($keyword, $categoryId = null)
     {
-        $stmt = $this->db->prepare("SELECT * FROM products WHERE name LIKE ? ORDER BY created_at DESC");
-        $stmt->execute(["%$keyword%"]);
+        $sql = "SELECT p.*, c.name as category_name FROM products p 
+                LEFT JOIN categories c ON p.category_id = c.id 
+                WHERE p.name LIKE ?";
+
+        $params = ["%$keyword%"];
+
+        if ($categoryId) {
+            $sql .= " AND p.category_id = ?";
+            $params[] = $categoryId;
+        }
+        $sql .= " ORDER BY p.created_at DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -100,14 +127,14 @@ class ProductManager
     }
 
     // Actualizar un producto
-    public function updateProduct($id, $name, $description, $price_usd, $price_ves, $stock, $image = null, $profit_margin = 20.00, $min_stock = 5)
+    public function updateProduct($id, $name, $description, $price_usd, $price_ves, $stock, $image = null, $profit_margin = 20.00, $min_stock = 5, $category_id = null)
     {
         if ($image) {
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, image_url = ?, profit_margin = ?, min_stock = ?, updated_at = NOW() WHERE id = ?");
-            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image, $profit_margin, $min_stock, $id]);
+            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, image_url = ?, profit_margin = ?, min_stock = ?, category_id = ?, updated_at = NOW() WHERE id = ?");
+            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image, $profit_margin, $min_stock, $category_id, $id]);
         } else {
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, profit_margin = ?, min_stock = ?, updated_at = NOW() WHERE id = ?");
-            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $profit_margin, $min_stock, $id]);
+            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, profit_margin = ?, min_stock = ?, category_id = ?, updated_at = NOW() WHERE id = ?");
+            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $profit_margin, $min_stock, $category_id, $id]);
         }
     }
 
@@ -161,13 +188,19 @@ class ProductManager
                 CASE
                     WHEN pc.component_type = 'raw' THEN rm.cost_per_unit
                     WHEN pc.component_type = 'manufactured' THEN mp.unit_cost_average
-                    WHEN pc.component_type = 'product' THEN 0
+                    WHEN pc.component_type = 'product' THEN p.price_usd
                 END as item_cost,
-                rm.category as item_category
+                CASE
+                    WHEN pc.component_type = 'raw' THEN rm.category
+                    ELSE NULL
+                END as item_category,
+                cat.name as category_name,
+                cat.kitchen_station as category_station
                 FROM product_components pc
                 LEFT JOIN raw_materials rm ON pc.component_id = rm.id AND pc.component_type = 'raw'
                 LEFT JOIN manufactured_products mp ON pc.component_id = mp.id AND pc.component_type = 'manufactured'
                 LEFT JOIN products p ON pc.component_id = p.id AND pc.component_type = 'product'
+                LEFT JOIN categories cat ON p.category_id = cat.id AND pc.component_type = 'product'
                 WHERE pc.product_id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$productId]);
@@ -213,9 +246,8 @@ class ProductManager
 
         // Usar margen de ganancia para calcular costo
         // Fórmula: Costo = Precio × (1 - margen%)
-        // Ejemplo: $1.00 con 20% margen → $1.00 × 0.80 = $0.80 costo
         $price = floatval($product['price_usd'] ?? 0);
-        $margin = floatval($product['profit_margin'] ?? 20); // Default 20% si no está definido
+        $margin = floatval($product['profit_margin'] ?? 20);
 
         $cost = $price * (1 - ($margin / 100));
 
@@ -252,7 +284,7 @@ class ProductManager
     }
 
     // =========================================================
-    // CÁLCULO DE STOCK POTENCIAL (RECURSIVO CORREGIDO)
+    // CÁLCULO DE STOCK POTENCIAL (RECURSIVO)
     // =========================================================
 
     public function getVirtualStock($productId, $depth = 0)
@@ -266,10 +298,8 @@ class ProductManager
         if ($depth > 10)
             return ['max_produceable' => 0, 'limiting_component' => null];
 
-        // 1. Obtener la receta
         $components = $this->getProductComponents($productId, $depth);
 
-        // Si no tiene receta (y no es simple), no podemos calcular nada -> 0
         if (empty($components)) {
             return ['max_produceable' => 0, 'limiting_component' => null];
         }
@@ -279,8 +309,6 @@ class ProductManager
 
         foreach ($components as $comp) {
             $qtyNeeded = floatval($comp['quantity']);
-
-            // Evitar división por cero
             if ($qtyNeeded <= 0)
                 continue;
 
@@ -288,7 +316,6 @@ class ProductManager
             $itemName = 'Componente';
             $itemUnit = 'Und';
 
-            // 2. Averiguar cuánto stock hay de este ingrediente específico
             if ($comp['component_type'] == 'raw') {
                 $stmt = $this->db->prepare("SELECT name, stock_quantity, unit FROM raw_materials WHERE id = ?");
                 $stmt->execute([$comp['component_id']]);
@@ -298,10 +325,6 @@ class ProductManager
                 $itemUnit = $data['unit'] ?? 'Und';
 
             } elseif ($comp['component_type'] == 'manufactured') {
-                // Para manufacturados, debemos ver cuánto hay YA producido O cuánto se puede producir
-                // En este contexto simplificado para Ventas, usamos lo que hay en STOCK (manufactured_products.stock)
-                // Opcional: Podríamos hacer recursividad si quisiéramos "producir al vuelo", pero usualmente
-                // la venta consume lo que ya está en nevera.
                 $stmt = $this->db->prepare("SELECT name, stock, unit FROM manufactured_products WHERE id = ?");
                 $stmt->execute([$comp['component_id']]);
                 $data = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -310,28 +333,20 @@ class ProductManager
                 $itemUnit = $data['unit'] ?? 'Und';
 
             } elseif ($comp['component_type'] == 'product') {
-                // Si es un producto dentro de otro (Combo -> Pizza)
                 $subProduct = $this->getProductById($comp['component_id']);
-
                 if ($subProduct) {
                     $itemName = $subProduct['name'];
                     if ($subProduct['product_type'] === 'simple') {
-                        // Si es Coca-Cola, usamos stock físico
                         $currentStock = floatval($subProduct['stock']);
                     } else {
-                        // Si es Pizza/Tequeño, calculamos SU propia receta (Recursión)
                         $subAnalysis = $this->getVirtualStockAnalysis($comp['component_id'], $depth + 1);
                         $currentStock = $subAnalysis['max_produceable'];
                     }
-                } else {
-                    $currentStock = 0;
                 }
             }
 
-            // 3. ¿Para cuántos platos me alcanza este ingrediente?
             $possibleWithThisItem = floor($currentStock / $qtyNeeded);
 
-            // 4. Lógica del "Cuello de Botella"
             if ($minProduceable === null || $possibleWithThisItem < $minProduceable) {
                 $minProduceable = $possibleWithThisItem;
                 $limitingComponent = [
@@ -355,31 +370,38 @@ class ProductManager
 
     public function getValidExtras($productId)
     {
-        $sql = "SELECT pve.*, rm.name, rm.cost_per_unit
-                    FROM product_valid_extras pve
-                    JOIN raw_materials rm ON pve.raw_material_id = rm.id
-                    WHERE pve.product_id = ?";
+        $sql = "SELECT pve.*, 
+                    CASE 
+                        WHEN pve.component_type = 'raw' THEN rm.name
+                        WHEN pve.component_type = 'manufactured' THEN mp.name
+                    END as name,
+                    CASE 
+                        WHEN pve.component_type = 'raw' THEN rm.cost_per_unit
+                        WHEN pve.component_type = 'manufactured' THEN mp.unit_cost_average
+                    END as cost_per_unit
+                FROM product_valid_extras pve
+                LEFT JOIN raw_materials rm ON pve.component_id = rm.id AND pve.component_type = 'raw'
+                LEFT JOIN manufactured_products mp ON pve.component_id = mp.id AND pve.component_type = 'manufactured'
+                WHERE pve.product_id = ?
+                ORDER BY pve.is_default DESC, name ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$productId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function addValidExtra($productId, $rawMaterialId, $priceOverride = null, $qtyRequired = 1.00)
+    public function addValidExtra($productId, $componentId, $priceOverride = null, $qtyRequired = 1.00, $componentType = 'raw')
     {
-        // Verificar si ya existe para no duplicar
-        $check = $this->db->prepare("SELECT id FROM product_valid_extras WHERE product_id = ? AND raw_material_id = ?");
-        $check->execute([$productId, $rawMaterialId]);
+        $check = $this->db->prepare("SELECT id FROM product_valid_extras WHERE product_id = ? AND component_id = ? AND component_type = ?");
+        $check->execute([$productId, $componentId, $componentType]);
 
         if ($check->fetch()) {
-            // Si existe, actualizamos el precio y la cantidad
-            $sql = "UPDATE product_valid_extras SET price_override = ?, quantity_required = ? WHERE product_id = ? AND raw_material_id = ?";
+            $sql = "UPDATE product_valid_extras SET price_override = ?, quantity_required = ? WHERE product_id = ? AND component_id = ? AND component_type = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$priceOverride, $qtyRequired, $productId, $rawMaterialId]);
+            return $stmt->execute([$priceOverride, $qtyRequired, $productId, $componentId, $componentType]);
         } else {
-            // Si no, insertamos
-            $sql = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override, quantity_required) VALUES (?, ?, ?, ?)";
+            $sql = "INSERT INTO product_valid_extras (product_id, component_type, component_id, price_override, quantity_required) VALUES (?, ?, ?, ?, ?)";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$productId, $rawMaterialId, $priceOverride, $qtyRequired]);
+            return $stmt->execute([$productId, $componentType, $componentId, $priceOverride, $qtyRequired]);
         }
     }
 
@@ -395,12 +417,8 @@ class ProductManager
         return $stmt->execute([$extraId]);
     }
 
-
-
-
-
     // =========================================================
-    // GESTIÓN DE CONTORNOS / LADOS VÁLIDOS (OPCIONES)
+    // GESTIÓN DE CONTORNOS VÁLIDOS (OPCIONES)
     // =========================================================
 
     public function getValidSides($productId)
@@ -420,7 +438,8 @@ class ProductManager
                 LEFT JOIN raw_materials rm ON pvs.component_id = rm.id AND pvs.component_type = 'raw'
                 LEFT JOIN manufactured_products mp ON pvs.component_id = mp.id AND pvs.component_type = 'manufactured'
                 LEFT JOIN products p ON pvs.component_id = p.id AND pvs.component_type = 'product'
-                WHERE pvs.product_id = ?";
+                WHERE pvs.product_id = ?
+                ORDER BY pvs.is_default DESC, item_name ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$productId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -451,6 +470,50 @@ class ProductManager
         return $stmt->execute([$maxSides, $productId]);
     }
 
+    // =========================================================
+    // DUPLICACIÓN DE PRODUCTOS
+    // =========================================================
+
+    public function duplicateProduct($productId)
+    {
+        try {
+            $this->db->beginTransaction();
+            $original = $this->getProductById($productId);
+            if (!$original)
+                throw new Exception("Producto no encontrado");
+
+            $newName = $original['name'] . " (Copia)";
+            $sql = "INSERT INTO products (name, description, price_usd, price_ves, stock, image_url, profit_margin, product_type, max_sides, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$newName, $original['description'], $original['price_usd'], $original['price_ves'], $original['stock'], $original['image_url'], $original['profit_margin'], $original['product_type'], $original['max_sides'] ?? 0]);
+            $newId = $this->db->lastInsertId();
+
+            $stmtComps = $this->db->prepare("SELECT * FROM product_components WHERE product_id = ?");
+            $stmtComps->execute([$productId]);
+            foreach ($stmtComps->fetchAll(PDO::FETCH_ASSOC) as $comp) {
+                $this->db->prepare("INSERT INTO product_components (product_id, component_type, component_id, quantity) VALUES (?, ?, ?, ?)")->execute([$newId, $comp['component_type'], $comp['component_id'], $comp['quantity']]);
+            }
+
+            $stmtExtras = $this->db->prepare("SELECT * FROM product_valid_extras WHERE product_id = ?");
+            $stmtExtras->execute([$productId]);
+            foreach ($stmtExtras->fetchAll(PDO::FETCH_ASSOC) as $e) {
+                $this->db->prepare("INSERT INTO product_valid_extras (product_id, component_type, component_id, price_override, quantity_required, is_default) VALUES (?, ?, ?, ?, ?, ?)")->execute([$newId, $e['component_type'], $e['component_id'], $e['price_override'], $e['quantity_required'], $e['is_default']]);
+            }
+
+            $stmtSides = $this->db->prepare("SELECT * FROM product_valid_sides WHERE product_id = ?");
+            $stmtSides->execute([$productId]);
+            foreach ($stmtSides->fetchAll(PDO::FETCH_ASSOC) as $s) {
+                $this->db->prepare("INSERT INTO product_valid_sides (product_id, component_type, component_id, quantity, price_override, is_default) VALUES (?, ?, ?, ?, ?, ?)")->execute([$newId, $s['component_type'], $s['component_id'], $s['quantity'], $s['price_override'], $s['is_default']]);
+            }
+
+            $this->db->commit();
+            return $newId;
+        } catch (Exception $e) {
+            if ($this->db->inTransaction())
+                $this->db->rollBack();
+            return false;
+        }
+    }
 
     // =========================================================
     // GESTIÓN DE EMPAQUES (PACKAGING)
@@ -469,7 +532,6 @@ class ProductManager
 
     public function addProductPackaging($productId, $rawMaterialId, $qty)
     {
-        // Verificar si ya existe
         $check = $this->db->prepare("SELECT id FROM product_packaging WHERE product_id = ? AND raw_material_id = ?");
         $check->execute([$productId, $rawMaterialId]);
 
@@ -495,114 +557,6 @@ class ProductManager
     }
 
     // =========================================================
-    // DUPLICACIÓN DE PRODUCTOS
-    // =========================================================
-
-    public function duplicateProduct($productId)
-    {
-        try {
-            $this->db->beginTransaction();
-
-            // 1. Obtener datos originales
-            $original = $this->getProductById($productId);
-            if (!$original) {
-                throw new Exception("Producto no encontrado");
-            }
-
-            // 2. Crear copia (Nombre + Copia)
-            $newName = $original['name'] . " (Copia)";
-
-            // Usamos la inserción manual para tener control total de los campos
-            $sql = "INSERT INTO products (
-                name, description, price_usd, price_ves, 
-                stock, image_url, profit_margin, product_type, max_sides, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
-
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                $newName,
-                $original['description'],
-                $original['price_usd'],
-                $original['price_ves'],
-                $original['stock'],
-                $original['image_url'],
-                $original['profit_margin'],
-                $original['product_type'],
-                $original['max_sides'] ?? 0
-            ]);
-
-            $newId = $this->db->lastInsertId();
-
-            // 3. Duplicar receta (Componentes)
-            $stmtComps = $this->db->prepare("SELECT * FROM product_components WHERE product_id = ?");
-            $stmtComps->execute([$productId]);
-            $rawComponents = $stmtComps->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($rawComponents as $comp) {
-                $sqlAddComp = "INSERT INTO product_components (product_id, component_type, component_id, quantity) VALUES (?, ?, ?, ?)";
-                $stmtAdd = $this->db->prepare($sqlAddComp);
-                $stmtAdd->execute([$newId, $comp['component_type'], $comp['component_id'], $comp['quantity']]);
-            }
-
-            // 4. Duplicar Extras Válidos
-            $stmtExtras = $this->db->prepare("SELECT * FROM product_valid_extras WHERE product_id = ?");
-            $stmtExtras->execute([$productId]);
-            $rawExtras = $stmtExtras->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($rawExtras as $extra) {
-                $sqlAddExtra = "INSERT INTO product_valid_extras (product_id, raw_material_id, price_override, quantity_required) VALUES (?, ?, ?, ?)";
-                $stmtAddEx = $this->db->prepare($sqlAddExtra);
-                $stmtAddEx->execute([
-                    $newId,
-                    $extra['raw_material_id'],
-                    $extra['price_override'],
-                    $extra['quantity_required'] ?? 1.000000
-                ]);
-            }
-
-            // 5. Duplicar Contornos (NUEVO)
-            $stmtSides = $this->db->prepare("SELECT * FROM product_valid_sides WHERE product_id = ?");
-            $stmtSides->execute([$productId]);
-            $rawSides = $stmtSides->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($rawSides as $side) {
-                $sqlAddSide = "INSERT INTO product_valid_sides (product_id, component_type, component_id, quantity, price_override) VALUES (?, ?, ?, ?, ?)";
-                $stmtAddSi = $this->db->prepare($sqlAddSide);
-                $stmtAddSi->execute([
-                    $newId,
-                    $side['component_type'],
-                    $side['component_id'],
-                    $side['quantity'],
-                    $side['price_override']
-                ]);
-            }
-
-            // 6. Duplicar Empaque (NUEVO)
-            $stmtPack = $this->db->prepare("SELECT * FROM product_packaging WHERE product_id = ?");
-            $stmtPack->execute([$productId]);
-            $rawPack = $stmtPack->fetchAll(PDO::FETCH_ASSOC);
-
-            foreach ($rawPack as $pack) {
-                $sqlAddPack = "INSERT INTO product_packaging (product_id, raw_material_id, quantity) VALUES (?, ?, ?)";
-                $stmtAddPa = $this->db->prepare($sqlAddPack);
-                $stmtAddPa->execute([
-                    $newId,
-                    $pack['raw_material_id'],
-                    $pack['quantity']
-                ]);
-            }
-
-            $this->db->commit();
-            return $newId;
-
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            error_log("Error duplicando producto: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    // =========================================================
     // COPIADO DE CONFIGURACIÓN ENTRE PRODUCTOS
     // =========================================================
 
@@ -625,7 +579,7 @@ class ProductManager
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($items as $item) {
-            $this->addValidExtra($toId, $item['raw_material_id'], $item['price_override'], $item['quantity_required']);
+            $this->addValidExtra($toId, $item['component_id'], $item['price_override'], $item['quantity_required'], $item['component_type']);
         }
         return true;
     }
@@ -637,16 +591,13 @@ class ProductManager
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($items as $item) {
-            // Verificar si ya existe en destino
             $check = $this->db->prepare("SELECT id FROM product_valid_sides WHERE product_id = ? AND component_type = ? AND component_id = ?");
             $check->execute([$toId, $item['component_type'], $item['component_id']]);
             $existing = $check->fetch(PDO::FETCH_ASSOC);
 
             if ($existing) {
-                // Si existe, actualizar esa fila
                 $this->updateValidSide($existing['id'], $item['quantity'], $item['price_override']);
             } else {
-                // Si no, agregar nueva
                 $this->addValidSide($toId, $item['component_type'], $item['component_id'], $item['quantity'], $item['price_override']);
             }
         }
@@ -665,5 +616,120 @@ class ProductManager
         return true;
     }
 
+    // =========================================================
+    // OPCIONES POR DEFECTO
+    // =========================================================
+
+    public function getProductExplodedDefaults($productId)
+    {
+        $stmt = $this->db->prepare("
+            SELECT pdm.*,
+                CASE 
+                    WHEN pdm.component_type = 'raw' OR pdm.component_type IS NULL THEN rm.name
+                    WHEN pdm.component_type = 'manufactured' THEN mp.name
+                    WHEN pdm.component_type = 'product' THEN p.name
+                END as item_name
+            FROM product_default_modifiers pdm
+            LEFT JOIN raw_materials rm ON pdm.component_id = rm.id AND (pdm.component_type = 'raw' OR pdm.component_type IS NULL)
+            LEFT JOIN manufactured_products mp ON pdm.component_id = mp.id AND pdm.component_type = 'manufactured'
+            LEFT JOIN products p ON pdm.component_id = p.id AND pdm.component_type = 'product'
+            WHERE pdm.product_id = ?
+            ORDER BY pdm.sub_item_index ASC
+        ");
+        $stmt->execute([$productId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function saveProductExplodedDefaults($productId, $data)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Limpiar anteriores
+            $this->db->prepare("DELETE FROM product_default_modifiers WHERE product_id = ?")->execute([$productId]);
+
+            // 2. Guardar Nota General si la hay (index -1)
+            if (!empty($data['general_note'])) {
+                $stmt = $this->db->prepare("INSERT INTO product_default_modifiers (product_id, modifier_type, sub_item_index, note) VALUES (?, 'info', -1, ?)");
+                $stmt->execute([$productId, $data['general_note']]);
+            }
+
+            // 3. Guardar por ítem
+            if (isset($data['items']) && is_array($data['items'])) {
+                foreach ($data['items'] as $subItem) {
+                    $idx = $subItem['index'];
+                    $isTakeaway = ($subItem['consumption'] === 'takeaway') ? 1 : 0;
+
+                    // Fila de estado (Llevar/Mesa)
+                    $this->db->prepare("INSERT INTO product_default_modifiers (product_id, modifier_type, sub_item_index, is_takeaway) VALUES (?, 'info', ?, ?)")
+                        ->execute([$productId, $idx, $isTakeaway]);
+
+                    // Remociones
+                    if (!empty($subItem['remove'])) {
+                        $stmtRem = $this->db->prepare("INSERT INTO product_default_modifiers (product_id, modifier_type, sub_item_index, component_id, component_type) VALUES (?, 'remove', ?, ?, 'raw')");
+                        foreach ($subItem['remove'] as $rawId) {
+                            $stmtRem->execute([$productId, $idx, $rawId]);
+                        }
+                    }
+
+                    // Adiciones
+                    if (!empty($subItem['add'])) {
+                        $stmtAdd = $this->db->prepare("INSERT INTO product_default_modifiers (product_id, modifier_type, sub_item_index, component_id, component_type, quantity_adjustment, price_adjustment) VALUES (?, 'add', ?, ?, ?, ?, ?)");
+                        foreach ($subItem['add'] as $extra) {
+                            $stmtAdd->execute([$productId, $idx, $extra['id'], $extra['type'] ?? 'raw', $extra['qty'] ?? 1.0, $extra['price'] ?? 0]);
+                        }
+                    }
+
+                    // Contornos
+                    if (!empty($subItem['sides'])) {
+                        $stmtSide = $this->db->prepare("INSERT INTO product_default_modifiers (product_id, modifier_type, sub_item_index, component_type, component_id, quantity_adjustment, price_adjustment) VALUES (?, 'side', ?, ?, ?, ?, ?)");
+                        foreach ($subItem['sides'] as $side) {
+                            $stmtSide->execute([$productId, $idx, $side['type'], $side['id'], $side['qty'], $side['price'] ?? 0]);
+                        }
+                    }
+                }
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            if ($this->db->inTransaction())
+                $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    // --- SISTEMA DE CATEGORÍAS ---
+
+    public function getCategories()
+    {
+        $stmt = $this->db->query("SELECT * FROM categories ORDER BY name ASC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function createCategory($name, $station = 'kitchen', $icon = 'fa-tag', $description = '')
+    {
+        $stmt = $this->db->prepare("INSERT INTO categories (name, kitchen_station, icon, description) VALUES (?, ?, ?, ?)");
+        return $stmt->execute([$name, $station, $icon, $description]);
+    }
+
+    public function updateCategory($id, $name, $station, $icon, $description)
+    {
+        $stmt = $this->db->prepare("UPDATE categories SET name = ?, kitchen_station = ?, icon = ?, description = ? WHERE id = ?");
+        return $stmt->execute([$name, $station, $icon, $description, $id]);
+    }
+
+    public function deleteCategory($id)
+    {
+        $stmt = $this->db->prepare("DELETE FROM categories WHERE id = ?");
+        return $stmt->execute([$id]);
+    }
+
+    public function getCategoryById($id)
+    {
+        $stmt = $this->db->prepare("SELECT * FROM categories WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 }
 ?>

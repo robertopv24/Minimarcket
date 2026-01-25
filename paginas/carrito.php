@@ -71,14 +71,15 @@ if (!empty($cartItems)) {
     $sqlMods = "SELECT cm.*, 
                        CASE 
                            WHEN cm.modifier_type = 'side' OR cm.modifier_type = 'add' OR cm.modifier_type = 'remove' 
-                           THEN (SELECT name FROM raw_materials WHERE id = cm.component_id)
+                           THEN (
+                               CASE 
+                                   WHEN cm.component_type = 'raw' OR cm.component_type IS NULL THEN (SELECT name FROM raw_materials WHERE id = cm.component_id)
+                                   WHEN cm.component_type = 'manufactured' THEN (SELECT name FROM manufactured_products WHERE id = cm.component_id)
+                                   WHEN cm.component_type = 'product' THEN (SELECT name FROM products WHERE id = cm.component_id)
+                               END
+                           )
                            ELSE '' 
-                       END as raw_name,
-                       CASE 
-                           WHEN cm.modifier_type = 'side' AND cm.component_type = 'manufactured'
-                           THEN (SELECT name FROM manufactured_products WHERE id = cm.component_id)
-                           ELSE '' 
-                       END as man_name
+                       END as resolved_name
                 FROM cart_item_modifiers cm 
                 WHERE cm.cart_id IN ($inPart)";
 
@@ -89,13 +90,6 @@ if (!empty($cartItems)) {
     foreach ($rawMods as $m) {
         $cId = $m['cart_id'];
         $sIdx = $m['sub_item_index'];
-
-        // Resolve Name
-        $name = $m['raw_name'];
-        if ($m['modifier_type'] == 'side' && $m['component_type'] == 'manufactured') {
-            $name = $m['man_name'];
-        }
-        $m['resolved_name'] = $name;
 
         if (!isset($allModifiers[$cId]))
             $allModifiers[$cId] = [];
@@ -546,7 +540,7 @@ require_once '../templates/menu.php';
                         );
                         return `
                                                 <div class="form-check mb-1">
-                                                    <input class="form-check-input add-chk border-success" type="checkbox" value="${ext.id}" data-price="${ext.price}" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
+                                                    <input class="form-check-input add-chk border-success" type="checkbox" value="${ext.id}" data-type="${ext.type}" data-qty="${ext.qty}" data-price="${ext.price}" data-idx="${idx}" ${isChecked ? 'checked' : ''}>
                                                     <label class="form-check-label small d-flex justify-content-between pe-2">
                                                         <span>${ext.name}</span>
                                                         <span class="text-success fw-bold">+$${ext.price}</span>
@@ -637,7 +631,12 @@ require_once '../templates/menu.php';
             const sides = [];
 
             document.querySelectorAll(`.remove-chk[data-idx="${i}"]:checked`).forEach(el => remove.push(parseInt(el.value)));
-            document.querySelectorAll(`.add-chk[data-idx="${i}"]:checked`).forEach(el => add.push({ id: parseInt(el.value), price: parseFloat(el.dataset.price) }));
+            document.querySelectorAll(`.add-chk[data-idx="${i}"]:checked`).forEach(el => add.push({
+                id: parseInt(el.value),
+                type: el.dataset.type,
+                qty: parseFloat(el.dataset.qty),
+                price: parseFloat(el.dataset.price)
+            }));
             document.querySelectorAll(`.side-chk[data-idx="${i}"]:checked`).forEach(el => sides.push({
                 id: parseInt(el.value),
                 type: el.dataset.type,

@@ -217,18 +217,18 @@ foreach ($items as $item) {
                 $isTakeaway = true;
         }
 
-        $tag = $isTakeaway ? '[LLEVAR]' : '[MESA]';
-        $componentLabel = isset($subNames[$i]) ? " " . $subNames[$i] : '';
+        $tag = $isTakeaway ? '[TA]' : '[IN]';
+        $componentLabel = isset($subNames[$i]) ? " (" . clean($subNames[$i]) . ")" : '';
 
         $kitchenTicket .= "   $tag #" . ($i + 1) . $componentLabel . EOL;
 
         foreach ($currentMods as $m) {
             if ($m['modifier_type'] == 'remove') {
-                $kitchenTicket .= "     -- SIN " . clean($m['ingredient_name']) . EOL;
-            } elseif ($m['modifier_type'] == 'add' || $m['modifier_type'] == 'side') {
-                $isPaid = (floatval($m['price_adjustment_usd']) > 0);
-                $prefix = ($isPaid) ? '++ EXTRA ' : '🔘 ';
-                $kitchenTicket .= "     " . $prefix . clean($m['ingredient_name']) . EOL;
+                $kitchenTicket .= "     -- " . clean($m['ingredient_name']) . EOL;
+            } elseif ($m['modifier_type'] == 'side') {
+                $kitchenTicket .= "     ** " . clean($m['ingredient_name']) . EOL;
+            } elseif ($m['modifier_type'] == 'add') {
+                $kitchenTicket .= "     ++ " . clean($m['ingredient_name']) . EOL;
             }
         }
 
