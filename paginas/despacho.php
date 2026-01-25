@@ -306,10 +306,11 @@ require_once '../templates/menu.php';
                                                 $isTakeaway = true;
                                         ?>
                                         <div class="sub-item-text">
-                                            <span class="badge <?= $isTakeaway ? 'bg-danger' : 'bg-primary' ?>"
-                                                style="font-size: 0.5rem; padding: 1px 2px;">
-                                                <?= $isTakeaway ? 'LLEVAR' : 'LOCAL' ?>
-                                            </span>
+                                            <?php if ($isTakeaway): ?>
+                                                <span class="badge text-white" style="font-size: 0.5rem; padding: 1px 2px; background-color: #ef4444 !important;">LLEVAR</span>
+                                            <?php else: ?>
+                                                <span class="badge text-white" style="font-size: 0.5rem; padding: 1px 2px; background-color: #3b82f6 !important;">LOCAL</span>
+                                            <?php endif; ?>
                                             <span class="badge bg-secondary ms-1" style="font-size: 0.5rem; padding: 1px 2px;">#
                                                 <?= $i + 1 ?>
                                             </span>
