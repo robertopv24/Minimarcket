@@ -448,11 +448,13 @@ function renderTicket($orderData)
                     <?php if (!$it['is_main'] && ($it['num'] > 0 || !empty($it['name']))): ?>
                         <div class="sub-item-line">
                             <span class="item-index">#<?= $it['num'] ?></span>
-                            <span
-                                class="tag-mini fw-bold px-1 <?= $it['is_takeaway'] ? 'bg-danger text-white border-danger' : 'bg-primary text-white border-primary' ?>"
-                                style="font-size: 0.6rem;">
-                                <?= $it['is_takeaway'] ? 'LLEVAR' : 'LOCAL' ?>
-                            </span>
+                            <?php if ($it['is_takeaway']): ?>
+                                <span class="tag-mini fw-bold px-1 text-white"
+                                    style="font-size: 0.6rem; background-color: #ef4444 !important; border-color: #ef4444 !important;">LLEVAR</span>
+                            <?php else: ?>
+                                <span class="tag-mini fw-bold px-1 text-white"
+                                    style="font-size: 0.6rem; background-color: #3b82f6 !important; border-color: #3b82f6 !important;">LOCAL</span>
+                            <?php endif; ?>
                             <?= ($it['is_contour'] && !empty($it['name'])) ? "(" . strtoupper($it['name']) . ")" : (!empty($it['name']) ? strtoupper($it['name']) : "") ?>
                         </div>
 
