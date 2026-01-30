@@ -174,12 +174,35 @@ $kitchenTicket .= center("ORDEN #" . $orderId) . EOL;
 $kitchenTicket .= center(clean(substr($order['shipping_address'] ?? '', 0, 30))) . EOL;
 $kitchenTicket .= line();
 
+$useShortCodes = ($GLOBALS['config']->get('kds_use_short_codes', '0') == '1');
 foreach ($items as $item) {
     $mods = $orderManager->getItemModifiers($item['id']);
     $groupedMods = [];
     foreach ($mods as $m) {
         $groupedMods[$m['sub_item_index']][] = $m;
     }
+
+    // Ordenar modificadores por grupo para impresión correcta
+    foreach ($groupedMods as &$gMods) {
+        usort($gMods, function ($a, $b) {
+            $order = ['side' => 1, 'add' => 2, 'remove' => 3];
+            $ta = strtolower($a['modifier_type'] ?? '');
+            $tb = strtolower($b['modifier_type'] ?? '');
+
+            if ($ta != 'add' && $ta != 'remove' && $ta != 'side')
+                $va = ($ta == 'info') ? 99 : 1;
+            else
+                $va = $order[$ta] ?? 99;
+
+            if ($tb != 'add' && $tb != 'remove' && $tb != 'side')
+                $vb = ($tb == 'info') ? 99 : 1;
+            else
+                $vb = $order[$tb] ?? 99;
+
+            return $va <=> $vb;
+        });
+    }
+    unset($gMods);
 
     $subNames = [];
     if ($item['product_type'] == 'compound') {
@@ -188,11 +211,12 @@ foreach ($items as $item) {
             $sName = "";
             if ($c['component_type'] == 'product') {
                 $p = $productManager->getProductById($c['component_id']);
-                $sName = $p['name'];
+                $sName = ($useShortCodes && !empty($p['short_code'])) ? $p['short_code'] : $p['name'];
             } elseif ($c['component_type'] == 'manufactured') {
-                $stmtM = $db->prepare("SELECT name FROM manufactured_products WHERE id = ?");
+                $stmtM = $db->prepare("SELECT name, short_code FROM manufactured_products WHERE id = ?");
                 $stmtM->execute([$c['component_id']]);
-                $sName = $stmtM->fetchColumn() ?: 'ITEM COCINA';
+                $mR = $stmtM->fetch(PDO::FETCH_ASSOC);
+                $sName = ($useShortCodes && !empty($mR['short_code'])) ? $mR['short_code'] : ($mR['name'] ?? 'ITEM COCINA');
             }
             if ($sName) {
                 for ($k = 0; $k < $c['quantity']; $k++) {
@@ -207,7 +231,7 @@ foreach ($items as $item) {
         $loopCount = count($subNames);
     }
 
-    $kitchenTicket .= ">> " . $item['quantity'] . " X " . clean($item['name']) . EOL;
+    $kitchenTicket .= ">> " . $item['quantity'] . " X " . clean(($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name']) . EOL;
 
     for ($i = 0; $i < $loopCount; $i++) {
         $currentMods = $groupedMods[$i] ?? [];
@@ -218,17 +242,20 @@ foreach ($items as $item) {
         }
 
         $tag = $isTakeaway ? '[TA]' : '[IN]';
-        $componentLabel = isset($subNames[$i]) ? " (" . clean($subNames[$i]) . ")" : '';
+        $componentLabel = isset($subNames[$i]) ? " ** (" . clean($subNames[$i]) . ")" : '';
 
         $kitchenTicket .= "   $tag #" . ($i + 1) . $componentLabel . EOL;
 
         foreach ($currentMods as $m) {
             if ($m['modifier_type'] == 'remove') {
-                $kitchenTicket .= "     -- " . clean($m['ingredient_name']) . EOL;
+                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                $kitchenTicket .= "     -- " . clean($mName) . EOL;
             } elseif ($m['modifier_type'] == 'side') {
-                $kitchenTicket .= "     ** " . clean($m['ingredient_name']) . EOL;
+                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                $kitchenTicket .= "     ** " . clean($mName) . EOL;
             } elseif ($m['modifier_type'] == 'add') {
-                $kitchenTicket .= "     ++ " . clean($m['ingredient_name']) . EOL;
+                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                $kitchenTicket .= "     ++ " . clean($mName) . EOL;
             }
         }
 

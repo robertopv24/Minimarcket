@@ -109,76 +109,17 @@ $costoMateriaPrima = 0; // Initialize for final result
 $totalCOGS = 0; // New variable for the optimized calculation
 $debugCOGS = []; // Debug array
 
-// OPTIMIZACIÓN: Precargar TODOS los componentes de una vez (elimina N+1)
-// Obtener IDs únicos de productos vendidos
-$soldProductIds = array_unique(array_column($soldItems, 'product_id'));
-
-// Precargar componentes de TODOS los productos vendidos en una sola query
-$componentsMap = [];
-if (!empty($soldProductIds)) {
-    $placeholders = implode(',', array_fill(0, count($soldProductIds), '?'));
-    $sql = "SELECT pc.product_id, pc.component_type, pc.component_id, pc.quantity,
-            CASE
-                WHEN pc.component_type = 'raw' THEN rm.name
-                WHEN pc.component_type = 'manufactured' THEN mp.name
-                WHEN pc.component_type = 'product' THEN p.name
-            END as item_name,
-            CASE
-                WHEN pc.component_type = 'raw' THEN rm.cost_per_unit
-                WHEN pc.component_type = 'manufactured' THEN mp.unit_cost_average
-                WHEN pc.component_type = 'product' THEN 0
-            END as item_cost
-            FROM product_components pc
-            LEFT JOIN raw_materials rm ON pc.component_id = rm.id AND pc.component_type = 'raw'
-            LEFT JOIN manufactured_products mp ON pc.component_id = mp.id AND pc.component_type = 'manufactured'
-            LEFT JOIN products p ON pc.component_id = p.id AND pc.component_type = 'product'
-            WHERE pc.product_id IN ($placeholders)";
-
-    $stmt = $db->prepare($sql);
-    $stmt->execute($soldProductIds);
-    $allComponents = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Organizar componentes por product_id
-    foreach ($allComponents as $comp) {
-        $productId = $comp['product_id'];
-        if (!isset($componentsMap[$productId])) {
-            $componentsMap[$productId] = [];
-        }
-
-        // Calcular costo recursivo para componentes de tipo 'product'
-        if ($comp['component_type'] == 'product' && $comp['component_id']) {
-            // Ensure productManager is available and has calculateProductCost method
-            $comp['item_cost'] = $productManager->calculateProductCost($comp['component_id']);
-        }
-
-        $componentsMap[$productId][] = $comp;
-    }
-}
-
-// Ahora calcular COGS usando los componentes precargados
+// 2. COSTO DE VENTA (COGS) - UNIFICADO
+// Usamos calculateProductCost que ya maneja Recetas (recursivas), Contornos (proporcional/estándar) y Empaque.
 foreach ($soldItems as $item) {
     $productId = $item['product_id'];
     $qtySold = $item['qty_sold'];
 
-    // Obtener componentes del mapa (ya precargados)
-    $components = $componentsMap[$productId] ?? [];
-
-    $costPerUnit = 0;
-    if (empty($components)) {
-        // If no recipe, it's a simple product. Assume 0 cost for now as per original logic.
-        // Or, if products have a 'cost_price' field, use that here.
-        $costPerUnit = 0;
-    } else {
-        foreach ($components as $comp) {
-            $itemCost = floatval($comp['item_cost'] ?? 0);
-            $costPerUnit += ($comp['quantity'] * $itemCost);
-        }
-    }
-
+    $costPerUnit = $productManager->calculateProductCost($productId);
     $totalCostThisProduct = $costPerUnit * $qtySold;
     $totalCOGS += $totalCostThisProduct;
 
-    // Debug info
+    // Debug info (opcional para ver en consola si es necesario)
     $debugCOGS[] = [
         'product' => $productManager->getProductById($productId)['name'] ?? 'Unknown',
         'qty' => $qtySold,

@@ -22,9 +22,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $resetTarget = $_POST['reset_target'] ?? null;
 
     if ($resetTarget === 'kitchen') {
-        $db->prepare("UPDATE orders SET status = 'preparing', kds_kitchen_ready = 0, updated_at = NOW() WHERE id = ?")->execute([$orderId]);
+        // Al devolver Cocina:
+        // Si Pizza está lista list (1), mantenemos status 'ready' (Global).
+        // Si Pizza NO está lista (0), bajamos a 'preparing'.
+        // PERO primero leemos el estado actual de la orden para saber Pizza
+        $stCheck = $db->prepare("SELECT kds_pizza_ready FROM orders WHERE id = ?");
+        $stCheck->execute([$orderId]);
+        $rStr = $stCheck->fetch(PDO::FETCH_ASSOC);
+
+        $newGlobal = ($rStr['kds_pizza_ready']) ? 'ready' : 'preparing';
+
+        $db->prepare("UPDATE orders SET status = ?, kds_kitchen_ready = 0, updated_at = NOW() WHERE id = ?")
+            ->execute([$newGlobal, $orderId]);
+
     } elseif ($resetTarget === 'pizza') {
-        $db->prepare("UPDATE orders SET status = 'preparing', kds_pizza_ready = 0, updated_at = NOW() WHERE id = ?")->execute([$orderId]);
+        // Al devolver Pizza:
+        // Si Cocina está lista (1), mantenemos 'ready'.
+        // Si no, 'preparing'.
+        $stCheck = $db->prepare("SELECT kds_kitchen_ready FROM orders WHERE id = ?");
+        $stCheck->execute([$orderId]);
+        $rStr = $stCheck->fetch(PDO::FETCH_ASSOC);
+
+        $newGlobal = ($rStr['kds_kitchen_ready']) ? 'ready' : 'preparing';
+
+        $db->prepare("UPDATE orders SET status = ?, kds_pizza_ready = 0, updated_at = NOW() WHERE id = ?")
+            ->execute([$newGlobal, $orderId]);
     } else {
         if ($newStatus === 'ready') {
             $db->prepare("UPDATE orders SET status = 'ready', kds_kitchen_ready = 1, kds_pizza_ready = 1, updated_at = NOW() WHERE id = ?")->execute([$orderId]);
@@ -42,14 +64,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $sql = "SELECT o.*, u.name as cliente
         FROM orders o
         JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'preparing', 'ready')
+        WHERE o.status IN ('ready')
         ORDER BY o.id ASC";
 $stmt = $db->query($sql);
 $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
+
+$refreshSeconds = $config->get('kds_refresh_interval', 30);
+$colorLlevar = $config->get('kds_color_llevar', '#ef4444');
+$colorLocal = $config->get('kds_color_local', '#3b82f6');
+$useShortCodes = ($config->get('kds_use_short_codes', '0') == '1');
+
+// Nuevos colores modificadores
+$colorModAdd = $config->get('kds_color_mod_add', '#198754');
+$colorModRemove = $config->get('kds_color_mod_remove', '#dc3545');
+$colorModSide = $config->get('kds_color_mod_side', '#0dcaf0');
+$soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3');
 ?>
+<meta http-equiv="refresh" content="<?= $refreshSeconds ?>">
 
 <style>
     body {
@@ -259,6 +293,31 @@ require_once '../templates/menu.php';
                                     $groupedMods[$m['sub_item_index']][] = $m;
                                 }
 
+                                // Ordenar CADA GRUPO de modificadores
+                                foreach ($groupedMods as &$gMods) {
+                                    usort($gMods, function ($a, $b) {
+                                        $order = ['side' => 1, 'add' => 2, 'remove' => 3];
+                                        // Normalizar a minúsculas
+                                        $ta = strtolower($a['modifier_type'] ?? '');
+                                        $tb = strtolower($b['modifier_type'] ?? '');
+
+                                        // Si no es un tipo estándar (add/remove), asumir 'side' (1)
+                                        // excepto si es 'info' que lo mandamos al fondo (99)
+                                        if ($ta != 'add' && $ta != 'remove' && $ta != 'side')
+                                            $va = ($ta == 'info') ? 99 : 1;
+                                        else
+                                            $va = $order[$ta] ?? 99;
+
+                                        if ($tb != 'add' && $tb != 'remove' && $tb != 'side')
+                                            $vb = ($tb == 'info') ? 99 : 1;
+                                        else
+                                            $vb = $order[$tb] ?? 99;
+
+                                        return $va <=> $vb;
+                                    });
+                                }
+                                unset($gMods); // Romper referencia
+                        
                                 // Rayos X para Combos (Nombres)
                                 $subNames = [];
                                 if ($item['product_type'] == 'compound') {
@@ -267,13 +326,13 @@ require_once '../templates/menu.php';
                                         $sName = "";
                                         if ($c['component_type'] == 'product') {
                                             $p = $productManager->getProductById($c['component_id']);
-                                            $sName = $p['name'];
+                                            $sName = ($useShortCodes && !empty($p['short_code'])) ? $p['short_code'] : $p['name'];
                                             $sStation = $p['category_station'] ?? $p['kitchen_station'] ?? '';
                                         } elseif ($c['component_type'] == 'manufactured') {
-                                            $stmtM = $db->prepare("SELECT name, kitchen_station FROM manufactured_products WHERE id = ?");
+                                            $stmtM = $db->prepare("SELECT name, kitchen_station, short_code FROM manufactured_products WHERE id = ?");
                                             $stmtM->execute([$c['component_id']]);
                                             $mR = $stmtM->fetch(PDO::FETCH_ASSOC);
-                                            $sName = $mR['name'] ?? 'ITEM';
+                                            $sName = ($useShortCodes && !empty($mR['short_code'])) ? $mR['short_code'] : ($mR['name'] ?? 'ITEM');
                                             $sStation = $mR['kitchen_station'] ?? '';
                                         }
                                         if ($sName) {
@@ -296,7 +355,7 @@ require_once '../templates/menu.php';
                                 <div class="minimal-row">
                                     <div class="item-main-name">
                                         <?= $item['quantity'] ?> x
-                                        <?= htmlspecialchars($item['name']) ?>
+                                        <?= htmlspecialchars(($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name']) ?>
                                     </div>
                                     <?php for ($i = 0; $i < $loop; $i++):
                                         $cMods = $groupedMods[$i] ?? [];
@@ -307,9 +366,11 @@ require_once '../templates/menu.php';
                                         ?>
                                         <div class="sub-item-text">
                                             <?php if ($isTakeaway): ?>
-                                                <span class="badge text-white" style="font-size: 0.5rem; padding: 1px 2px; background-color: #ef4444 !important;">LLEVAR</span>
+                                                <span class="badge text-white"
+                                                    style="font-size: 0.5rem; padding: 1px 2px; background-color: <?= $colorLlevar ?> !important;">LLEVAR</span>
                                             <?php else: ?>
-                                                <span class="badge text-white" style="font-size: 0.5rem; padding: 1px 2px; background-color: #3b82f6 !important;">LOCAL</span>
+                                                <span class="badge text-white"
+                                                    style="font-size: 0.5rem; padding: 1px 2px; background-color: <?= $colorLocal ?> !important;">LOCAL</span>
                                             <?php endif; ?>
                                             <span class="badge bg-secondary ms-1" style="font-size: 0.5rem; padding: 1px 2px;">#
                                                 <?= $i + 1 ?>
@@ -319,7 +380,7 @@ require_once '../templates/menu.php';
                                                 $st = $subNames[$i]['station'];
                                                 $stColor = ($st == 'pizza') ? 'text-danger' : (($st == 'bar') ? 'text-info' : 'text-warning');
                                                 echo '<i class="fa fa-circle ' . $stColor . '" style="font-size: 0.5rem;"></i> ';
-                                                echo '<span class="text-white fw-bold">(' . strtoupper($subNames[$i]['name']) . ')</span>';
+                                                echo '<span class="text-white fw-bold">** (' . strtoupper($subNames[$i]['name']) . ')</span>';
                                             } else {
                                                 // Indicador para producto simple
                                                 $st = $itemStation ?? '';
@@ -331,14 +392,29 @@ require_once '../templates/menu.php';
                                             ?>
                                         </div>
                                         <?php foreach ($cMods as $m):
-                                            if ($m['modifier_type'] == 'remove' || $m['modifier_type'] == 'add' || $m['modifier_type'] == 'side'):
-                                                $prefix = ($m['modifier_type'] == 'remove') ? '-- ' : (($m['modifier_type'] == 'add') ? '++ ' : '** ');
-                                                ?>
-                                                <div class="mod-inline">
-                                                    <?= $prefix . strtoupper($m['ingredient_name']) ?>
-                                                </div>
-                                            <?php endif;
-                                        endforeach; ?>
+                                            $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                                            $type = strtolower($m['modifier_type'] ?? '');
+
+                                            // Saltamos info notes aquí porque se muestran abajo
+                                            if ($type == 'info')
+                                                continue;
+
+                                            if ($type == 'add') {
+                                                $mColor = $colorModAdd;
+                                                $mPrefix = '++';
+                                            } elseif ($type == 'remove') {
+                                                $mColor = $colorModRemove;
+                                                $mPrefix = '--';
+                                            } else {
+                                                // Fallback para side/custom
+                                                $mColor = $colorModSide;
+                                                $mPrefix = '**';
+                                            }
+                                            ?>
+                                            <div class="mod-inline" style="color: <?= $mColor ?>;">
+                                                <small><?= $mPrefix ?>                 <?= strtoupper($mName ?? '') ?></small>
+                                            </div>
+                                        <?php endforeach; ?>
                                         <?php if ($i == 0):
                                             foreach ($mods as $gm) {
                                                 if ($gm['sub_item_index'] == -1 && $gm['modifier_type'] == 'info' && !empty($gm['note'])) {
@@ -380,10 +456,86 @@ require_once '../templates/menu.php';
 </div>
 
 <script>
-    // Recarga automática cada 15 segundos para ver nuevos pedidos de caja
+    // Recarga automática cada 15 segundos
     setTimeout(function () {
         location.reload();
     }, 15000);
+
+    // Initial Overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'sound-init-overlay';
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: pointer;";
+    overlay.innerHTML = '<div class="text-center"><i class="fa fa-check-circle fa-4x mb-3 text-success"></i><h3>Activar Sonido Despacho</h3><p>Haz clic para iniciar</p></div>';
+    document.body.appendChild(overlay);
+
+    let audioContext = null;
+
+    function checkAudioState() {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        audioContext.resume().then(() => {
+            if (audioContext.state === 'running') {
+                overlay.style.display = 'none';
+            } else {
+                overlay.style.display = 'flex';
+            }
+        }).catch(() => {
+            overlay.style.display = 'flex';
+        });
+    }
+
+    checkAudioState();
+
+    overlay.addEventListener('click', () => {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext.resume().then(() => {
+            overlay.style.display = 'none';
+            playPing(true);
+        });
+    });
+
+    // Sound Logic (Dispatch)
+    const soundUrl = '<?= $soundUrl ?>';
+
+    function playPing(isTest = false) {
+        const audio = new Audio(soundUrl);
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                playOscillatorBackup();
+            });
+        }
+    }
+
+    function playOscillatorBackup() {
+        if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        // Success Chord (C Major Arpeggio-ish)
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+        oscillator.frequency.linearRampToValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.1);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.6);
+    }
+
+    // Logic to detect NEW ready orders (Count based for now to keep it simple)
+    const currentCount = <?= count($ordenes) ?>;
+    const lastCount = localStorage.getItem('kds_dispatch_count');
+
+    if (lastCount !== null && currentCount > parseInt(lastCount)) {
+        playPing();
+    }
+    localStorage.setItem('kds_dispatch_count', currentCount);
 </script>
 
 <?php require_once '../templates/footer.php'; ?>

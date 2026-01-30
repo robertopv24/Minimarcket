@@ -89,9 +89,19 @@ foreach ($transacciones as $tr) {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($productos as $prod): ?>
+                            <?php foreach ($productos as $prod):
+                                // Fetch logic type for this specific item (or check if order_items has it, usually we check product table)
+                                $stmtL = $db->prepare("SELECT contour_logic_type FROM products WHERE id = ?");
+                                $stmtL->execute([$prod['product_id']]);
+                                $logic = $stmtL->fetchColumn();
+                                ?>
                                 <tr>
-                                    <td><?= htmlspecialchars($prod['name']) ?></td>
+                                    <td>
+                                        <?= htmlspecialchars($prod['name']) ?>
+                                        <?php if ($logic === 'proportional'): ?>
+                                            <span class="badge bg-info text-dark" style="font-size: 0.6em">PROP.</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td class="text-center"><?= $prod['quantity'] ?></td>
                                     <td class="text-end">$<?= number_format($prod['price'], 2) ?></td>
                                     <td class="text-end fw-bold">

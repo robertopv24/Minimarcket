@@ -136,14 +136,21 @@ require_once '../templates/menu.php';
                         $removableIngredients = [];
                         $maxSides = 0;
 
-                        // Obtener costo base del componente
+                        // Obtener costo base del componente (SIN contornos, ya que aquí se seleccionan manualmente)
                         $baseCompCost = 0;
+                        $logic = 'standard';
+                        $maxSides = 0;
                         if ($compType === 'product') {
-                            $baseCompCost = $productManager->calculateProductCost($compId);
+                            $compBreakdown = $productManager->calculateProductCost($compId, 0, true);
+                            $baseCompCost = $compBreakdown['recipe'] + $compBreakdown['packaging'];
+                            
                             $validExtras = $productManager->getValidExtras($compId);
                             $validSides = $productManager->getValidSides($compId);
+                            
                             $subCompData = $productManager->getProductById($compId);
                             $maxSides = $subCompData['max_sides'] ?? 0;
+                            $logic = $subCompData['contour_logic_type'] ?? 'standard';
+                            
                             if ($subCompData['product_type'] === 'prepared') {
                                 $removableIngredients = $productManager->getProductComponents($compId);
                             }
@@ -157,7 +164,11 @@ require_once '../templates/menu.php';
                         ];
                     ?>
                         <div class="col-md-12 col-lg-6">
-                            <div class="card h-100 shadow-sm border-0 component-card" data-idx="<?= $idx ?>" data-base-cost="<?= $baseCompCost ?>">
+                            <div class="card h-100 shadow-sm border-0 component-card" 
+                                 data-idx="<?= $idx ?>" 
+                                 data-base-cost="<?= $baseCompCost ?>"
+                                 data-logic="<?= $logic ?>"
+                                 data-max-sides="<?= $maxSides ?>">
                                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
                                     <span class="fw-bold small">#<?= $idx + 1 ?> <?= htmlspecialchars($comp['item_name']) ?></span>
                                     <div class="btn-group btn-group-sm rounded-pill overflow-hidden border border-secondary" role="group">
@@ -216,22 +227,12 @@ require_once '../templates/menu.php';
                                             <small class="text-muted d-block mb-1">(Límite: <?= $maxSides ?>)</small>
                                             <?php foreach ($validSides as $side): 
                                                 $isSelected = in_array($side['component_id'], $state['sides']);
-                                                // El costo de los sides es más complejo, pero si es raw o manuf lo tenemos.
-                                                // Vamos a simplificar asumiendo que el costo ya está en el side manager si fuera necesario, 
-                                                // o calcularlo aquí.
-                                                $sideCost = 0;
-                                                if ($side['component_type'] === 'raw') {
-                                                    $rawM = $rawMaterialManager->getMaterialById($side['component_id']);
-                                                    $sideCost = floatval($rawM['cost_per_unit'] * $side['quantity']);
-                                                } elseif ($side['component_type'] === 'manufactured') {
-                                                    $manufM = $productionManager->getProductionById($side['component_id']);
-                                                    $sideCost = floatval($manufM['unit_cost_average'] * $side['quantity']);
-                                                }
+                                                $sideCost = floatval(($side['item_cost'] ?? 0) * $side['quantity']);
                                             ?>
                                                 <div class="form-check mb-1">
                                                     <input class="form-check-input side-chk border-info" type="checkbox" value="<?= $side['component_id'] ?>" 
                                                         data-type="<?= $side['component_type'] ?>" data-qty="<?= $side['quantity'] ?>" data-price="<?= $side['price_override'] ?>"
-                                                        data-cost="<?= $sideCost ?>" data-idx="<?= $idx ?>" data-max="<?= $maxSides ?>" <?= $isSelected ? 'checked' : '' ?> onchange="updateTotalCostUI()">
+                                                        data-cost="<?= $sideCost ?>" data-idx="<?= $idx ?>" <?= $isSelected ? 'checked' : '' ?> onchange="updateTotalCostUI()">
                                                     <label class="form-check-label small d-flex justify-content-between pe-2 w-100">
                                                         <span><?= htmlspecialchars($side['item_name']) ?></span>
                                                         <span class="text-info small">+$<?= number_format($side['price_override'], 2) ?></span>
@@ -313,10 +314,13 @@ require_once '../templates/menu.php';
         const sideCheckboxes = document.querySelectorAll('.side-chk');
         
         function validateMaxSides(idx) {
-            const chks = document.querySelectorAll(`.side-chk[data-idx="${idx}"]`);
+            const card = document.querySelector(`.component-card[data-idx="${idx}"]`);
+            if (!card) return;
+            
+            const chks = card.querySelectorAll('.side-chk');
             if (chks.length === 0) return;
             
-            const max = parseInt(chks[0].dataset.max || 0);
+            const max = parseInt(card.dataset.maxSides || 0);
             const checkedCount = Array.from(chks).filter(cb => cb.checked).length;
             
             chks.forEach(cb => {
@@ -347,25 +351,39 @@ require_once '../templates/menu.php';
         let extrasCost = 0;
         let sidesCost = 0;
         let removalsSaving = 0;
+        let hasProportional = false;
 
-        // 1. Costo Base de cada componente expandido
         document.querySelectorAll('.component-card').forEach(card => {
+            const logic = card.dataset.logic;
+            const maxSides = parseInt(card.dataset.maxSides || 0);
+
+            // 1. Base
             originalCost += parseFloat(card.dataset.baseCost || 0);
-        });
 
-        // 2. Costo de Extras seleccionados
-        document.querySelectorAll('.add-chk:checked').forEach(chk => {
-            extrasCost += parseFloat(chk.dataset.cost || 0);
-        });
+            // 2. Extras (Add-ons)
+            card.querySelectorAll('.add-chk:checked').forEach(chk => {
+                extrasCost += parseFloat(chk.dataset.cost || 0);
+            });
 
-        // 3. Costo de Contornos seleccionados
-        document.querySelectorAll('.side-chk:checked').forEach(chk => {
-            sidesCost += parseFloat(chk.dataset.cost || 0);
-        });
+            // 3. Contornos (Sides)
+            let selectedSides = card.querySelectorAll('.side-chk:checked');
+            let cardSidesRawCost = 0;
+            selectedSides.forEach(chk => {
+                cardSidesRawCost += parseFloat(chk.dataset.cost || 0);
+            });
 
-        // 4. Ahorro por Remociones (Ingredientes que no se usarán)
-        document.querySelectorAll('.remove-chk:checked').forEach(chk => {
-            removalsSaving += parseFloat(chk.dataset.cost || 0);
+            if (logic === 'proportional' && selectedSides.length > 0) {
+                // Si es proporcional, dividimos el costo total de los contornos entre el máximo permitido
+                sidesCost += (cardSidesRawCost / maxSides);
+                hasProportional = true;
+            } else {
+                sidesCost += cardSidesRawCost;
+            }
+
+            // 4. Remociones (Ahorro)
+            card.querySelectorAll('.remove-chk:checked').forEach(chk => {
+                removalsSaving += parseFloat(chk.dataset.cost || 0);
+            });
         });
 
         const totalFinal = (originalCost + extrasCost + sidesCost) - removalsSaving;
@@ -373,7 +391,13 @@ require_once '../templates/menu.php';
         // Actualizar UI
         document.getElementById('cost_original').innerText = `$${originalCost.toFixed(2)}`;
         document.getElementById('cost_extras').innerText = `+$${extrasCost.toFixed(2)}`;
-        document.getElementById('cost_sides').innerText = `+$${sidesCost.toFixed(2)}`;
+
+        let sidesText = `+$${sidesCost.toFixed(2)}`;
+        if (hasProportional) {
+            sidesText += ' <small class="badge bg-info text-dark" style="font-size:0.6em">PROP.</small>';
+        }
+        document.getElementById('cost_sides').innerHTML = sidesText;
+
         document.getElementById('cost_removals').innerText = `-$${removalsSaving.toFixed(2)}`;
         document.getElementById('cost_total').innerText = `$${totalFinal.toFixed(2)}`;
     }

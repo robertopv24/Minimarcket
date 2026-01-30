@@ -82,6 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $mensaje = '<div class="alert alert-success">Límite de contornos actualizado.</div>';
     }
 
+    // 8B. ACTUALIZAR LÓGICA DE CONTORNOS (NUEVO)
+    if ($action === 'update_contour_logic') {
+        $productManager->updateContourLogic($productId, $_POST['contour_logic_type']);
+        $product = $productManager->getProductById($productId);
+        $mensaje = '<div class="alert alert-success">Lógica de descuento actualizada.</div>';
+    }
+
     // 9. AGREGAR CONTORNO VÁLIDO (NUEVO)
     if ($action === 'add_valid_side') {
         $productManager->addValidSide($productId, $_POST['side_type'], $_POST['side_component_id'], $_POST['side_qty'], $_POST['side_price']);
@@ -159,11 +166,9 @@ $validSides = $productManager->getValidSides($productId);
 // 5. Empaques Configurados (NUEVO)
 $productPackaging = $productManager->getProductPackaging($productId);
 
-// Calcular Costo Base Total
-$totalCost = 0;
-foreach ($components as $c) {
-    $totalCost += ($c['quantity'] * $c['item_cost']);
-}
+// Calcular Costo Base Total (Incluye Receta, Contornos y Empaque) con desglose
+$costBreakdown = $productManager->calculateProductCost($productId, 0, true);
+$totalCost = $costBreakdown['total'];
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -198,7 +203,7 @@ require_once '../templates/menu.php';
                     </form>
 
                     <!-- Formulario Límite de Contornos -->
-                    <form method="POST">
+                    <form method="POST" class="mb-3 border-bottom pb-2">
                         <input type="hidden" name="action" value="update_max_sides">
                         <label class="form-label fw-bold">Límite de Contornos / Opciones:</label>
                         <div class="input-group mb-2">
@@ -208,8 +213,22 @@ require_once '../templates/menu.php';
                         </div>
                         <small class="text-muted d-block mb-2">
                             Esto define cuántos contornos puede elegir el cliente.
-                            <strong>Ejemplo Mixta:</strong> Pon <code>2</code> si la hamburguesa lleva Carne y Pollo.
                         </small>
+                    </form>
+
+                    <!-- Lógica de Descuento (NUEVO LUGAR) -->
+                    <form method="POST" class="mb-3">
+                        <input type="hidden" name="action" value="update_contour_logic">
+                        <label class="form-label fw-bold small"><i class="fa fa-cogs text-primary"></i> Lógica de
+                            Descuento de Inventario:</label>
+                        <select name="contour_logic_type" class="form-select form-select-sm mb-2"
+                            onchange="this.form.submit()">
+                            <option value="standard" <?= ($product['contour_logic_type'] ?? 'standard') === 'standard' ? 'selected' : '' ?>>Estándar (Descuento exacto)</option>
+                            <option value="proportional" <?= ($product['contour_logic_type'] ?? 'standard') === 'proportional' ? 'selected' : '' ?>>Proporcional (Dividido entre
+                                seleccionados)</option>
+                        </select>
+                        <div class="form-text small text-muted">Use "Proporcional" si el cliente elige 2 o más contornos
+                            y la porción se divide entre ellos.</div>
                     </form>
 
                     <div class="small text-muted mt-3">
@@ -371,6 +390,7 @@ require_once '../templates/menu.php';
                                 Ej: Carne, Pollo o Lomo para una hamburguesa base.
                             </div>
 
+
                             <form method="POST" class="mb-3 border p-3 rounded bg-light">
                                 <input type="hidden" name="action" value="add_valid_side">
 
@@ -464,6 +484,50 @@ require_once '../templates/menu.php';
         </div>
 
         <div class="col-md-7">
+
+            <!-- PANEL DE ANÁLISIS DE COSTOS (NUEVO) -->
+            <div class="card shadow border-info mb-4">
+                <div class="card-header bg-info text-dark fw-bold">
+                    <i class="fa fa-chart-pie"></i> Análisis de Costos (COGS Estimado)
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">Receta Base</div>
+                            <div class="fw-bold text-primary">$<?= number_format($costBreakdown['recipe'], 2) ?></div>
+                        </div>
+                        <div class="col-4 border-start">
+                            <div class="small text-muted">Contornos (avg)</div>
+                            <div class="fw-bold text-primary">$<?= number_format($costBreakdown['sides'], 2) ?></div>
+                            <?php if ($product['max_sides'] > 0): ?>
+                                <small class="badge bg-light text-dark border" style="font-size: 0.7em;">
+                                    Lógica: <?= $product['contour_logic_type'] === 'proportional' ? 'Proporcional' : 'Estándar' ?>
+                                </small>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-4 border-start">
+                            <div class="small text-muted">Empaque</div>
+                            <div class="fw-bold text-primary">$<?= number_format($costBreakdown['packaging'], 2) ?></div>
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">COSTO TOTAL DE PRODUCCIÓN:</span>
+                        <span class="h4 mb-0 text-success fw-bold">$<?= number_format($totalCost, 2) ?></span>
+                    </div>
+                    <?php 
+                    $price = floatval($product['price_usd']);
+                    $profit = $price - $totalCost;
+                    $margin = ($price > 0) ? ($profit / $price) * 100 : 0;
+                    ?>
+                    <div class="mt-2 d-flex justify-content-between align-items-center small">
+                        <span class="text-muted">Margen sobre venta ($<?= number_format($price, 2) ?>):</span>
+                        <span class="badge <?= $margin > 20 ? 'bg-success' : ($margin > 10 ? 'bg-warning text-dark' : 'bg-danger') ?>">
+                            <?= number_format($margin, 1) ?>% ($<?= number_format($profit, 2) ?>)
+                        </span>
+                    </div>
+                </div>
+            </div>
 
             <div class="card shadow mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">

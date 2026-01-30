@@ -140,6 +140,11 @@ require_once '../templates/menu.php';
                                             <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">REVENTA</span>
                                         <?php endif; ?>
 
+                                        <?php if (($producto['contour_logic_type'] ?? 'standard') === 'proportional'): ?>
+                                            <span class="badge bg-info text-dark ms-1" style="font-size: 0.7em;"
+                                                title="Lógica de contornos dividida">PROPORCIONAL</span>
+                                        <?php endif; ?>
+
                                         <?php if ($producto['stock'] == 0 && $producto['product_type'] == 'simple'): ?>
                                             <span class="badge bg-danger ms-2">AGOTADO</span>
                                         <?php endif; ?>

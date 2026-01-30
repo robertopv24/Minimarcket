@@ -208,13 +208,19 @@ class OrderManager
         // D. Procesar Extras (Modificadores)
         // Solo si estamos en el contexto de una orden (tenemos ID) y coincidimos con el índice
         if ($orderItemId) {
-            $this->processExtras($orderItemId, $targetIndex);
+            $this->processExtras($orderItemId, $targetIndex, $productId);
         }
     }
 
-    private function processExtras($orderItemId, $targetIndex)
+    private function processExtras($orderItemId, $targetIndex, $productId)
     {
-        // Buscar modificadores 'add' y 'side' para este índice
+        // 1. Obtener configuración del PRODUCTO ACTUAL (para saber si aplicamos lógica proporcional)
+        $stmtProd = $this->db->prepare("SELECT contour_logic_type FROM products WHERE id = ?");
+        $stmtProd->execute([$productId]);
+        $prodConfig = $stmtProd->fetch(PDO::FETCH_ASSOC);
+        $isProportional = ($prodConfig && ($prodConfig['contour_logic_type'] === 'proportional'));
+
+        // 2. Buscar modificadores 'add' y 'side' para este índice
         $sql = "SELECT modifier_type, component_id, component_type, quantity_adjustment 
                 FROM order_item_modifiers 
                 WHERE order_item_id = ? AND modifier_type IN ('add', 'side')";
@@ -232,8 +238,28 @@ class OrderManager
         $stmt->execute($params);
         $modifiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // 3. CALCULAR DIVISOR (Si es proporcional)
+        $divisor = 1;
+        if ($isProportional) {
+            $totalSides = 0;
+            foreach ($modifiers as $mod) {
+                if ($mod['modifier_type'] === 'side') {
+                    $totalSides++;
+                }
+            }
+            if ($totalSides > 0) {
+                $divisor = $totalSides;
+            }
+        }
+
         foreach ($modifiers as $mod) {
             $qty = floatval($mod['quantity_adjustment']) > 0 ? $mod['quantity_adjustment'] : 1;
+
+            // Si es un CONTORNO y la lógica es PROPORCIONAL, dividimos la cantidad base
+            if ($isProportional && $mod['modifier_type'] === 'side') {
+                $qty = $qty / $divisor;
+            }
+
             $type = $mod['component_type'] ?? 'raw';
             $id = $mod['component_id'];
 
@@ -293,7 +319,7 @@ class OrderManager
     {
         // CORRECCIÓN: Agregamos p.product_type al SELECT
         $stmt = $this->db->prepare("
-                SELECT oi.*, p.name, p.price_usd, p.product_type
+                SELECT oi.*, p.name, p.price_usd, p.product_type, p.short_code
                 FROM order_items oi
                 JOIN products p ON oi.product_id = p.id
                 WHERE order_id = ?
@@ -309,7 +335,12 @@ class OrderManager
                         WHEN m.component_type = 'raw' OR m.component_type IS NULL THEN rm.name
                         WHEN m.component_type = 'manufactured' THEN mp.name
                         WHEN m.component_type = 'product' THEN p.name
-                    END as ingredient_name
+                    END as ingredient_name,
+                    CASE 
+                        WHEN m.component_type = 'raw' OR m.component_type IS NULL THEN rm.short_code
+                        WHEN m.component_type = 'manufactured' THEN mp.short_code
+                        WHEN m.component_type = 'product' THEN p.short_code
+                    END as short_code
                 FROM order_item_modifiers m
                 LEFT JOIN raw_materials rm ON m.component_id = rm.id AND (m.component_type = 'raw' OR m.component_type IS NULL)
                 LEFT JOIN manufactured_products mp ON m.component_id = mp.id AND m.component_type = 'manufactured'

@@ -11,12 +11,30 @@ if (!isset($_SESSION['user_id'])) {
 }
 $userManager->requireKitchenAccess($_SESSION);
 
+$refreshSeconds = $config->get('kds_refresh_interval', 30);
+$colorLlevar = $config->get('kds_color_llevar', '#ef4444');
+$colorLocal = $config->get('kds_color_local', '#3b82f6');
+$warningMedium = $config->get('kds_warning_time_medium', 15);
+$warningLate = $config->get('kds_warning_time_late', 25);
+$soundEnabled = $config->get('kds_sound_enabled', '1');
+$useShortCodes = ($config->get('kds_use_short_codes', '0') == '1');
+
+// Nuevos colores
+$colorCardBg = $config->get('kds_color_card_bg', '#ffffff');
+$colorMixedBg = $config->get('kds_color_mixed_bg', '#fff3cd');
+$colorModAdd = $config->get('kds_color_mod_add', '#198754');
+$colorModRemove = $config->get('kds_color_mod_remove', '#dc3545');
+$colorModSide = $config->get('kds_color_mod_side', '#0dcaf0');
+$colorProductName = $config->get('kds_product_name_color', '#ffffff');
+$soundUrl = '../assets/sounds/ping_a.mp3'; // Standardizing to known working sound
+?>
+<?php
 // 1. OBTENER ÓRDENES (Paid o Preparing)
 $sql = "SELECT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address, 
                o.kds_kitchen_ready, o.kds_pizza_ready
         FROM orders o
         JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'preparing')
+        WHERE o.status IN ('paid', 'preparing', 'ready')
         ORDER BY o.created_at ASC";
 
 $stmt = $db->query($sql);
@@ -34,7 +52,6 @@ foreach ($ordenes as $orden) {
     foreach ($items as $item) {
         $pInfo = $productManager->getProductById($item['product_id']);
 
-        // 1. FILTRAR PRODUCTOS SIN ESTACIÓN (REVENTA)
         if (!$pInfo || empty($pInfo['kitchen_station']))
             continue;
 
@@ -54,41 +71,65 @@ foreach ($ordenes as $orden) {
                 if ($c['component_type'] == 'product') {
                     $compData = $productManager->getProductById($c['component_id']);
                 } elseif ($c['component_type'] == 'manufactured') {
-                    $stmtM = $db->prepare("SELECT kitchen_station, name FROM manufactured_products WHERE id = ?");
+                    $stmtM = $db->prepare("SELECT kitchen_station, name, short_code FROM manufactured_products WHERE id = ?");
                     $stmtM->execute([$c['component_id']]);
                     $compData = $stmtM->fetch(PDO::FETCH_ASSOC);
                 }
 
-                // Guardamos TODO para el contexto del combo
                 for ($k = 0; $k < $c['quantity']; $k++) {
                     $subItems[] = [
-                        'name' => $compData['name'] ?? 'ITEM',
-                        'station' => $compData['category_station'] ?? $compData['kitchen_station'] ?? '',
-                        'category_name' => $compData['category_name'] ?? ''
+                        'name' => ($useShortCodes && !empty($compData['short_code'])) ? $compData['short_code'] : ($compData['name'] ?? 'ITEM'),
+                        'station' => $compData['category_station'] ?? $compData['kitchen_station'] ?? ''
                     ];
                 }
             }
         }
 
+        // AÑADIR HEADER (is_main)
+        $mainItem = [
+            'qty' => $item['quantity'],
+            'name' => ($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name'],
+            'is_main' => true,
+            'mods' => [],
+            'num' => 0,
+            'is_takeaway' => false
+        ];
+
+        // Decidir en qué lista poner el header (o en ambas)
+        $pStation = $pInfo['category_station'] ?? $pInfo['kitchen_station'];
+        $hasForPizza = false;
+        $hasForKitchen = false;
+
+        if (!$isCompound) {
+            if ($pStation == 'pizza')
+                $hasForPizza = true;
+            if ($pStation == 'kitchen')
+                $hasForKitchen = true;
+        } else {
+            foreach ($subItems as $si) {
+                if ($si['station'] == 'pizza')
+                    $hasForPizza = true;
+                if ($si['station'] == 'kitchen')
+                    $hasForKitchen = true;
+            }
+        }
+
+        if ($hasForPizza && !$orden['kds_pizza_ready'])
+            $itemsParaPizza[] = $mainItem;
+        if ($hasForKitchen && !$orden['kds_kitchen_ready'])
+            $itemsParaCocina[] = $mainItem;
+
+        // 3. DETERMINAR BUCLE DE ÍTEMS / COMPONENTES
         $maxIdx = $isCompound ? count($subItems) : $item['quantity'];
         foreach (array_keys($groupedMods) as $idx)
             if ($idx >= $maxIdx)
                 $maxIdx = $idx + 1;
 
         for ($i = 0; $i <= $maxIdx; $i++) {
-            // NUCLEAR RESET: Asegurar que nada gotee de la iteración anterior
-            $currentMods = [];
-            $modsList = [];
-            $isTakeaway = false;
-            $compName = "";
-            $note = "";
-
             $currentMods = $groupedMods[$i] ?? [];
             if (empty($currentMods) && $isCompound && !isset($subItems[$i]))
                 continue;
             if (empty($currentMods) && !$isCompound && $i > 0)
-                continue;
-            if (!$isCompound && $i == 0 && $item['quantity'] == 0)
                 continue;
 
             $isTakeaway = false;
@@ -96,63 +137,98 @@ foreach ($ordenes as $orden) {
                 if ($m['modifier_type'] == 'info' && $m['is_takeaway'] == 1)
                     $isTakeaway = true;
 
+            // Ordenar modificadores: 1. Side (**), 2. Add (++), 3. Remove (--)
+            usort($currentMods, function ($a, $b) {
+                $order = ['side' => 1, 'add' => 2, 'remove' => 3];
+                $va = $order[$a['modifier_type']] ?? 99;
+                $vb = $order[$b['modifier_type']] ?? 99;
+                return $va <=> $vb;
+            });
+
             $modsList = [];
             foreach ($currentMods as $m) {
-                if ($m['modifier_type'] == 'remove')
-                    $modsList[] = "-- " . strtoupper($m['ingredient_name']);
-                elseif ($m['modifier_type'] == 'side')
-                    $modsList[] = "** " . strtoupper($m['ingredient_name']);
-                elseif ($m['modifier_type'] == 'add') {
-                    $modsList[] = "++ " . strtoupper($m['ingredient_name']);
+                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                $type = strtolower($m['modifier_type'] ?? '');
+
+                if ($type == 'remove') {
+                    $modsList[] = '<span style="color: var(--mod-remove);">-- ' . strtoupper($mName ?? '') . '</span>';
+                } elseif ($type == 'add') {
+                    $modsList[] = '<span style="color: var(--mod-add);">++ ' . strtoupper($mName ?? '') . '</span>';
+                } elseif ($type != 'info') {
+                    // Fallback para 'side' y cualquier otro tipo personalizado
+                    $modsList[] = '<span style="color: var(--mod-side);">** ' . strtoupper($mName ?? '') . '</span>';
                 }
             }
 
-            $note = ($i == 0 || $i == -1) ? ($groupedMods[-1][0]['note'] ?? "") : "";
-
             $compName = "";
-            $compStation = $pInfo['kitchen_station'];
-
             if ($isCompound && isset($subItems[$i])) {
                 $compName = $subItems[$i]['name'];
                 $compStation = $subItems[$i]['station'];
             } else {
-                // Para productos simples, priorizamos la estación de la categoría
-                $compStation = $pInfo['category_station'] ?? $pInfo['kitchen_station'];
+                $compStation = $pStation;
             }
 
-            // Filtrado ESTRICTO de estacíón (evita que reventa o BAR aparezcan en monitores cocina)
             $compStation = strtolower($compStation);
-            if (empty($compStation) || !in_array($compStation, ['pizza', 'kitchen']))
+            if (!in_array($compStation, ['pizza', 'kitchen']))
                 continue;
 
             $processedSub = [
-                'order_item_id' => $item['id'],
-                'sub_item_index' => $i,
                 'num' => $i + 1,
                 'name' => $compName ?: "",
                 'station' => $compStation,
-                'is_contour' => (!empty($compName)), // Marcamos si es contorno
+                'is_main' => false,
                 'is_takeaway' => $isTakeaway,
                 'mods' => $modsList,
-                'note' => $note
+                'note' => ($i == 0 || $i == -1) ? ($groupedMods[-1][0]['note'] ?? "") : ""
             ];
 
-            if ($i == 0 && $isCompound && empty($compName) && empty($modsList))
-                continue;
-
-            // En kds_tv.php: enviamos a la columna correspondiente SOLO SI NO ESTÁ LISTA
             if ($processedSub['station'] == 'pizza' && !$orden['kds_pizza_ready'])
-                $itemsParaPizza[] = $processedSub + ['main_name' => $item['name']];
-            elseif ($processedSub['station'] == 'kitchen' && !$orden['kds_kitchen_ready']) {
-                $itemsParaCocina[] = $processedSub + ['main_name' => $item['name']];
-            }
+                $itemsParaPizza[] = $processedSub;
+            elseif ($processedSub['station'] == 'kitchen' && !$orden['kds_kitchen_ready'])
+                $itemsParaCocina[] = $processedSub;
         }
     }
 
+    // DETECTAR SI ES MIXTO
+    $hasKitchen = false;
+    $hasPizza = false;
+    $allOrderItems = $orderManager->getOrderItems($orden['id']);
+    foreach ($allOrderItems as $ai) {
+        $aiInfo = $productManager->getProductById($ai['product_id']);
+        if (!$aiInfo)
+            continue;
+
+        $stations = [];
+        if ($ai['product_type'] == 'compound') {
+            $comps = $productManager->getProductComponents($ai['product_id']);
+            foreach ($comps as $c) {
+                if ($c['component_type'] == 'product') {
+                    $p = $productManager->getProductById($c['component_id']);
+                    $stations[] = $p['category_station'] ?? $p['kitchen_station'] ?? '';
+                } elseif ($c['component_type'] == 'manufactured') {
+                    $stmtM = $db->prepare("SELECT kitchen_station FROM manufactured_products WHERE id = ?");
+                    $stmtM->execute([$c['component_id']]);
+                    $mR = $stmtM->fetch(PDO::FETCH_ASSOC);
+                    $stations[] = $mR['kitchen_station'] ?? '';
+                }
+            }
+        } else {
+            $stations[] = $aiInfo['category_station'] ?? $aiInfo['kitchen_station'] ?? '';
+        }
+
+        foreach ($stations as $st) {
+            if ($st == 'kitchen')
+                $hasKitchen = true;
+            if ($st == 'pizza')
+                $hasPizza = true;
+        }
+    }
+    $isMixed = ($hasKitchen && $hasPizza);
+
     if (!empty($itemsParaPizza))
-        $listaPizza[] = ['info' => $orden, 'items' => $itemsParaPizza];
+        $listaPizza[] = ['info' => $orden, 'items' => $itemsParaPizza, 'is_mixed' => $isMixed, 'station_type' => 'pizza'];
     if (!empty($itemsParaCocina))
-        $listaCocina[] = ['info' => $orden, 'items' => $itemsParaCocina];
+        $listaCocina[] = ['info' => $orden, 'items' => $itemsParaCocina, 'is_mixed' => $isMixed, 'station_type' => 'kitchen'];
 }
 ?>
 <!DOCTYPE html>
@@ -161,19 +237,35 @@ foreach ($ordenes as $orden) {
 <head>
     <meta charset="UTF-8">
     <title>KDS - MONITOR TV</title>
-    <meta http-equiv="refresh" content="30">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-dark: #0f172a;
-            --card-white: #ffffff;
+            --card-white:
+                <?= $colorCardBg ?>
+            ;
+            --mixed-bg:
+                <?= $colorMixedBg ?>
+            ;
             --accent-red: #ef4444;
             --accent-orange: #f59e0b;
             --accent-blue: #3b82f6;
             --text-dark: #1e293b;
             --text-muted: #64748b;
+            --mod-add:
+                <?= $colorModAdd ?>
+            ;
+            --mod-remove:
+                <?= $colorModRemove ?>
+            ;
+            --mod-side:
+                <?= $colorModSide ?>
+            ;
+            --product-text:
+                <?= $colorProductName ?>
+            ;
         }
 
         body {
@@ -183,7 +275,7 @@ foreach ($ordenes as $orden) {
             margin: 0;
             height: 100vh;
             overflow: hidden;
-            font-size: 12px;
+            font-size: 13px;
         }
 
         .station-col {
@@ -197,10 +289,10 @@ foreach ($ordenes as $orden) {
             font-weight: 800;
             text-align: center;
             text-transform: uppercase;
-            padding: 0.25rem;
-            margin-bottom: 0.25rem;
+            padding: 0.35rem;
+            margin-bottom: 0.35rem;
             border-radius: 4px;
-            font-size: 0.85rem;
+            font-size: 1rem;
             letter-spacing: 1px;
             position: sticky;
             top: 0;
@@ -214,6 +306,13 @@ foreach ($ordenes as $orden) {
 
         .header-cocina {
             background: linear-gradient(135deg, #f59e0b, #92400e);
+        }
+
+        .grid-kds {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.4rem;
+            padding: 0.4rem;
         }
 
         .ticket {
@@ -251,8 +350,27 @@ foreach ($ordenes as $orden) {
             background-color: var(--accent-orange);
         }
 
+        /* Nuevos estados por tiempo */
+        .status-medium {
+            background-color: #3b82f6 !important;
+            /* Azul */
+        }
+
+        .status-late {
+            background-color: #ef4444 !important;
+            /* Rojo */
+        }
+
+        .ticket-mixed {
+            background-color: var(--mixed-bg) !important;
+        }
+
+        .ticket-mixed .ticket-body {
+            background-color: var(--mixed-bg) !important;
+        }
+
         .ticket-body {
-            padding: 0.25rem;
+            padding: 0.35rem;
         }
 
         .minimal-row {
@@ -265,10 +383,10 @@ foreach ($ordenes as $orden) {
         }
 
         .main-item-line {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 800;
-            color: #ef4444;
-            margin-bottom: 0.15rem;
+            color: var(--product-text) !important;
+            margin-bottom: 0.2rem;
             display: block;
         }
 
@@ -363,78 +481,190 @@ foreach ($ordenes as $orden) {
 </head>
 
 <body>
-    <div class="row h-100 g-0">
+    <!-- Init Sound Overlay (Moved Outside) -->
+    <div id="sound-init-overlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: pointer;">
+        <div class="text-center">
+            <i class="fa fa-bell fa-4x mb-3 text-primary"></i>
+            <h3>Activar Aviso TV</h3>
+            <p>Haz clic para iniciar sistema de audio</p>
+        </div>
+    </div>
+
+    <?php
+    // Merge visible lists to track WHAT IS ACTUALLY SHOWN
+    // Filter IDs from listaPizza and listaCocina
+    $visibleIds = [];
+    foreach ($listaPizza as $t)
+        $visibleIds[] = $t['info']['id'];
+    foreach ($listaCocina as $t)
+        $visibleIds[] = $t['info']['id'];
+    $visibleIds = array_unique($visibleIds); // Remove duplicates if same order is in both cols
+    $visibleIdsStr = implode(',', $visibleIds);
+    ?>
+    <div class="row h-100 g-0" id="main-monitor-row" data-visible-ids="<?= $visibleIdsStr ?>">
         <div class="col-6 station-col">
-            <div class="station-header header-pizza"><i class="fa-solid fa-pizza-slice me-2"></i> MONITOR PIZZAS</div>
-            <?php foreach ($listaPizza as $t)
-                renderTicket($t); ?>
+            <div class="station-header header-pizza d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-pizza-slice me-2"></i> MONITOR PIZZAS</span>
+                <button class="btn btn-sm btn-light text-danger border-0" onclick="playPing(true)"
+                    style="font-size:0.7rem; padding: 2px 6px;">
+                    <i class="fa fa-volume-high"></i>
+                </button>
+            </div>
+            <div class="grid-kds">
+                <?php foreach ($listaPizza as $t)
+                    renderTicket($t); ?>
+            </div>
         </div>
         <div class="col-6 station-col">
-            <div class="station-header header-cocina"><i class="fa-solid fa-burger me-2"></i> MONITOR COCINA</div>
-            <?php foreach ($listaCocina as $t)
-                renderTicket($t); ?>
+            <div class="station-header header-cocina d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-burger me-2"></i> MONITOR COCINA</span>
+                <button class="btn btn-sm btn-light text-warning border-0" onclick="playPing(true)"
+                    style="font-size:0.7rem; padding: 2px 6px;">
+                    <i class="fa fa-volume-high"></i>
+                </button>
+            </div>
+            <div class="grid-kds">
+                <?php foreach ($listaCocina as $t)
+                    renderTicket($t); ?>
+            </div>
         </div>
     </div>
 
     <script>
-        const lastOrderId = <?= count($ordenes) > 0 ? max(array_column($ordenes, 'id')) : 0 ?>;
+        // Use standard sound
+        const soundUrl = '<?= $config->get('kds_sound_url_dispatch', '../assets/sounds/ping_a.mp3') ?>';
 
-        // Sound logic
-        function playPing() {
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = context.createOscillator();
-            const gainNode = context.createGain();
+        let audioContext = null;
 
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, context.currentTime); // A5
-            oscillator.connect(gainNode);
-            gainNode.connect(context.destination);
+        function checkAudioState() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-            gainNode.gain.setValueAtTime(0, context.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.5, context.currentTime + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
-
-            oscillator.start();
-            oscillator.stop(context.currentTime + 0.5);
+            // Try to resume automatically (works if domain has high MEI)
+            audioContext.resume().then(() => {
+                if (audioContext.state === 'running') {
+                    document.getElementById('sound-init-overlay').style.display = 'none';
+                } else {
+                    document.getElementById('sound-init-overlay').style.display = 'flex';
+                }
+            }).catch(() => {
+                document.getElementById('sound-init-overlay').style.display = 'flex';
+            });
         }
 
-        // Check for new orders
-        const storedLastId = localStorage.getItem('kds_last_order_id_TV');
-        if (storedLastId && lastOrderId > parseInt(storedLastId)) {
-            playPing();
-        }
-        localStorage.setItem('kds_last_order_id_TV', lastOrderId);
+        // Run check on load
+        checkAudioState();
 
-        // Click handler for marking order as ready
-        document.querySelectorAll('.ticket-head').forEach(head => {
-            head.addEventListener('click', function () {
-                const orderId = this.dataset.orderId;
-                const station = this.dataset.station; // 'kitchen' o 'pizza'
-
-                fetch('../ajax/update_kds_status.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        order_id: orderId,
-                        station: station,
-                        status: 'ready'
-                    })
-                }).then(res => res.json()).then(data => {
-                    if (data.success) {
-                        // In TV view, we might have the same ticket twice. Find all of them.
-                        document.querySelectorAll(`.ticket-head[data-order-id="${orderId}"][data-station="${station}"]`).forEach(h => {
-                            h.closest('.ticket').style.opacity = '0.3';
-                            h.closest('.ticket').style.transform = 'scale(0.95)';
-                            h.closest('.ticket').style.pointerEvents = 'none';
-                        });
-                        setTimeout(() => location.reload(), 300);
-                    }
-                });
+        document.getElementById('sound-init-overlay').addEventListener('click', () => {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            audioContext.resume().then(() => {
+                document.getElementById('sound-init-overlay').style.display = 'none';
+                playPing(true); // Feedback sound
             });
         });
 
-        // Auto refresh
-        setTimeout(() => location.reload(), 30000);
+        function playPing(isTest = false) {
+            // 1. Try File
+            const audio = new Audio(soundUrl);
+            const playPromise = audio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.warn("File playback failed, switching to Oscillator:", error);
+                    playOscillatorBackup();
+                });
+            }
+        }
+
+        function playOscillatorBackup() {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 (Agudo para Ping)
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        // Logic: Detect New Orders via Set Difference (Handle Returns)
+        let currentIdsStr = document.getElementById('main-monitor-row').dataset.visibleIds || '';
+        let currentIds = currentIdsStr ? currentIdsStr.split(',') : [];
+
+        // AJAX Refresh Logic
+        function refreshKDS() {
+            // Anti-cache timestamp
+            const url = window.location.href.split('?')[0]; // Clean base URL
+            const params = new URLSearchParams(window.location.search);
+            params.set('ts', new Date().getTime());
+
+            fetch(`${url}?${params.toString()}`)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newRow = doc.getElementById('main-monitor-row');
+
+                    if (newRow) {
+                        const currentRow = document.getElementById('main-monitor-row');
+                        currentRow.innerHTML = newRow.innerHTML;
+
+                        // Update Data Attribute
+                        const newIdsStr = newRow.dataset.visibleIds || '';
+                        const newIds = newIdsStr ? newIdsStr.split(',') : [];
+                        currentRow.dataset.visibleIds = newIdsStr; // Update DOM state
+
+                        // Check for ANY ID in newIds that is NOT in currentIds
+                        const hasNew = newIds.some(id => !currentIds.includes(id));
+
+                        if (hasNew) {
+                            playPing();
+                        }
+                        currentIds = newIds;
+
+                        // Re-attach listeners
+                        attachClickListeners();
+                    }
+                })
+                .catch(err => console.error("Refresh failed", err));
+        }
+
+        setInterval(refreshKDS, <?= $refreshSeconds * 1000 ?>);
+
+        // Click handler to reusable function
+        function attachClickListeners() {
+            document.querySelectorAll('.ticket-head').forEach(head => {
+                head.addEventListener('click', function () {
+                    const orderId = this.dataset.orderId;
+                    const station = this.dataset.station;
+
+                    fetch('../ajax/update_kds_status.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            order_id: orderId,
+                            station: station,
+                            status: 'ready'
+                        })
+                    }).then(res => res.json()).then(data => {
+                        if (data.success) {
+                            this.closest('.ticket').style.opacity = '0.3';
+                            refreshKDS(); // Immediate refresh
+                        }
+                    });
+                });
+            });
+        }
+
+        // Initial attach
+        attachClickListeners();
     </script>
 </body>
 
@@ -450,16 +680,28 @@ function renderTicket($data)
         $mins = 0;
 
     $bgStatus = ($orden['status'] == 'paid') ? 'status-paid' : 'status-preparing';
-    $borderClass = ($mins > 25) ? 'late-warning' : (($mins > 15) ? 'medium-warning' : '');
+
+    global $warningMedium, $warningLate;
+    $borderClass = ($mins >= $warningLate) ? 'late-warning' : (($mins >= $warningMedium) ? 'medium-warning' : '');
+
+    // Prioridad de color por tiempo
+    if ($mins >= $warningLate) {
+        $bgStatus = 'status-late';
+    } elseif ($mins >= $warningMedium) {
+        $bgStatus = 'status-medium';
+    }
+
+    $mixedClass = ($data['is_mixed'] ?? false) ? 'ticket-mixed' : '';
     ?>
-    <div class="ticket <?= $borderClass ?>">
+    <div class="ticket <?= $borderClass ?> <?= $mixedClass ?>">
         <div class="ticket-head <?= $bgStatus ?> d-flex justify-content-between align-items-center"
-            data-order-id="<?= $orden['id'] ?>"
-            data-station="<?= (isset($items[0]) && $items[0]['station'] == 'pizza') ? 'pizza' : 'kitchen' ?>"
+            data-order-id="<?= $orden['id'] ?>" data-station="<?= $data['station_type'] ?? 'kitchen' ?>"
             title="Clic para marcar como LISTO">
             <div>
                 <span class="fw-bold">#<?= $orden['id'] ?></span>
-                <small class="ms-1 opacity-75 d-none d-sm-inline"><?= substr(strtoupper($orden['cliente']), 0, 8) ?></small>
+                <small class="ms-1 opacity-75 d-none d-sm-inline">
+                    <?= substr(strtoupper($orden['cliente']), 0, 8) ?>
+                </small>
                 <?php if ($orden['kds_kitchen_ready']): ?><i class="fa fa-fire ms-2 text-success"
                         title="Cocina Lista"></i><?php endif; ?>
                 <?php if ($orden['kds_pizza_ready']): ?><i class="fa fa-pizza-slice ms-1 text-danger"
@@ -468,41 +710,37 @@ function renderTicket($data)
             <span><?= $mins ?>m</span>
         </div>
         <div class="ticket-body">
-            <?php
-            $lastMain = "";
-            foreach ($items as $it):
-                if ($it['main_name'] !== $lastMain):
-                    $lastMain = $it['main_name']; ?>
-                    <span class="main-item-line"><?= strtoupper($it['main_name']) ?></span>
-                <?php endif; ?>
-
+            <?php foreach ($items as $it): ?>
                 <div class="minimal-row">
                     <?php if (isset($it['is_main']) && $it['is_main']): ?>
-                        <!-- No render here, kds_tv has a fixed title above -->
+                        <span class="main-item-line"><?= $it['qty'] ?> x <?= strtoupper($it['name']) ?></span>
                     <?php endif; ?>
 
                     <?php if (!(isset($it['is_main']) && $it['is_main']) && ($it['num'] > 0 || !empty($it['name']))): ?>
                         <div class="sub-item-line">
                             <span class="item-index">#<?= $it['num'] ?></span>
-                            <?php if ($it['is_takeaway']): ?>
-                                <span
-                                    class="tag-mini fw-bold px-1 text-white" style="font-size: 0.6rem; background-color: #ef4444 !important; border-color: #ef4444 !important;">LLEVAR</span>
+                            <?php
+                            global $colorLlevar, $colorLocal;
+                            if ($it['is_takeaway']): ?>
+                                <span class="tag-mini fw-bold px-1 text-white"
+                                    style="font-size: 0.6rem; background-color: <?= $colorLlevar ?> !important; border-color: <?= $colorLlevar ?> !important;">LLEVAR</span>
                             <?php else: ?>
-                                <span class="tag-mini fw-bold px-1 text-white" style="font-size: 0.6rem; background-color: #3b82f6 !important; border-color: #3b82f6 !important;">LOCAL</span>
+                                <span class="tag-mini fw-bold px-1 text-white"
+                                    style="font-size: 0.6rem; background-color: <?= $colorLocal ?> !important; border-color: <?= $colorLocal ?> !important;">LOCAL</span>
                             <?php endif; ?>
-                            <?= ($it['is_contour'] && !empty($it['name'])) ? "(" . strtoupper($it['name']) . ")" : (!empty($it['name']) ? strtoupper($it['name']) : "") ?>
+                            <?= (isset($it['is_contour']) && $it['is_contour'] && !empty($it['name'])) ? "(" . strtoupper($it['name']) . ")" : (!empty($it['name']) ? strtoupper($it['name']) : "") ?>
                         </div>
 
                         <?php if (!empty($it['mods'])): ?>
                             <?php foreach ($it['mods'] as $m): ?>
-                                <div class="mod-line <?= (strpos($m, '--') === 0) ? 'text-danger' : 'text-success' ?>">
+                                <div class="mod-line">
                                     <?= $m ?>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     <?php endif; ?>
 
-                    <?php if ($it['note']): ?>
+                    <?php if (isset($it['note']) && $it['note']): ?>
                         <div class="note-box"><i class="fa-solid fa-comment-dots me-1"></i>
                             <?= strtoupper($it['note']) ?></div>
                     <?php endif; ?>

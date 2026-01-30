@@ -62,6 +62,7 @@
 
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">SISTEMA</div>
                         <a href="../admin/usuarios.php" class="nav-item nav-link">Usuarios</a>
+                        <a href="../admin/kds_settings.php" class="nav-item nav-link">Configuración KDS</a>
                         <a href="../admin/proveedores.php" class="nav-item nav-link">Proveedores</a>
                     </div>
                 </div>
