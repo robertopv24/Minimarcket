@@ -10,11 +10,15 @@ class CartManager
         $this->db = $db;
     }
 
-    // 1. AGREGAR AL CARRITO
-    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in')
+    // 1. AGREGAR AL CARRITO (Mejorado para Plan v2)
+    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in', $parentCartId = null, $priceOverride = null)
     {
+        $startedTransaction = false;
         try {
-            $this->db->beginTransaction();
+            if (!$this->db->inTransaction()) {
+                $this->db->beginTransaction();
+                $startedTransaction = true;
+            }
 
             $productManager = new ProductManager($this->db);
             $product = $productManager->getProductById($product_id);
@@ -29,8 +33,8 @@ class CartManager
             if ($availableStock < $quantity)
                 throw new Exception("Stock insuficiente.");
 
-            $stmt = $this->db->prepare("INSERT INTO {$this->table_name} (user_id, product_id, quantity, consumption_type) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$user_id, $product_id, $quantity, $consumptionType]);
+            $stmt = $this->db->prepare("INSERT INTO {$this->table_name} (user_id, product_id, quantity, consumption_type, parent_cart_id, price_override) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$user_id, $product_id, $quantity, $consumptionType, $parentCartId, $priceOverride]);
             $cartId = $this->db->lastInsertId();
 
             if (empty($modifiers)) {
@@ -78,11 +82,7 @@ class CartManager
                         }
                     }
 
-                    // Si el producto se agrega con cantidad > 1, replicar los modificadores para cada unidad
-                    // PERO: Si los defaults ya venían para múltiples unidades (por ejemplo en un combo pre-configurado),
-                    // tal vez sea mejor no replicar ciegamente. 
-                    // Regla simple: Si solo hay un set de modificadores (idx 0), y qty > 1, replicar.
-                    // Si ya hay varios idx, dejar como está.
+                    // REPLICACION PARA QTY > 1 (Mismo que antes)
                     $maxIdx = count($modifiers['items']) > 0 ? max(array_keys($modifiers['items'])) : 0;
                     if ($maxIdx == 0 && $quantity > 1) {
                         $baseItem = $modifiers['items'][0];
@@ -95,6 +95,21 @@ class CartManager
                 }
             }
 
+            // --- LÓGICA DE ACOMPAÑANTES v2 (Independientes) ---
+            // Solo buscamos acompañantes si nosotros NO somos ya un acompañante (evitar bucles infinitos)
+            if ($parentCartId === null) {
+                $companions = $productManager->getCompanions($product_id);
+                foreach ($companions as $comp) {
+                    // Calculamos cantidad proporcional (ej: si pido 2 hamburguesas, van 2 cocas)
+                    $compQty = $quantity * floatval($comp['quantity']);
+                    $compPrice = $comp['price_override']; // Puede ser numérico o NULL
+
+                    // Llamada RECURSIVA para insertar el acompañante como item independiente
+                    $this->addToCart($user_id, $comp['companion_id'], $compQty, [], $consumptionType, $cartId, $compPrice);
+                }
+            }
+            // --------------------------------------------------
+
             if (!empty($modifiers)) {
                 $result = $this->updateItemModifiers($cartId, $modifiers);
                 if ($result !== true) {
@@ -102,11 +117,13 @@ class CartManager
                 }
             }
 
-            $this->db->commit();
+            if ($startedTransaction) {
+                $this->db->commit();
+            }
             return true;
 
         } catch (Exception $e) {
-            if ($this->db->inTransaction()) {
+            if ($startedTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             return "Error: " . $e->getMessage();
@@ -178,6 +195,22 @@ class CartManager
                             ]);
                         }
                     }
+
+                    // 5. Guardar Acompañantes (OBSOLETO en v2 - Ahora son items independientes)
+                    /*
+                    if (!empty($subItem['companions'])) {
+                        $stmtComp = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_type, component_id, quantity_adjustment, price_adjustment) VALUES (?, 'companion', ?, 'product', ?, ?, ?)");
+                        foreach ($subItem['companions'] as $comp) {
+                            $stmtComp->execute([
+                                $cartId,
+                                $idx,
+                                $comp['id'],
+                                $comp['qty'],
+                                $comp['price'] ?? 0
+                            ]);
+                        }
+                    }
+                    */
                 }
             }
 
@@ -201,7 +234,9 @@ class CartManager
     public function getCart($user_id)
     {
         $stmt = $this->db->prepare("
-            SELECT c.*, p.name, p.price_usd, p.price_ves, p.image_url, p.product_type
+            SELECT c.*, p.name, 
+                   COALESCE(c.price_override, p.price_usd) as price_usd, 
+                   p.price_ves, p.image_url, p.product_type
             FROM {$this->table_name} c
             JOIN products p ON c.product_id = p.id
             WHERE c.user_id = ?
@@ -260,6 +295,11 @@ class CartManager
                 } elseif ($mod['modifier_type'] == 'side') {
                     $extraPrice += floatval($mod['price_adjustment']);
                     $groupedMods[$idx]['desc'][] = "🔘 " . $mod['item_name'];
+                } elseif ($mod['modifier_type'] == 'companion') {
+                    // Lógica obsoleta para Plan v2, pero mantenemos compatibilidad por ahora si existen en DB
+                    $extraPrice += floatval($mod['price_adjustment']);
+                    $qtyText = floatval($mod['quantity_adjustment'] ?? 1);
+                    $groupedMods[$idx]['desc'][] = "<span class='fw-bold text-dark'>📦 [legacy] {$qtyText}x " . strtoupper($mod['item_name'] ?? '') . "</span>";
                 } elseif ($mod['modifier_type'] == 'remove') {
                     $groupedMods[$idx]['desc'][] = "SIN " . $mod['item_name'];
                 }
@@ -295,13 +335,43 @@ class CartManager
     {
         if ($quantity <= 0)
             return $this->removeFromCart($cartId);
+
+        // 1. Obtener la cantidad anterior para calcular el ratio
+        $stmtOld = $this->db->prepare("SELECT quantity FROM cart WHERE id = ?");
+        $stmtOld->execute([$cartId]);
+        $oldQty = floatval($stmtOld->fetchColumn() ?: 1);
+        $ratio = $quantity / $oldQty;
+
+        // 2. Actualizar el ítem principal
         $this->db->prepare("UPDATE {$this->table_name} SET quantity = ? WHERE id = ?")->execute([$quantity, $cartId]);
+
+        // 3. Actualizar acompañantes recursivamente
+        $stmtComp = $this->db->prepare("SELECT id, quantity FROM cart WHERE parent_cart_id = ?");
+        $stmtComp->execute([$cartId]);
+        $companions = $stmtComp->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($companions as $comp) {
+            $newCompQty = floatval($comp['quantity']) * $ratio;
+            $this->updateCartQuantity($comp['id'], $newCompQty);
+        }
+
         return true;
     }
 
     public function removeFromCart($cartId)
     {
+        // 1. Borrado en cascada de los acompañantes vinculados
+        $stmtComp = $this->db->prepare("SELECT id FROM cart WHERE parent_cart_id = ?");
+        $stmtComp->execute([$cartId]);
+        $companions = $stmtComp->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($companions as $comp) {
+            $this->removeFromCart($comp['id']);
+        }
+
+        // 2. Borrar modificadores
         $this->db->prepare("DELETE FROM cart_item_modifiers WHERE cart_id = ?")->execute([$cartId]);
+
+        // 3. Borrar el ítem
         return $this->db->prepare("DELETE FROM {$this->table_name} WHERE id = ?")->execute([$cartId]);
     }
 

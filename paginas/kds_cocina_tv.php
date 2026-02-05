@@ -133,7 +133,7 @@ foreach ($ordenesRaw as $orden) {
 
             $currentMods = $groupedMods[$i] ?? [];
 
-            // Ordenar modificadores: 1. Side (**), 2. Add (++), 3. Remove (--) 
+            // Ordenar modificadores: 1. Companion (0), 1. Side (**), 2. Add (++), 3. Remove (--) 
             usort($currentMods, function ($a, $b) {
                 $order = ['side' => 1, 'add' => 2, 'remove' => 3];
                 $va = $order[$a['modifier_type']] ?? 99;
@@ -167,6 +167,8 @@ foreach ($ordenesRaw as $orden) {
                     $isTakeaway = true;
 
             $modsList = [];
+            $companionItems = []; // NUEVO: Para guardar acompañantes detectados
+
             foreach ($currentMods as $m) {
                 $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
                 $type = strtolower($m['modifier_type'] ?? '');
@@ -176,23 +178,26 @@ foreach ($ordenesRaw as $orden) {
                 } elseif ($type == 'add') {
                     $modsList[] = '<span style="color: var(--mod-add);">++ ' . strtoupper($mName ?? '') . '</span>';
                 } elseif ($type != 'info') {
-                    // Fallback para 'side' y cualquier otro tipo personalizado
+                    // Fallback para 'side'
                     $modsList[] = '<span style="color: var(--mod-side);">** ' . strtoupper($mName ?? '') . '</span>';
                 }
             }
 
-            $itemsParaEstaEstacion[] = [
-                'order_item_id' => $item['id'],
-                'sub_item_index' => $i,
-                'num' => $i + 1,
-                'qty' => 1,
-                'name' => $compName ?: "",
-                'is_combo' => $isCompound,
-                'is_contour' => (!empty($compName)), // Marcamos si es contorno
-                'is_main' => false,
-                'mods' => $modsList,
-                'is_takeaway' => $isTakeaway
-            ];
+            // Primero el item base
+            if (!empty($compName) || $i == 0 || !empty($modsList)) {
+                $itemsParaEstaEstacion[] = [
+                    'order_item_id' => $item['id'],
+                    'sub_item_index' => $i,
+                    'num' => $i + 1,
+                    'qty' => 1,
+                    'name' => $compName ?: "",
+                    'is_combo' => $isCompound,
+                    'is_contour' => (!empty($compName)),
+                    'is_main' => false,
+                    'mods' => $modsList,
+                    'is_takeaway' => $isTakeaway
+                ];
+            }
         }
     }
 

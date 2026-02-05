@@ -246,6 +246,7 @@ class ProductManager
             'recipe' => 0,
             'sides' => 0,
             'packaging' => 0,
+            'companions' => 0,
             'total' => 0
         ];
 
@@ -314,6 +315,20 @@ class ProductManager
         }
         $totalCost += $packagingCost;
         $breakdown['packaging'] = $packagingCost;
+
+        // D. COSTO DE ACOMPAÑANTES (COMPANIONS) - NUEVO
+        $companionsCost = 0;
+        $companions = $this->getCompanions($productId);
+        if (!empty($companions)) {
+            foreach ($companions as $comp) {
+                // Un acompañante es un producto, calculamos su costo recursivamente (depth + 1)
+                $childCost = $this->calculateProductCost($comp['companion_id'], $depth + 1);
+                $companionsCost += ($childCost * floatval($comp['quantity']));
+            }
+        }
+        $totalCost += $companionsCost;
+        $breakdown['companions'] = $companionsCost;
+
         $breakdown['total'] = $totalCost;
 
         if ($depth === 0) {
@@ -502,14 +517,17 @@ class ProductManager
                     CASE 
                         WHEN pve.component_type = 'raw' THEN rm.name
                         WHEN pve.component_type = 'manufactured' THEN mp.name
+                        WHEN pve.component_type = 'product' THEN p.name
                     END as name,
                     CASE 
                         WHEN pve.component_type = 'raw' THEN rm.cost_per_unit
                         WHEN pve.component_type = 'manufactured' THEN mp.unit_cost_average
+                        WHEN pve.component_type = 'product' THEN p.price_usd
                     END as cost_per_unit
                 FROM product_valid_extras pve
                 LEFT JOIN raw_materials rm ON pve.component_id = rm.id AND pve.component_type = 'raw'
                 LEFT JOIN manufactured_products mp ON pve.component_id = mp.id AND pve.component_type = 'manufactured'
+                LEFT JOIN products p ON pve.component_id = p.id AND pve.component_type = 'product'
                 WHERE pve.product_id = ?
                 ORDER BY pve.is_default DESC, name ASC";
         $stmt = $this->db->prepare($sql);
@@ -531,6 +549,45 @@ class ProductManager
             $stmt = $this->db->prepare($sql);
             return $stmt->execute([$productId, $componentType, $componentId, $priceOverride, $qtyRequired]);
         }
+    }
+
+    public function getCompanions($productId)
+    {
+        $sql = "SELECT pc.*, p.name, p.price_usd as base_price
+                FROM product_companions pc
+                JOIN products p ON pc.companion_id = p.id
+                WHERE pc.product_id = ?
+                ORDER BY pc.is_default DESC, p.name ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$productId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function addCompanion($productId, $companionId, $qty = 1.00, $price = null)
+    {
+        // Check if exists
+        $check = $this->db->prepare("SELECT id FROM product_companions WHERE product_id = ? AND companion_id = ?");
+        $check->execute([$productId, $companionId]);
+        if ($check->fetch()) {
+            return $this->updateCompanion($productId, $companionId, $qty, $price);
+        }
+
+        $sql = "INSERT INTO product_companions (product_id, companion_id, quantity, price_override) VALUES (?, ?, ?, ?)";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$productId, $companionId, $qty, $price]);
+    }
+
+    public function removeCompanion($rowId)
+    {
+        $stmt = $this->db->prepare("DELETE FROM product_companions WHERE id = ?");
+        return $stmt->execute([$rowId]);
+    }
+
+    public function updateCompanion($productId, $companionId, $qty, $price)
+    {
+        $sql = "UPDATE product_companions SET quantity = ?, price_override = ? WHERE product_id = ? AND companion_id = ?";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([$qty, $price, $productId, $companionId]);
     }
 
     public function updateValidExtraQuantity($rowId, $priceOverride, $qtyRequired)

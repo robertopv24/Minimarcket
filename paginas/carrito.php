@@ -234,8 +234,6 @@ require_once '../templates/menu.php';
                                                             echo '<div class="mb-1"><span class="badge text-bg-danger text-wrap text-start"><i class="fa fa-times me-1"></i>Sin ' . htmlspecialchars($m['resolved_name']) . '</span></div>';
                                                         } elseif ($m['modifier_type'] == 'add') {
                                                             echo '<div class="mb-1"><span class="badge text-bg-success text-wrap text-start"><i class="fa fa-plus me-1"></i>' . htmlspecialchars($m['resolved_name']) . '</span></div>';
-                                                        } elseif ($m['modifier_type'] == 'side') {
-                                                            echo '<div class="mb-1"><span class="badge text-bg-info text-wrap text-start"><i class="fa fa-check me-1"></i>' . htmlspecialchars($m['resolved_name']) . '</span></div>';
                                                         }
                                                         ?>
                                                     <?php endforeach; ?>

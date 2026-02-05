@@ -144,6 +144,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mensaje = '<div class="alert alert-success">Configuración de empaque copiada.</div>';
         }
     }
+
+    // 16. AGREGAR ACOMPAÑANTE (NUEVO)
+    if ($action === 'add_companion') {
+        $productManager->addCompanion($productId, $_POST['companion_id'], $_POST['companion_qty'], $_POST['companion_price']);
+        $mensaje = '<div class="alert alert-success">Acompañante agregado.</div>';
+    }
+
+    // 17. ELIMINAR ACOMPAÑANTE (NUEVO)
+    if ($action === 'remove_companion') {
+        $productManager->removeCompanion($_POST['companion_row_id']);
+        $mensaje = '<div class="alert alert-warning">Acompañante eliminado.</div>';
+    }
+
+    // 18. ACTUALIZAR ACOMPAÑANTE (NUEVO)
+    if ($action === 'update_companion') {
+        $productManager->updateCompanion($productId, $_POST['companion_id'], $_POST['companion_qty'], $_POST['companion_price']);
+        $mensaje = '<div class="alert alert-success">Acompañante actualizado.</div>';
+    }
 }
 
 // ---------------------------------------------------------
@@ -164,7 +182,11 @@ $validExtras = $productManager->getValidExtras($productId);
 $validSides = $productManager->getValidSides($productId);
 
 // 5. Empaques Configurados (NUEVO)
+// 5. Empaques Configurados (NUEVO)
 $productPackaging = $productManager->getProductPackaging($productId);
+
+// 6. Acompañantes (NUEVO)
+$productCompanions = $productManager->getCompanions($productId);
 
 // Calcular Costo Base Total (Incluye Receta, Contornos y Empaque) con desglose
 $costBreakdown = $productManager->calculateProductCost($productId, 0, true);
@@ -259,6 +281,10 @@ require_once '../templates/menu.php';
                             <button class="nav-link text-success fw-bold" data-bs-toggle="tab"
                                 data-bs-target="#packaging">📦 Empaque</button>
                         </li>
+                        <li class="nav-item">
+                            <button class="nav-link text-primary fw-bold" data-bs-toggle="tab"
+                                data-bs-target="#companions">🤝 Acompañantes</button>
+                        </li>
                     </ul>
                 </div>
 
@@ -342,6 +368,7 @@ require_once '../templates/menu.php';
                                         class="form-select form-select-sm" required onchange="toggleExtraInputs()">
                                         <option value="raw">Materia Prima</option>
                                         <option value="manufactured">Cocina (Preparado)</option>
+                                        <option value="product">Producto</option>
                                     </select>
                                 </div>
 
@@ -359,6 +386,11 @@ require_once '../templates/menu.php';
                                         <?php foreach ($manufactured as $m): ?>
                                             <option value="<?= $m['id'] ?>" class="opt-manuf-extra" style="display:none;">
                                                 <?= $m['name'] ?> (<?= $m['unit'] ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($allProducts as $p): ?>
+                                            <option value="<?= $p['id'] ?>" class="opt-prod-extra" style="display:none;">
+                                                <?= $p['name'] ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -478,7 +510,103 @@ require_once '../templates/menu.php';
                             </form>
                         </div>
 
+                        <div class="tab-pane fade" id="companions">
+                            <div class="alert alert-primary small">
+                                <i class="fa fa-info-circle"></i> Aquí defines productos que se <strong>agregan
+                                    automáticamente</strong> al carrito junto con este producto (Ej: "Combo Hamburguesa"
+                                trae "Refresco" y "Papas").
+                            </div>
+
+                            <form method="POST" class="mb-3 border p-3 rounded bg-light">
+                                <input type="hidden" name="action" value="add_companion">
+
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold small">Seleccionar Producto Acompañante:</label>
+                                    <select name="companion_id" class="form-select form-select-sm select2" required>
+                                        <?php foreach ($allProducts as $p):
+                                            if ($p['id'] == $productId)
+                                                continue;
+                                            ?>
+                                            <option value="<?= $p['id'] ?>">
+                                                <?= $p['name'] ?> ($<?= $p['price_usd'] ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-6 mb-2">
+                                        <label class="form-label fw-bold small">Cantidad:</label>
+                                        <input type="number" step="0.0001" name="companion_qty"
+                                            class="form-control form-control-sm" value="1" required>
+                                    </div>
+                                    <div class="col-6 mb-2">
+                                        <label class="form-label fw-bold small">Precio Override (Opcional):</label>
+                                        <input type="number" step="0.01" name="companion_price"
+                                            class="form-control form-control-sm"
+                                            placeholder="Dejar vacío para precio oficial">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">
+                                    <i class="fa fa-plus-circle"></i> Agregar Acompañante
+                                </button>
+                            </form>
+                        </div>
+
                     </div>
+                </div>
+            </div>
+
+            <div class="card shadow border-primary mt-4">
+                <div
+                    class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fa fa-handshake"></i> Lista de Acompañantes</span>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0 small">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio ($)</th>
+                                <th class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($productCompanions as $pc): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($pc['name']) ?></td>
+                                    <td class="fw-bold"><?= floatval($pc['quantity']) ?></td>
+                                    <td class="fw-bold text-success">
+                                        <?php if ($pc['price_override'] !== null): ?>
+                                            $<?= number_format((float) $pc['price_override'], 2) ?>
+                                            <span class="badge bg-warning text-dark"
+                                                title="Precio original sobreescrito">*</span>
+                                        <?php else: ?>
+                                            $<?= number_format((float) $pc['base_price'], 2) ?>
+                                            <small class="text-muted">(Base)</small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end">
+                                        <form method="POST" style="display:inline;"
+                                            onsubmit="return confirmDelete(event, this, '¿Quitar este acompañante?')">
+                                            <input type="hidden" name="action" value="remove_companion">
+                                            <input type="hidden" name="companion_row_id" value="<?= $pc['id'] ?>">
+                                            <button class="btn btn-sm btn-outline-danger py-0">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            <?php if (empty($productCompanions)): ?>
+                                <tr>
+                                    <td colspan="4" class="text-center py-3 text-muted">No hay acompañantes definidos.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -492,22 +620,30 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
-                        <div class="col-4">
+                        <div class="col-3">
                             <div class="small text-muted">Receta Base</div>
                             <div class="fw-bold text-primary">$<?= number_format($costBreakdown['recipe'], 2) ?></div>
                         </div>
-                        <div class="col-4 border-start">
+                        <div class="col-3 border-start">
                             <div class="small text-muted">Contornos (avg)</div>
                             <div class="fw-bold text-primary">$<?= number_format($costBreakdown['sides'], 2) ?></div>
                             <?php if ($product['max_sides'] > 0): ?>
                                 <small class="badge bg-light text-dark border" style="font-size: 0.7em;">
-                                    Lógica: <?= $product['contour_logic_type'] === 'proportional' ? 'Proporcional' : 'Estándar' ?>
+                                    Lógica:
+                                    <?= $product['contour_logic_type'] === 'proportional' ? 'Proporcional' : 'Estándar' ?>
                                 </small>
                             <?php endif; ?>
                         </div>
-                        <div class="col-4 border-start">
+                        <div class="col-3 border-start">
                             <div class="small text-muted">Empaque</div>
-                            <div class="fw-bold text-primary">$<?= number_format($costBreakdown['packaging'], 2) ?></div>
+                            <div class="fw-bold text-primary">$<?= number_format($costBreakdown['packaging'], 2) ?>
+                            </div>
+                        </div>
+                        <div class="col-3 border-start">
+                            <div class="small text-muted">Acompañantes</div>
+                            <div class="fw-bold text-primary">
+                                $<?= number_format($costBreakdown['companions'] ?? 0, 2) ?>
+                            </div>
                         </div>
                     </div>
                     <hr class="my-2">
@@ -515,14 +651,15 @@ require_once '../templates/menu.php';
                         <span class="fw-bold">COSTO TOTAL DE PRODUCCIÓN:</span>
                         <span class="h4 mb-0 text-success fw-bold">$<?= number_format($totalCost, 2) ?></span>
                     </div>
-                    <?php 
+                    <?php
                     $price = floatval($product['price_usd']);
                     $profit = $price - $totalCost;
                     $margin = ($price > 0) ? ($profit / $price) * 100 : 0;
                     ?>
                     <div class="mt-2 d-flex justify-content-between align-items-center small">
                         <span class="text-muted">Margen sobre venta ($<?= number_format($price, 2) ?>):</span>
-                        <span class="badge <?= $margin > 20 ? 'bg-success' : ($margin > 10 ? 'bg-warning text-dark' : 'bg-danger') ?>">
+                        <span
+                            class="badge <?= $margin > 20 ? 'bg-success' : ($margin > 10 ? 'bg-warning text-dark' : 'bg-danger') ?>">
                             <?= number_format($margin, 1) ?>% ($<?= number_format($profit, 2) ?>)
                         </span>
                     </div>
@@ -622,8 +759,10 @@ require_once '../templates/menu.php';
                                 <tr>
                                     <td>
                                         <?= htmlspecialchars($ve['name']) ?>
-                                        <span
-                                            class="badge bg-light text-dark border small"><?= $ve['component_type'] == 'raw' ? 'Insumo' : 'Cocina' ?></span>
+                                        <?= htmlspecialchars($ve['name']) ?>
+                                        <span class="badge bg-light text-dark border small">
+                                            <?= $ve['component_type'] == 'raw' ? 'Insumo' : ($ve['component_type'] == 'product' ? 'Producto' : 'Cocina') ?>
+                                        </span>
                                     </td>
                                     <td class="fw-bold">
                                         <?= floatval($ve['quantity_required']) ?> <small
@@ -934,10 +1073,12 @@ require_once '../templates/menu.php';
         const select = document.getElementById('extra_component_select');
         const optsRaw = select.querySelectorAll('.opt-raw-extra');
         const optsManuf = select.querySelectorAll('.opt-manuf-extra');
+        const optsProd = select.querySelectorAll('.opt-prod-extra');
 
         if (type === 'raw') {
             optsRaw.forEach(o => o.style.display = '');
             optsManuf.forEach(o => o.style.display = 'none');
+            optsProd.forEach(o => o.style.display = 'none');
             // Seleccionar el primero visible si el actual no lo es
             if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
                 if (optsRaw.length > 0) select.value = optsRaw[0].value;
@@ -947,6 +1088,13 @@ require_once '../templates/menu.php';
             optsManuf.forEach(o => o.style.display = '');
             if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
                 if (optsManuf.length > 0) select.value = optsManuf[0].value;
+            }
+        } else if (type === 'product') {
+            optsRaw.forEach(o => o.style.display = 'none');
+            optsManuf.forEach(o => o.style.display = 'none');
+            optsProd.forEach(o => o.style.display = '');
+            if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
+                if (optsProd.length > 0) select.value = optsProd[0].value;
             }
         }
 

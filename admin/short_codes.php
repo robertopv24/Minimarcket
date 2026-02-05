@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_codes'])) {
 // OBTENER DATOS
 $rawItems = $db->query("SELECT id, name, short_code FROM raw_materials WHERE category = 'ingredient' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $manufactured = $db->query("SELECT id, name, short_code FROM manufactured_products ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
-$products = $db->query("SELECT id, name, short_code FROM products WHERE product_type = 'simple' ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$products = $db->query("SELECT id, name, short_code FROM products ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';

@@ -85,6 +85,15 @@ foreach ($currentDefaultsRaw as $def) {
     if ($def['modifier_type'] == 'side') $currentDefaults['items'][$idx]['sides'][] = (int)$def['component_id'];
 }
 
+// Obtener Acompañantes (Companions)
+$companions = $productManager->getCompanions($productId);
+$companionsCost = 0;
+foreach ($companions as $comp) {
+    // Usar costo de producción real del acompañante
+    $childCost = $productManager->calculateProductCost($comp['companion_id']);
+    $companionsCost += ($childCost * $comp['quantity']);
+}
+
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
 ?>
@@ -254,6 +263,38 @@ require_once '../templates/menu.php';
                         </div>
                     <?php endforeach; ?>
                 </div>
+
+                <?php if (!empty($companions)): ?>
+                <div class="card shadow-sm border-0 border-start border-4 border-primary mt-4">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary fw-bold"><i class="fa fa-handshake me-2"></i> Acompañantes Automáticos</h5>
+                        <p class="text-muted small mb-2">Estos productos se agregarán automáticamente al carrito junto con este producto.</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless mb-0">
+                                <thead class="text-secondary small">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Costo Extra</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($companions as $comp): 
+                                        $price = ($comp['price_override'] !== null) ? $comp['price_override'] : $comp['base_price'];
+                                        $total = $price * $comp['quantity'];
+                                    ?>
+                                        <tr>
+                                            <td class="fw-bold"><?= htmlspecialchars($comp['name']) ?></td>
+                                            <td><?= floatval($comp['quantity']) ?></td>
+                                            <td class="text-success fw-bold">+$<?= number_format($total, 2) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Analizador de Costos -->
@@ -271,6 +312,12 @@ require_once '../templates/menu.php';
                             <span>(+) Extras por Defecto:</span>
                             <span class="fw-bold" id="cost_extras">$0.00</span>
                         </div>
+                        <?php if ($companionsCost > 0): ?>
+                        <div class="d-flex justify-content-between mb-2 text-primary">
+                            <span>(+) Acompañantes:</span>
+                            <span class="fw-bold fw-extra">$<?= number_format($companionsCost, 2) ?></span>
+                        </div>
+                        <?php endif; ?>
                         <div class="d-flex justify-content-between mb-2 text-info">
                             <span>(+) Contornos/Lados:</span>
                             <span class="fw-bold" id="cost_sides">$0.00</span>
@@ -386,10 +433,21 @@ require_once '../templates/menu.php';
             });
         });
 
-        const totalFinal = (originalCost + extrasCost + sidesCost) - removalsSaving;
+        const companionsCost = <?= floatval($companionsCost) ?>;
+        const totalFinal = (originalCost + extrasCost + sidesCost + companionsCost) - removalsSaving;
 
         // Actualizar UI
         document.getElementById('cost_original').innerText = `$${originalCost.toFixed(2)}`;
+        document.getElementById('cost_extras').innerText = `+$${extrasCost.toFixed(2)}`;
+        
+        // Mostrar costo de acompañantes si existe
+        if (companionsCost > 0) {
+            let compElem = document.getElementById('cost_companions');
+            if (!compElem) {
+                // Si no existe el elemento, lo creamos dinamicamente (fallback) o asumimos que ya existe en el HTML
+                   // Mejor estrategia: Insertar el elemento en el HTML también
+            }
+        }
         document.getElementById('cost_extras').innerText = `+$${extrasCost.toFixed(2)}`;
 
         let sidesText = `+$${sidesCost.toFixed(2)}`;
