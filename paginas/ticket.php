@@ -163,11 +163,34 @@ if ($changeTx) {
 $customerTicket .= EOL;
 $customerTicket .= center("*** GRACIAS POR SU COMPRA ***") . EOL;
 $customerTicket .= EOL . EOL;
+$customerTicket .= EOL;
+$customerTicket .= EOL;
+$customerTicket .= EOL;
+$customerTicket .= EOL . EOL;
+$customerTicket .= line();
+
 
 // ---------------------------------------------------------
 // CONSTRUCCIÓN DEL TICKET COCINA (COMANDA)
 // ---------------------------------------------------------
 $kitchenTicket = "";
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
 $kitchenTicket .= center("- - - CORTE COCINA - - -") . EOL;
 $kitchenTicket .= EOL;
 $kitchenTicket .= center("ORDEN #" . $orderId) . EOL;
@@ -241,7 +264,7 @@ foreach ($items as $item) {
                 $isTakeaway = true;
         }
 
-        $tag = $isTakeaway ? '[TA]' : '[IN]';
+        $tag = $isTakeaway ? '[LLEVAR]' : '[LOCAL]';
         $componentLabel = isset($subNames[$i]) ? " ** (" . clean($subNames[$i]) . ")" : '';
 
         $kitchenTicket .= "   $tag #" . ($i + 1) . $componentLabel . EOL;
@@ -271,8 +294,17 @@ foreach ($items as $item) {
     $kitchenTicket .= str_repeat("=", WIDTH) . EOL;
 }
 $kitchenTicket .= ".";
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= EOL;
+$kitchenTicket .= line();
 ?>
-?>
+
 <?php
 // ... (PHP Logic from lines 1-231 remains unchanged, handled by startLine below)
 
@@ -309,7 +341,7 @@ require_once '../templates/menu.php';
 
     pre.ticket-content {
         font-family: 'Courier New', Courier, monospace;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: bold;
         line-height: 1.2;
         white-space: pre;
@@ -377,9 +409,7 @@ require_once '../templates/menu.php';
                 <button onclick="printSelect('customer')" class="btn btn-primary btn-lg w-100 mb-2">
                     <i class="fa fa-print"></i> Imprimir (Windows)
                 </button>
-                <button onclick="printServer('customer', this)" class="btn btn-warning btn-lg w-100 text-dark">
-                    <i class="fa fa-server"></i> Imprimir (Server USB)
-                </button>
+                
             </div>
         </div>
 
@@ -393,9 +423,7 @@ require_once '../templates/menu.php';
                 <button onclick="printSelect('kitchen')" class="btn btn-primary btn-lg w-100 mb-2">
                     <i class="fa fa-print"></i> Imprimir (Windows)
                 </button>
-                <button onclick="printServer('kitchen', this)" class="btn btn-warning btn-lg w-100 text-dark">
-                    <i class="fa fa-server"></i> Imprimir (Server USB)
-                </button>
+               
             </div>
         </div>
     </div>

@@ -105,6 +105,10 @@ try {
         // 4. Inventario (Igual para todos)
         $orderManager->deductStockFromSale($orderId);
         $cartManager->emptyCart($userId);
+        
+        // Limpiar cliente de la sesión tras completar la venta
+        unset($_SESSION['pos_client_id']);
+        unset($_SESSION['pos_client_name']);
 
         $db->commit();
         header("Location: ticket.php?id=" . $orderId . "&print=true");
@@ -162,9 +166,11 @@ try {
     $orderManager->deductStockFromSale($orderId);
     $cartManager->emptyCart($userId);
 
-    $db->commit();
-    // --- FIN TRANSACCIÓN ---
+    // Limpiar cliente de la sesión tras completar la venta
+    unset($_SESSION['pos_client_id']);
+    unset($_SESSION['pos_client_name']);
 
+    $db->commit();
     header("Location: ticket.php?id=" . $orderId . "&print=true");
     exit;
 

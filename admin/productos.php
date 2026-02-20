@@ -48,7 +48,6 @@ require_once '../templates/menu.php';
             <i class="fa fa-plus-circle"></i> Nuevo Producto
         </a>
     </div>
-
     <div class="row mb-4">
         <div class="col-md-4">
             <div class="card bg-primary text-white shadow">
@@ -134,10 +133,22 @@ require_once '../templates/menu.php';
                                     <td>
                                         <span class="fw-bold"><?= htmlspecialchars($producto['name']) ?></span>
 
+                                        <?php if ($producto['is_visible']): ?>
+                                            <span class="badge bg-success bg-opacity-10 text-success border border-success ms-1" style="font-size: 0.6em;" title="Visible en tienda">
+                                                <i class="fa fa-eye"></i>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger ms-1" style="font-size: 0.6em;" title="Oculto en tienda">
+                                                <i class="fa fa-eye-slash"></i>
+                                            </span>
+                                        <?php endif; ?>
+
                                         <?php if ($producto['product_type'] === 'prepared'): ?>
                                             <span class="badge bg-warning text-dark ms-1" style="font-size: 0.7em;">COCINA</span>
                                         <?php elseif ($producto['product_type'] === 'simple'): ?>
                                             <span class="badge bg-secondary ms-1" style="font-size: 0.7em;">REVENTA</span>
+                                        <?php elseif ($producto['product_type'] === 'compound'): ?>
+                                            <span class="badge bg-primary ms-1" style="font-size: 0.7em;">COMBO</span>
                                         <?php endif; ?>
 
                                         <?php if (($producto['contour_logic_type'] ?? 'standard') === 'proportional'): ?>
@@ -165,18 +176,30 @@ require_once '../templates/menu.php';
                                     </td>
 
                                     <td>
+                                        <?php 
+                                            $costBreakdown = $productManager->calculateProductCost($producto['id'], 0, true);
+                                            $totalCosto = $costBreakdown['total'];
+                                            $price = floatval($producto['price_usd']);
+                                            $profit = $price - $totalCosto;
+                                            $realMargin = ($price > 0) ? ($profit / $price) * 100 : 0;
+                                        ?>
                                         <div class="d-flex flex-column">
-                                            <span
-                                                class="fw-bold text-success">$<?= number_format($producto['price_usd'], 2) ?></span>
-                                            <span class="small text-muted"><?= number_format($producto['price_ves'], 2) ?>
-                                                Bs</span>
+                                            <span class="fw-bold text-success" title="Precio de Venta">$<?= number_format($producto['price_usd'], 2) ?></span>
+                                            <span class="small text-muted" title="Costo de Producción">Costo: $<?= number_format($totalCosto, 2) ?></span>
+                                            <?php if ($costBreakdown['sides'] > 0): ?>
+                                                <span class="text-primary" style="font-size: 0.7em;" title="Costo promedio de contornos">
+                                                    Avg Contornos: $<?= number_format($costBreakdown['sides'], 2) ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
 
                                     <td>
-                                        <span class="badge bg-info text-dark">
-                                            <?= number_format($producto['profit_margin'], 1) ?>%
+                                        <span class="badge <?= $realMargin > 20 ? 'bg-success' : ($realMargin > 10 ? 'bg-warning text-dark' : 'bg-danger') ?>">
+                                            <?= number_format($realMargin, 1) ?>%
                                         </span>
+                                        <br>
+                                        <small class="text-muted" style="font-size: 0.7em;">Ref: <?= number_format($producto['profit_margin'], 0) ?>%</small>
                                     </td>
 
                                     <td class="text-center">

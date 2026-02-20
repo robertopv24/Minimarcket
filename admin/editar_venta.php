@@ -25,11 +25,20 @@ if (!$venta) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nuevoEstado = $_POST['estado'];
     $tracking = $_POST['tracking_number'] ?? '';
+    $estadoAnterior = $venta['status'];
 
-    // Advertencia: Cambiar estado a 'cancelled' no devuelve stock automáticamente en esta versión básica.
-    // Se actualiza usando el Manager
     if ($orderManager->updateOrderStatus($ventaId, $nuevoEstado, $tracking)) {
-        $mensaje = '<div class="alert alert-success">Estado actualizado correctamente.</div>';
+        // SI PASA A CANCELADO: Devolver stock automáticamente
+        if ($nuevoEstado === 'cancelled' && $estadoAnterior !== 'cancelled') {
+            try {
+                $orderManager->revertStockFromSale($ventaId);
+                $mensaje = '<div class="alert alert-success">Estado actualizado y stock devuelto al inventario.</div>';
+            } catch (Exception $e) {
+                $mensaje = '<div class="alert alert-warning">Estado actualizado pero hubo un error con el stock: ' . $e->getMessage() . '</div>';
+            }
+        } else {
+            $mensaje = '<div class="alert alert-success">Estado actualizado correctamente.</div>';
+        }
         $venta = $orderManager->getOrderById($ventaId); // Refrescar datos
     } else {
         $mensaje = '<div class="alert alert-danger">Error al actualizar el estado.</div>';
@@ -65,8 +74,8 @@ require_once '../templates/menu.php';
                                 <option value="delivered" <?= ($venta['status'] === 'delivered') ? 'selected' : '' ?>>Entregado</option>
                                 <option value="cancelled" <?= ($venta['status'] === 'cancelled') ? 'selected' : '' ?>>Cancelado</option>
                             </select>
-                            <div class="form-text text-danger">
-                                <i class="fa fa-exclamation-circle"></i> Nota: Cambiar a "Cancelado" no devuelve el stock automáticamente. Debes ajustar el inventario manualmente si es necesario.
+                            <div class="form-text text-success">
+                                <i class="fa fa-check-circle"></i> Al cambiar a "Cancelado", el sistema devolverá automáticamente los insumos al inventario.
                             </div>
                         </div>
 

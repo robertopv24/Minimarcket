@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/conexion.php';
+require_once __DIR__ . '/ProductManager.php';
 
 class OrderManager
 {
@@ -33,13 +34,16 @@ class OrderManager
                 $total_price += $price * $item['quantity'];
             }
 
-            // Insertar la cabecera de la orden
-            $stmt = $this->db->prepare("INSERT INTO orders (user_id, total_price, shipping_address, shipping_method, status, created_at) VALUES (?, ?, ?, ?, 'pending', NOW())");
-            $stmt->execute([$user_id, $total_price, $shipping_address, $shipping_method]);
+            // Obtener tasa de cambio actual
+            $exchange_rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1.0000;
+
+            // Insertar la cabecera de la orden (Agregamos exchange_rate)
+            $stmt = $this->db->prepare("INSERT INTO orders (user_id, total_price, exchange_rate, shipping_address, shipping_method, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW())");
+            $stmt->execute([$user_id, $total_price, $exchange_rate, $shipping_address, $shipping_method]);
             $order_id = $this->db->lastInsertId();
 
-            // Preparar consultas para Ítems
-            $stmtItem = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, consumption_type) VALUES (?, ?, ?, ?, ?)");
+            // Preparar consultas para Ítems (Agregamos cost_at_sale)
+            $stmtItem = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, cost_at_sale, consumption_type) VALUES (?, ?, ?, ?, ?, ?)");
 
             // SQL PARA COPIAR MODIFICADORES (CORREGIDO: Column Count Match)
             // Seleccionamos '?' como primer valor para inyectar el order_item_id
@@ -50,14 +54,17 @@ class OrderManager
                             WHERE cart_id = ?";
 
             $stmtCopy = $this->db->prepare($sqlCopyMods);
+            $productManager = new ProductManager($this->db);
 
             foreach ($items as $item) {
                 $price = $item['unit_price_final'] ?? $item['price'];
+                $cost_at_sale = $productManager->calculateProductCost($item['product_id']);
+                
                 // El tipo global se puede dejar como dine_in, la verdad granular está en los modificadores
                 $cType = $item['consumption_type'] ?? 'dine_in';
 
                 // Insertar Item
-                $stmtItem->execute([$order_id, $item['product_id'], $item['quantity'], $price, $cType]);
+                $stmtItem->execute([$order_id, $item['product_id'], $item['quantity'], $price, $cost_at_sale, $cType]);
                 $order_item_id = $this->db->lastInsertId();
 
                 // Copiar sus modificadores si existen en el carrito
@@ -93,6 +100,20 @@ class OrderManager
      */
     public function deductStockFromSale($orderId)
     {
+        $this->handleStockChange($orderId, false);
+    }
+
+    /**
+     * 2b. REVERSIÓN DE STOCK (NUEVO)
+     * Devuelve los productos al inventario al cancelar una orden.
+     */
+    public function revertStockFromSale($orderId)
+    {
+        $this->handleStockChange($orderId, true);
+    }
+
+    private function handleStockChange($orderId, $isReversion = false)
+    {
         $sql = "SELECT oi.id as order_item_id, oi.product_id, oi.quantity
                 FROM order_items oi
                 WHERE oi.order_id = ?";
@@ -101,23 +122,19 @@ class OrderManager
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($items as $item) {
-            // 1. Procesar el producto principal (y sus sub-recetas recursivamente)
-            // Pasamos el order_item_id para buscar sus modificadores específicos
-            $this->processProductDeduction($item['product_id'], $item['quantity'], $item['order_item_id']);
+            // 1. Procesar el producto principal
+            $this->processProductDeduction($item['product_id'], $item['quantity'], $item['order_item_id'], null, $isReversion);
 
-            // 2. Procesar el empaque vinculado a este producto (NUEVO)
-            $this->processPackagingDeduction($item['product_id'], $item['quantity']);
+            // 2. Procesar el empaque
+            $this->processPackagingDeduction($item['product_id'], $item['quantity'], $isReversion);
         }
     }
 
     /**
-     * Función Recursiva Central
-     * @param int $productId ID del producto a descontar
-     * @param float $qty Cantidad a descontar
-     * @param int|null $orderItemId ID del item original (solo para buscar extras del nivel superior)
      * @param int $targetIndex Índice del sub-item en el combo (para extras granulares)
+     * @param bool $isReversion Si es true, suma stock en lugar de restar
      */
-    private function processProductDeduction($productId, $qty, $orderItemId = null, $targetIndex = null)
+    private function processProductDeduction($productId, $qty, $orderItemId = null, $targetIndex = null, $isReversion = false)
     {
         // A. Obtener datos del producto (Tipo y Link)
         $stmt = $this->db->prepare("SELECT product_type, linked_manufactured_id, stock FROM products WHERE id = ?");
@@ -133,25 +150,64 @@ class OrderManager
         // CASO 1: Enlace Directo (Prioridad Máxima)
         // Ej: Postre de Vaso, Refresco (si decidimos enlazarlo)
         if (!empty($product['linked_manufactured_id'])) {
-            $this->updateStock('manufactured_products', $product['linked_manufactured_id'], $qty);
+            $this->updateStock('manufactured_products', $product['linked_manufactured_id'], $qty, $isReversion);
             $stockDeducted = true;
         }
         // CASO 2: Producto Simple SIN Enlace
         // Ej: Lata de Refresco (Reventa pura)
         elseif ($product['product_type'] === 'simple') {
-            $this->updateStock('products', $productId, $qty);
-            $stockDeducted = true;
+            // NUEVO: Verificar si es un producto "Virtual" (tiene componentes aunque sea simple)
+            $stmtC = $this->db->prepare("SELECT COUNT(*) FROM product_components WHERE product_id = ?");
+            $stmtC->execute([$productId]);
+            $hasComponents = intval($stmtC->fetchColumn()) > 0;
+
+            if (!$hasComponents) {
+                $this->updateStock('products', $productId, $qty, $isReversion);
+                $stockDeducted = true;
+            } else {
+                // Es un producto virtual/contenedor. No descontamos stock físico,
+                // dejamos que la lógica de Explosión de Componentes (Caso 3) actúe.
+                $stockDeducted = false;
+            }
         }
         // CASO 3: Preparado o Compuesto (Pizza, Combo)
         // NO DESCONTAMOS stock de 'products' (evita negativos).
         // Se explota la receta/componentes.
 
         // C. Explosión de Componentes (Recetas y Combos)
+        $hasRecursed = false;
         if (!$stockDeducted) {
-            // Buscar componentes
-            $stmtComp = $this->db->prepare("SELECT component_type, component_id, quantity FROM product_components WHERE product_id = ?");
-            $stmtComp->execute([$productId]);
-            $components = $stmtComp->fetchAll(PDO::FETCH_ASSOC);
+
+            // NUEVA LOGICA: Verificar si este item tiene una receta personalizada por ser Acompañante
+            $customComponents = null;
+            if ($orderItemId) {
+                // Buscamos si hay un modifier 'companion_origin'
+                $stmtCheck = $this->db->prepare("SELECT component_id FROM order_item_modifiers WHERE order_item_id = ? AND modifier_type = 'companion_origin'");
+                $stmtCheck->execute([$orderItemId]);
+                $originCompanionId = $stmtCheck->fetchColumn();
+
+                if ($originCompanionId) {
+                    // Instanciamos ProductManager para buscar la receta exacta
+                    $pm = new ProductManager($this->db);
+                    $recipeData = $pm->getCompanionRecipe($originCompanionId);
+                    
+                    // Si es custom, usamos esa. Si es original, $customComponents sigue null y usa lógica estándar
+                    if ($recipeData['type'] === 'custom') {
+                        $customComponents = $recipeData['components']; 
+                        // OJO: La estructura retornada por getCompanionRecipe ya viene normalizada
+                    }
+                }
+            }
+
+            if ($customComponents !== null) {
+                // Usar Receta Personalizada
+                $components = $customComponents;
+            } else {
+                // Usar Receta Estándar
+                $stmtComp = $this->db->prepare("SELECT component_type, component_id, quantity FROM product_components WHERE product_id = ?");
+                $stmtComp->execute([$productId]);
+                $components = $stmtComp->fetchAll(PDO::FETCH_ASSOC);
+            }
 
             $subItemIndex = 0; // Contador para saber qué hijo del combo somos
 
@@ -160,59 +216,44 @@ class OrderManager
                 $totalNeeded = $comp['quantity'] * $qty;
 
                 if ($comp['component_type'] == 'product') {
+                    $hasRecursed = true;
                     // RECURSIVIDAD: Si el componente es otro producto (vender Combo -> Pizza)
-                    // Importante: Pasamos el $orderItemId original y el índice actual para que los extras sepan a quién pegarse
-                    // Nota: La lógica de cycle loops (recursividad infinita) debería prevenirse a nivel de datos, aquí asumimos DAG.
-
-                    // Iteramos qty veces porque los indices de extras son por UNIDAD de combo
-                    // Ej: 2 Combos. Combo tiene 1 Pizza.
-                    // Pizza #1 (Index 0 global del combo) -> Extras index 0
-                    // Pizza #2 (Index 1 global del combo) -> Extras index 1
-
-                    // Ajuste: Si vendimos 2 Combos, y el combo tiene 1 Pizza.
-                    // Tenemos Pizza_1 (del Combo_1) y Pizza_2 (del Combo_2).
-                    // Los modificadores están guardados linealmente por sub_item_index.
-
-                    // El $targetIndex que recibimos (o null) es el offset base.
-                    // Si esto es nivel raiz, offset es 0.
-
                     $baseOffset = $targetIndex !== null ? $targetIndex : 0;
 
-                    // Si el componente se repite N veces DENTRO del producto padre (ej: 2 Pizzas en 1 Combo)
-                    // Debemos iterar por cada instancia.
-
                     for ($i = 0; $i < $totalNeeded; $i++) {
-                        // Calculamos el índice "absoluto" de este sub-item en la lista de modificadores
-                        // Esta lógica es simplificada. Asume que los modificadores se aplanan en orden de componentes.
-                        // Para una implementación perfecta se requeriría un mapeo más robusto en cart_item_modifiers.
-                        // Por ahora usaremos el contador lineal $subItemIndex.
-
                         $currentSubLoopIndex = $subItemIndex + $i;
-
                         // Llamada recursiva (Descontar 1 unidad del hijo)
-                        $this->processProductDeduction($comp['component_id'], 1, $orderItemId, $currentSubLoopIndex);
+                        $this->processProductDeduction($comp['component_id'], 1, $orderItemId, $currentSubLoopIndex, $isReversion);
                     }
 
                     $subItemIndex += $totalNeeded;
 
                 } elseif ($comp['component_type'] == 'raw') {
                     // Ingrediente directo (Harina)
-                    $this->updateStock('raw_materials', $comp['component_id'], $totalNeeded);
+                    $this->updateStock('raw_materials', $comp['component_id'], $totalNeeded, $isReversion);
                 } elseif ($comp['component_type'] == 'manufactured') {
                     // Sub-producto (Salsa Napolitana)
-                    $this->updateStock('manufactured_products', $comp['component_id'], $totalNeeded);
+                    $this->updateStock('manufactured_products', $comp['component_id'], $totalNeeded, $isReversion);
                 }
             }
         }
 
         // D. Procesar Extras (Modificadores)
-        // Solo si estamos en el contexto de una orden (tenemos ID) y coincidimos con el índice
-        if ($orderItemId) {
-            $this->processExtras($orderItemId, $targetIndex, $productId);
+        // Solo si estamos en el contexto de una orden (tenemos ID)
+        // Y NO hemos delegado la responsabilidad a hijos (evita duplicación en Combos)
+        if ($orderItemId && (!$hasRecursed || $stockDeducted)) {
+            // Si es la llamada RAÍZ ($targetIndex === null) y qty > 1, procesamos todos los índices
+            if ($targetIndex === null && $qty > 1) {
+                for ($idx = 0; $idx < $qty; $idx++) {
+                    $this->processExtras($orderItemId, $idx, $productId, $isReversion);
+                }
+            } else {
+                $this->processExtras($orderItemId, $targetIndex, $productId, $isReversion);
+            }
         }
     }
 
-    private function processExtras($orderItemId, $targetIndex, $productId)
+    private function processExtras($orderItemId, $targetIndex, $productId, $isReversion = false)
     {
         // 1. Obtener configuración del PRODUCTO ACTUAL (para saber si aplicamos lógica proporcional)
         $stmtProd = $this->db->prepare("SELECT contour_logic_type FROM products WHERE id = ?");
@@ -264,17 +305,17 @@ class OrderManager
             $id = $mod['component_id'];
 
             if ($type == 'raw') {
-                $this->updateStock('raw_materials', $id, $qty);
+                $this->updateStock('raw_materials', $id, $qty, $isReversion);
             } elseif ($type == 'manufactured') {
-                $this->updateStock('manufactured_products', $id, $qty);
+                $this->updateStock('manufactured_products', $id, $qty, $isReversion);
             } elseif ($type == 'product') {
                 // RECURSIVIDAD: Si el contorno es un producto (ej: un combo que deja elegir otro producto)
-                $this->processProductDeduction($id, $qty);
+                $this->processProductDeduction($id, $qty, null, null, $isReversion);
             }
         }
     }
 
-    private function processPackagingDeduction($productId, $qty)
+    private function processPackagingDeduction($productId, $qty, $isReversion = false)
     {
         $sql = "SELECT raw_material_id, quantity FROM product_packaging WHERE product_id = ?";
         $stmt = $this->db->prepare($sql);
@@ -283,21 +324,29 @@ class OrderManager
 
         foreach ($packaging as $pack) {
             $totalNeeded = $pack['quantity'] * $qty;
-            $this->updateStock('raw_materials', $pack['raw_material_id'], $totalNeeded);
+            $this->updateStock('raw_materials', $pack['raw_material_id'], $totalNeeded, $isReversion);
         }
     }
 
-    private function updateStock($table, $id, $qty)
+    private function updateStock($table, $id, $qty, $isReversion = false)
     {
         $field = ($table == 'raw_materials') ? 'stock_quantity' : 'stock';
-        // ATOMIC CHECK: Only update if stock >= qty
-        $sql = "UPDATE {$table} SET {$field} = {$field} - ? WHERE id = ? AND {$field} >= ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$qty, $id, $qty]);
+        
+        if ($isReversion) {
+            // En reversión simplemente sumamos, no hace falta check de negativo
+            $sql = "UPDATE {$table} SET {$field} = {$field} + ? WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$qty, $id]);
+        } else {
+            // ATOMIC CHECK: Only update if stock >= qty
+            $sql = "UPDATE {$table} SET {$field} = {$field} - ? WHERE id = ? AND {$field} >= ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$qty, $id, $qty]);
 
-        if ($stmt->rowCount() === 0) {
-            // Rollback is handled by the parent try-catch in createOrder due to this exception
-            throw new Exception("Stock insuficiente en {$table} (ID: {$id}) para cubrir la demanda.");
+            if ($stmt->rowCount() === 0) {
+                // Rollback is handled by the parent try-catch in createOrder due to this exception
+                throw new Exception("Stock insuficiente en {$table} (ID: {$id}) para cubrir la demanda.");
+            }
         }
     }
 

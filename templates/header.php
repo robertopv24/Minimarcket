@@ -68,7 +68,7 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
     <link href="../css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Template Stylesheet -->
-    <link href="../css/style.css" rel="stylesheet">
+    <link href="../css/style.css?v=<?php echo time(); ?>" rel="stylesheet">
 
     <!-- JavaScript Libraries (Moved to Header for Stability) -->
     <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
@@ -84,6 +84,8 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
         <!-- Spinner Start -->
 
         <!-- Spinner End -->
+
+        <?php require_once 'menu.php'; ?>
 
         <!-- Content Start -->
         <div class="content">
@@ -126,7 +128,6 @@ $profile_pic = $_SESSION['user_profile_pic'] ?? 'default.jpg';
                                     <!-- Mostrar el menú para el usuario -->
 
                                     <a href="../paginas/perfil.php" class="nav-item nav-link ">Perfil</a>
-                                    <a href="../paginas/carrito.php" class="nav-item nav-link ">Carrito</a>
                                     <a href="../paginas/logout.php" class="nav-item nav-link ">Cerras Sesión</a>
 
 

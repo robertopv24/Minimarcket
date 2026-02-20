@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 05-02-2026 a las 19:28:14
+-- Tiempo de generación: 14-02-2026 a las 04:41:51
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -56,6 +56,14 @@ CREATE TABLE `cart` (
   `price_override` decimal(10,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish_ci;
 
+--
+-- Volcado de datos para la tabla `cart`
+--
+
+INSERT INTO `cart` (`id`, `user_id`, `product_id`, `quantity`, `consumption_type`, `parent_cart_id`, `price_override`) VALUES
+(190, 33, 216, 1, 'dine_in', NULL, NULL),
+(191, 33, 206, 1, 'dine_in', NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -74,6 +82,27 @@ CREATE TABLE `cart_item_modifiers` (
   `is_takeaway` tinyint(1) DEFAULT 0,
   `component_type` enum('raw','manufactured','product') DEFAULT 'raw'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish_ci;
+
+--
+-- Volcado de datos para la tabla `cart_item_modifiers`
+--
+
+INSERT INTO `cart_item_modifiers` (`id`, `cart_id`, `modifier_type`, `component_id`, `quantity_adjustment`, `price_adjustment`, `note`, `sub_item_index`, `is_takeaway`, `component_type`) VALUES
+(863, 0, '', 4, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(899, 0, '', 4, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(944, 0, '', 4, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(945, 0, '', 4, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1508, 0, '', 4, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1548, 0, '', 4, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1805, 0, '', 12, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1808, 1807, '', 23, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1814, 0, '', 10, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1817, 0, '', 12, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1818, 190, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(1819, 190, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1820, 191, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(1821, 191, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1822, 191, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw');
 
 -- --------------------------------------------------------
 
@@ -103,7 +132,9 @@ INSERT INTO `cash_sessions` (`id`, `user_id`, `opening_balance_usd`, `opening_ba
 (1, 4, 0.00, 0.00, 32.00, 0.00, 32.00, 0.00, 'closed', '2025-12-16 04:03:53', '2026-01-19 05:39:50'),
 (2, 4, 0.00, 0.00, 90.00, 0.00, 90.00, 0.00, 'closed', '2026-01-19 05:42:19', '2026-01-21 03:22:44'),
 (3, 4, 0.00, 0.00, 79.00, -245.00, 79.00, -245.00, 'closed', '2026-01-21 03:43:22', '2026-01-21 06:29:02'),
-(4, 4, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2026-01-21 20:12:25', NULL);
+(4, 4, 0.00, 0.00, 416.50, 0.00, 416.50, 0.00, 'closed', '2026-01-21 20:12:25', '2026-02-09 20:10:40'),
+(5, 33, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2026-02-09 20:11:51', NULL),
+(6, 4, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2026-02-12 20:33:12', NULL);
 
 -- --------------------------------------------------------
 
@@ -157,9 +188,11 @@ CREATE TABLE `clients` (
 
 INSERT INTO `clients` (`id`, `name`, `document_id`, `phone`, `email`, `address`, `credit_limit`, `current_debt`, `created_at`) VALUES
 (1, 'juan perez', '12345678', '04245555555', 'cliente_12345678@local.com', '', 0.000000, 0.000000, '2026-01-19 06:39:00'),
-(2, 'Test User 7214', 'DOC-7214', '555-7214', 'test7214@local.com', 'Calle Falsa 123', 100.000000, 0.000000, '2026-01-19 06:41:36'),
 (8, 'juan gonsalez', '12345677', '04245555556', 'cliente_12345677@local.com', '', 0.000000, 0.000000, '2026-01-19 07:08:57'),
-(9, 'Guest', '123456', '', 'cliente_123456@local.com', '', 0.000000, 0.000000, '2026-01-20 22:33:18');
+(10, 'roberto perozo', '19451788', '04246746570', 'cliente_19451788@local.com', '', 0.000000, 0.000000, '2026-02-07 01:13:02'),
+(12, 'robero gonsalez', '19451789', '04246746571', 'cliente_19451789@local.com', '', 0.000000, 0.000000, '2026-02-07 01:35:56'),
+(13, 'robero perez', '19451787', '', 'cliente_19451787@local.com', '', 0.000000, 0.000000, '2026-02-12 21:22:34'),
+(14, 'robero fermin', '12378739', '', 'cliente_12378739@local.com', '', 0.000000, 0.000000, '2026-02-12 21:28:45');
 
 -- --------------------------------------------------------
 
@@ -179,7 +212,7 @@ CREATE TABLE `company_vault` (
 --
 
 INSERT INTO `company_vault` (`id`, `balance_usd`, `balance_ves`, `last_updated`) VALUES
-(1, 26.30, 0.00, '2026-01-21 19:04:15');
+(1, 406.80, 0.00, '2026-02-13 21:47:52');
 
 -- --------------------------------------------------------
 
@@ -206,7 +239,7 @@ INSERT INTO `global_config` (`id`, `config_key`, `config_value`, `description`, 
 (3, 'default_language', 'es', 'Idioma predeterminado del sistema', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
 (4, 'timezone', 'America/Caracas', 'Zona horaria del sistema', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
 (5, 'currency', 'USD', 'Moneda predeterminada del sistema', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
-(6, 'exchange_rate', '490', 'Tasa de cambio USD-VES', '2025-02-21 12:14:27', '2026-01-16 02:35:48'),
+(6, 'exchange_rate', '500', 'Tasa de cambio USD-VES', '2025-02-21 12:14:27', '2026-02-10 03:44:40'),
 (7, 'admin_email', 'admin@miplataforma.com', 'Correo del administrador principal', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
 (8, 'support_email', 'soporte@miplataforma.com', 'Correo de soporte', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
 (9, 'maintenance_mode', '0', 'Modo mantenimiento (1 = activado, 0 = desactivado)', '2025-02-21 12:14:27', '2025-03-10 06:18:14'),
@@ -259,10 +292,10 @@ INSERT INTO `global_config` (`id`, `config_key`, `config_value`, `description`, 
 (56, 'kds_warning_time_late', '25', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
 (57, 'kds_use_short_codes', '1', NULL, '2026-02-02 11:02:55', '2026-02-02 11:03:15'),
 (58, 'kds_color_card_bg', '#ffffff', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
-(59, 'kds_color_mixed_bg', '#fff3cd', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
+(59, 'kds_color_mixed_bg', '#aaa9a7', NULL, '2026-02-02 11:02:55', '2026-02-06 22:46:19'),
 (60, 'kds_color_mod_add', '#198754', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
 (61, 'kds_color_mod_remove', '#dc3545', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
-(62, 'kds_color_mod_side', '#0dcaf0', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
+(62, 'kds_color_mod_side', '#0030f0', NULL, '2026-02-02 11:02:55', '2026-02-06 22:47:21'),
 (63, 'kds_product_name_color', '#000000', NULL, '2026-02-02 11:02:55', '2026-02-02 11:02:55'),
 (64, 'kds_sound_url_kitchen', '../assets/sounds/ping_a.mp3', NULL, '2026-02-02 11:02:55', '2026-02-02 11:06:50'),
 (65, 'kds_sound_url_pizza', '../assets/sounds/ping_b.mp3', NULL, '2026-02-02 11:02:55', '2026-02-02 11:06:50'),
@@ -323,19 +356,19 @@ CREATE TABLE `manufactured_products` (
 --
 
 INSERT INTO `manufactured_products` (`id`, `name`, `unit`, `stock`, `unit_cost_average`, `last_production_date`, `min_stock`, `short_code`) VALUES
-(1, 'Masa Pizza', 'kg', 2.060000, 1.391400, '2026-01-21 03:06:35', 0.000000, NULL),
-(2, 'Salsa Napoles', 'lt', 2.250000, 0.121250, '2026-01-20 22:42:45', 0.000000, NULL),
-(3, 'Carne de hamburguesa', 'kg', 1.540000, 7.810815, '2026-01-19 00:33:32', 0.000000, NULL),
-(4, 'Carne de hamburguesa Americana', 'kg', 4.460000, 11.100300, '2026-01-19 01:11:15', 0.000000, NULL),
-(5, 'Carne Mechada', 'kg', 1.000000, 266.952000, '2026-01-19 00:02:22', 0.000000, NULL),
-(6, 'File de Pollo', 'kg', 2.240000, 6.710810, '2026-01-19 00:08:51', 0.000000, NULL),
-(7, 'Pernil Preparado', 'kg', 2.000000, 31.862000, '2026-01-21 00:16:40', 0.000000, NULL),
-(8, 'Lomito preparado', 'kg', 4.680000, 15.081591, '2026-01-19 00:34:10', 0.000000, NULL),
-(9, 'Mezcla para Rebozar (Tumbarrancho)', 'kg', 0.920000, 2.110800, '2026-01-15 23:11:33', 0.000000, NULL),
-(10, 'Viuda (Tumbarrancho)', 'und', 25.000000, 0.050600, '2026-01-21 00:13:49', 0.000000, NULL),
-(11, 'Wasakaka', 'kg', 1.980000, 86.723000, '2026-01-19 00:03:19', 0.000000, NULL),
-(12, 'salsa americana', 'kg', 0.820000, 106.460000, '2026-01-19 00:03:08', 0.000000, NULL),
-(13, 'Mezcla para Rebozar (crispy)', 'kg', 5.000000, 4.398062, '2026-01-21 00:19:21', 0.000000, NULL);
+(1, 'Masa Pizza', 'kg', 9.950000, 1.391400, '2026-02-13 17:49:22', 0.000000, NULL),
+(2, 'Salsa Napoles', 'lt', 6.790000, 0.121250, '2026-02-06 15:42:59', 0.000000, NULL),
+(3, 'Carne de hamburguesa', 'kg', 7.880000, 7.810815, '2026-02-06 15:39:55', 0.000000, NULL),
+(4, 'Carne de hamburguesa Americana', 'kg', 3.280000, 11.100300, '2026-02-06 15:40:07', 0.000000, NULL),
+(5, 'Carne Mechada', 'kg', 4.000000, 17.202000, '2026-02-06 15:40:21', 0.000000, NULL),
+(6, 'File de Pollo', 'kg', 3.280000, 6.710810, '2026-02-06 15:40:36', 0.000000, NULL),
+(7, 'Pernil Preparado', 'kg', 4.000000, 31.862000, '2026-02-06 15:42:12', 0.000000, NULL),
+(8, 'Lomito preparado', 'kg', 4.000000, 15.081591, '2026-02-06 15:40:48', 0.000000, NULL),
+(9, 'Mezcla para Rebozar (Tumbarrancho)', 'kg', 4.000000, 1.457750, '2026-02-06 15:42:24', 0.000000, NULL),
+(10, 'Viuda (Tumbarrancho)', 'und', 49.000000, 0.050600, '2026-02-06 15:43:10', 0.000000, NULL),
+(11, 'Wasakaka', 'kg', 4.000000, 6.803000, '2026-02-06 15:43:22', 0.000000, NULL),
+(12, 'salsa americana', 'kg', 1.700000, 4.923600, '2026-02-06 15:42:35', 0.000000, NULL),
+(13, 'Mezcla para Rebozar (crispy)', 'kg', 3.620000, 4.398062, '2026-02-06 15:41:59', 0.000000, NULL);
 
 -- --------------------------------------------------------
 
@@ -407,6 +440,7 @@ CREATE TABLE `orders` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
   `total_price` decimal(10,2) NOT NULL,
+  `exchange_rate` decimal(10,4) DEFAULT 1.0000,
   `status` enum('pending','paid','preparing','ready','delivered','cancelled') DEFAULT 'pending',
   `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'dine_in',
   `shipping_address` text NOT NULL,
@@ -422,33 +456,45 @@ CREATE TABLE `orders` (
 -- Volcado de datos para la tabla `orders`
 --
 
-INSERT INTO `orders` (`id`, `user_id`, `total_price`, `status`, `consumption_type`, `shipping_address`, `shipping_method`, `tracking_number`, `created_at`, `updated_at`, `kds_kitchen_ready`, `kds_pizza_ready`) VALUES
-(1, 4, 14.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-17 03:20:59', '2026-01-21 00:16:45', 0, 0),
-(2, 4, 4.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-17 22:06:06', '2026-01-21 00:05:39', 0, 0),
-(4, 4, 18.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-19 03:26:38', '2026-01-21 00:06:18', 0, 0),
-(5, 4, 23.00, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-19 07:01:16', '2026-01-21 00:35:27', 0, 0),
-(7, 4, 33.50, 'delivered', 'dine_in', 'juan perez', NULL, '', '2026-01-20 22:58:30', '2026-01-21 00:35:28', 0, 0),
-(8, 4, 21.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 00:29:04', '2026-01-21 00:35:29', 0, 0),
-(9, 4, 20.50, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 00:39:46', '2026-01-21 04:25:31', 0, 0),
-(10, 4, 13.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 03:09:20', '2026-01-21 04:25:30', 0, 0),
-(11, 4, 23.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 03:44:23', '2026-01-21 06:31:23', 0, 0),
-(12, 4, 5.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 04:26:10', '2026-01-21 06:31:24', 0, 0),
-(13, 4, 39.50, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 04:35:41', '2026-01-21 06:31:25', 0, 0),
-(14, 4, 11.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 05:54:07', '2026-01-21 06:31:26', 0, 0),
-(15, 4, 2.54, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 20:14:12', '2026-01-21 20:26:31', 0, 0),
-(16, 4, 13.54, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 20:18:48', '2026-01-21 20:27:50', 0, 0),
-(17, 4, 5.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 21:55:52', '2026-01-25 07:49:16', 1, 0),
-(18, 4, 23.00, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 22:06:20', '2026-01-25 07:49:43', 1, 1),
-(19, 31, 4.00, 'pending', 'dine_in', 'Test Address', 'Test Method', NULL, '2026-01-23 20:59:48', NULL, 0, 0),
-(20, 31, 4.00, 'pending', 'dine_in', 'Test Address', 'Test Method', NULL, '2026-01-23 21:00:52', NULL, 0, 0),
-(21, 4, 33.54, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-24 22:37:47', '2026-01-25 07:48:11', 1, 1),
-(22, 4, 25.54, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-01-25 04:27:56', '2026-01-25 07:49:59', 1, 1),
-(23, 4, 17.00, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-01-25 08:05:39', '2026-01-25 08:17:25', 1, 1),
-(24, 4, 230.00, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-01-25 08:17:00', '2026-01-25 08:17:19', 1, 1),
-(25, 4, 2.00, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 11:05:17', '2026-02-02 13:22:36', 1, 0),
-(26, 4, 6.50, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 12:31:52', '2026-02-02 13:22:36', 1, 0),
-(27, 4, 6.50, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 13:04:42', '2026-02-02 13:22:37', 1, 0),
-(28, 4, 6.50, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 13:21:26', '2026-02-02 13:22:38', 1, 0);
+INSERT INTO `orders` (`id`, `user_id`, `total_price`, `exchange_rate`, `status`, `consumption_type`, `shipping_address`, `shipping_method`, `tracking_number`, `created_at`, `updated_at`, `kds_kitchen_ready`, `kds_pizza_ready`) VALUES
+(1, 4, 14.00, 490.0000, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-17 03:20:59', '2026-02-13 20:47:55', 0, 0),
+(2, 4, 4.00, 490.0000, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-17 22:06:06', '2026-02-13 20:47:55', 0, 0),
+(4, 4, 18.00, 490.0000, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-19 03:26:38', '2026-02-13 20:47:55', 0, 0),
+(5, 4, 23.00, 490.0000, 'delivered', 'dine_in', 'Tienda Física', NULL, NULL, '2026-01-19 07:01:16', '2026-02-13 20:47:55', 0, 0),
+(7, 4, 33.50, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, '', '2026-01-20 22:58:30', '2026-02-13 20:47:55', 0, 0),
+(8, 4, 21.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 00:29:04', '2026-02-13 20:47:55', 0, 0),
+(9, 4, 20.50, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 00:39:46', '2026-02-13 20:47:55', 0, 0),
+(10, 4, 13.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 03:09:20', '2026-02-13 20:47:55', 0, 0),
+(11, 4, 23.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 03:44:23', '2026-02-13 20:47:55', 0, 0),
+(12, 4, 5.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 04:26:10', '2026-02-13 20:47:55', 0, 0),
+(13, 4, 39.50, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 04:35:41', '2026-02-13 20:47:55', 0, 0),
+(14, 4, 11.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 05:54:07', '2026-02-13 20:47:55', 0, 0),
+(15, 4, 2.54, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 20:14:12', '2026-02-13 20:47:55', 0, 0),
+(16, 4, 13.54, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 20:18:48', '2026-02-13 20:47:55', 0, 0),
+(17, 4, 5.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 21:55:52', '2026-02-13 20:47:55', 1, 0),
+(18, 4, 23.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-21 22:06:20', '2026-02-13 20:47:55', 1, 1),
+(21, 4, 33.54, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-01-24 22:37:47', '2026-02-13 20:47:55', 1, 1),
+(22, 4, 25.54, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-01-25 04:27:56', '2026-02-13 20:47:55', 1, 1),
+(23, 4, 17.00, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-01-25 08:05:39', '2026-02-13 20:47:55', 1, 1),
+(24, 4, 230.00, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-01-25 08:17:00', '2026-02-13 20:47:55', 1, 1),
+(25, 4, 2.00, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 11:05:17', '2026-02-13 20:47:55', 1, 0),
+(26, 4, 6.50, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 12:31:52', '2026-02-13 20:47:55', 1, 0),
+(27, 4, 6.50, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 13:04:42', '2026-02-13 20:47:55', 1, 0),
+(28, 4, 6.50, 490.0000, 'delivered', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-02 13:21:26', '2026-02-13 20:47:55', 1, 0),
+(29, 4, 24.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-02-06 22:42:22', '2026-02-13 20:47:55', 1, 1),
+(30, 4, 17.00, 490.0000, 'delivered', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-08 00:44:48', '2026-02-13 20:47:55', 1, 1),
+(31, 4, 28.00, 490.0000, 'delivered', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-09 19:17:21', '2026-02-13 20:47:55', 1, 1),
+(32, 4, 11.00, 490.0000, 'delivered', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-09 19:34:44', '2026-02-13 20:47:55', 0, 1),
+(33, 4, 8.50, 490.0000, 'delivered', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-09 19:35:20', '2026-02-13 20:47:55', 1, 0),
+(34, 33, 11.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-02-09 20:18:38', '2026-02-13 20:47:55', 0, 1),
+(35, 4, 18.00, 500.0000, 'delivered', 'dine_in', 'robero fermin', NULL, NULL, '2026-02-12 22:29:32', '2026-02-13 20:47:55', 1, 0),
+(36, 4, 16.00, 500.0000, 'ready', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-12 22:37:38', '2026-02-13 20:47:55', 1, 1),
+(42, 4, 2.00, 500.0000, 'preparing', 'dine_in', 'robero perez', NULL, NULL, '2026-02-13 03:04:23', '2026-02-13 20:47:55', 0, 0),
+(43, 4, 4.00, 500.0000, 'preparing', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-13 03:15:32', '2026-02-13 20:47:55', 0, 0),
+(44, 4, 16.00, 500.0000, 'ready', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-13 18:57:18', '2026-02-13 20:47:55', 0, 1),
+(45, 4, 15.00, 500.0000, 'ready', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-13 18:59:05', '2026-02-13 20:47:55', 0, 1),
+(46, 4, 12.00, 500.0000, 'ready', 'dine_in', 'robero perez', NULL, NULL, '2026-02-13 18:59:51', '2026-02-13 20:47:55', 1, 1),
+(47, 4, 4.00, 500.0000, 'ready', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-13 19:02:18', '2026-02-13 20:47:55', 1, 0);
 
 -- --------------------------------------------------------
 
@@ -462,6 +508,7 @@ CREATE TABLE `order_items` (
   `product_id` int(11) NOT NULL,
   `quantity` int(11) NOT NULL,
   `price` decimal(10,2) NOT NULL,
+  `cost_at_sale` decimal(10,2) DEFAULT 0.00,
   `consumption_type` enum('dine_in','takeaway','delivery') DEFAULT 'dine_in',
   `parent_item_id` int(11) DEFAULT NULL,
   `price_override` decimal(10,2) DEFAULT NULL
@@ -471,51 +518,72 @@ CREATE TABLE `order_items` (
 -- Volcado de datos para la tabla `order_items`
 --
 
-INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, `consumption_type`, `parent_item_id`, `price_override`) VALUES
-(1, 1, 180, 2, 5.00, 'dine_in', NULL, NULL),
-(2, 1, 180, 1, 4.00, 'dine_in', NULL, NULL),
-(3, 2, 180, 1, 4.00, 'dine_in', NULL, NULL),
-(7, 4, 201, 1, 18.00, 'dine_in', NULL, NULL),
-(8, 5, 138, 1, 23.00, 'dine_in', NULL, NULL),
-(13, 7, 138, 1, 23.00, 'dine_in', NULL, NULL),
-(14, 7, 180, 1, 5.00, 'dine_in', NULL, NULL),
-(15, 7, 96, 1, 4.00, 'dine_in', NULL, NULL),
-(16, 7, 101, 1, 1.50, 'dine_in', NULL, NULL),
-(17, 8, 202, 1, 15.00, 'dine_in', NULL, NULL),
-(18, 8, 180, 1, 4.00, 'dine_in', NULL, NULL),
-(19, 8, 134, 1, 2.00, 'dine_in', NULL, NULL),
-(20, 9, 193, 1, 11.00, 'dine_in', NULL, NULL),
-(21, 9, 180, 1, 5.00, 'dine_in', NULL, NULL),
-(22, 9, 136, 1, 3.00, 'dine_in', NULL, NULL),
-(23, 9, 101, 1, 1.50, 'dine_in', NULL, NULL),
-(24, 10, 194, 1, 13.00, 'dine_in', NULL, NULL),
-(25, 11, 138, 1, 23.00, 'dine_in', NULL, NULL),
-(26, 12, 180, 1, 5.00, 'dine_in', NULL, NULL),
-(27, 13, 146, 1, 16.50, 'dine_in', NULL, NULL),
-(28, 13, 138, 1, 23.00, 'dine_in', NULL, NULL),
-(29, 14, 193, 1, 11.00, 'dine_in', NULL, NULL),
-(30, 15, 134, 1, 2.54, 'dine_in', NULL, NULL),
-(31, 16, 193, 1, 11.00, 'dine_in', NULL, NULL),
-(32, 16, 134, 1, 2.54, 'dine_in', NULL, NULL),
-(33, 17, 180, 1, 5.00, 'dine_in', NULL, NULL),
-(34, 18, 138, 1, 23.00, 'dine_in', NULL, NULL),
-(35, 19, 91, 1, 4.00, 'dine_in', NULL, NULL),
-(36, 20, 91, 1, 4.00, 'dine_in', NULL, NULL),
-(37, 21, 146, 1, 15.00, 'dine_in', NULL, NULL),
-(38, 21, 205, 1, 16.00, 'dine_in', NULL, NULL),
-(39, 21, 134, 1, 2.54, 'dine_in', NULL, NULL),
-(40, 22, 134, 1, 2.54, 'dine_in', NULL, NULL),
-(41, 22, 175, 1, 4.00, 'dine_in', NULL, NULL),
-(42, 22, 179, 1, 4.00, 'dine_in', NULL, NULL),
-(43, 22, 140, 1, 15.00, 'dine_in', NULL, NULL),
-(44, 23, 139, 1, 17.00, 'dine_in', NULL, NULL),
-(45, 24, 158, 40, 4.00, 'dine_in', NULL, NULL),
-(46, 24, 164, 35, 2.00, 'dine_in', NULL, NULL),
-(47, 25, 91, 1, 2.00, 'dine_in', NULL, NULL),
-(48, 26, 97, 1, 6.50, 'dine_in', NULL, NULL),
-(49, 27, 97, 1, 6.50, 'dine_in', NULL, NULL),
-(50, 28, 97, 1, 6.50, 'dine_in', NULL, NULL),
-(51, 28, 174, 1, 0.00, 'dine_in', NULL, NULL);
+INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, `cost_at_sale`, `consumption_type`, `parent_item_id`, `price_override`) VALUES
+(1, 1, 180, 2, 5.00, 2.11, 'dine_in', NULL, NULL),
+(2, 1, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL),
+(3, 2, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL),
+(7, 4, 201, 1, 18.00, 11.72, 'dine_in', NULL, NULL),
+(8, 5, 138, 1, 23.00, 19.90, 'dine_in', NULL, NULL),
+(13, 7, 138, 1, 23.00, 19.90, 'dine_in', NULL, NULL),
+(14, 7, 180, 1, 5.00, 2.11, 'dine_in', NULL, NULL),
+(16, 7, 101, 1, 1.50, 1.08, 'dine_in', NULL, NULL),
+(17, 8, 202, 1, 15.00, 9.98, 'dine_in', NULL, NULL),
+(18, 8, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL),
+(19, 8, 134, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(20, 9, 193, 1, 11.00, 7.17, 'dine_in', NULL, NULL),
+(21, 9, 180, 1, 5.00, 2.11, 'dine_in', NULL, NULL),
+(22, 9, 136, 1, 3.00, 2.40, 'dine_in', NULL, NULL),
+(23, 9, 101, 1, 1.50, 1.08, 'dine_in', NULL, NULL),
+(24, 10, 194, 1, 13.00, 11.75, 'dine_in', NULL, NULL),
+(25, 11, 138, 1, 23.00, 19.90, 'dine_in', NULL, NULL),
+(26, 12, 180, 1, 5.00, 2.11, 'dine_in', NULL, NULL),
+(27, 13, 146, 1, 16.50, 11.77, 'dine_in', NULL, NULL),
+(28, 13, 138, 1, 23.00, 19.90, 'dine_in', NULL, NULL),
+(29, 14, 193, 1, 11.00, 7.17, 'dine_in', NULL, NULL),
+(30, 15, 134, 1, 2.54, 1.60, 'dine_in', NULL, NULL),
+(31, 16, 193, 1, 11.00, 7.17, 'dine_in', NULL, NULL),
+(32, 16, 134, 1, 2.54, 1.60, 'dine_in', NULL, NULL),
+(33, 17, 180, 1, 5.00, 2.11, 'dine_in', NULL, NULL),
+(34, 18, 138, 1, 23.00, 19.90, 'dine_in', NULL, NULL),
+(37, 21, 146, 1, 15.00, 11.77, 'dine_in', NULL, NULL),
+(38, 21, 205, 1, 16.00, 10.37, 'dine_in', NULL, NULL),
+(39, 21, 134, 1, 2.54, 1.60, 'dine_in', NULL, NULL),
+(40, 22, 134, 1, 2.54, 1.60, 'dine_in', NULL, NULL),
+(41, 22, 175, 1, 4.00, 0.53, 'dine_in', NULL, NULL),
+(42, 22, 179, 1, 4.00, 2.17, 'dine_in', NULL, NULL),
+(43, 22, 140, 1, 15.00, 11.53, 'dine_in', NULL, NULL),
+(44, 23, 139, 1, 17.00, 15.24, 'dine_in', NULL, NULL),
+(45, 24, 158, 40, 4.00, 2.71, 'dine_in', NULL, NULL),
+(46, 24, 164, 35, 2.00, 1.47, 'dine_in', NULL, NULL),
+(47, 25, 91, 1, 2.00, 1.02, 'dine_in', NULL, NULL),
+(48, 26, 97, 1, 6.50, 5.46, 'dine_in', NULL, NULL),
+(49, 27, 97, 1, 6.50, 5.46, 'dine_in', NULL, NULL),
+(50, 28, 97, 1, 6.50, 5.46, 'dine_in', NULL, NULL),
+(51, 28, 174, 1, 0.00, 1.11, 'dine_in', NULL, NULL),
+(52, 29, 141, 1, 13.00, 13.63, 'dine_in', NULL, NULL),
+(53, 29, 206, 1, 11.00, 5.57, 'dine_in', NULL, NULL),
+(54, 30, 139, 1, 17.00, 15.24, 'dine_in', NULL, NULL),
+(55, 31, 141, 1, 13.00, 13.63, 'dine_in', NULL, NULL),
+(56, 31, 140, 1, 15.00, 11.53, 'dine_in', NULL, NULL),
+(57, 32, 206, 1, 11.00, 5.57, 'dine_in', NULL, NULL),
+(58, 33, 97, 1, 8.50, 5.46, 'dine_in', NULL, NULL),
+(59, 33, 174, 1, 0.00, 1.11, 'dine_in', NULL, NULL),
+(60, 34, 206, 1, 11.00, 5.57, 'dine_in', NULL, NULL),
+(61, 35, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(62, 35, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(63, 35, 143, 1, 12.00, 9.72, 'dine_in', NULL, NULL),
+(64, 35, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(65, 36, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(66, 36, 206, 1, 11.00, 5.57, 'dine_in', NULL, NULL),
+(67, 36, 174, 1, 3.00, 1.11, 'dine_in', NULL, NULL),
+(77, 42, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(78, 43, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(79, 43, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(80, 44, 216, 1, 2.00, 1.60, 'dine_in', NULL, NULL),
+(81, 44, 206, 1, 14.00, 5.57, 'dine_in', NULL, NULL),
+(82, 45, 140, 1, 15.00, 11.53, 'dine_in', NULL, NULL),
+(83, 46, 145, 1, 12.00, 9.63, 'dine_in', NULL, NULL),
+(84, 47, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -768,7 +836,98 @@ INSERT INTO `order_item_modifiers` (`id`, `order_item_id`, `modifier_type`, `com
 (357, 48, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
 (358, 48, 'companion', 174, 1.0000, 0.000000, NULL, 0, 0, 'product'),
 (360, 49, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
-(361, 49, 'companion', 174, 1.0000, 0.000000, NULL, 0, 0, 'product');
+(361, 49, 'companion', 174, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(362, 53, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(363, 53, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(364, 53, 'side', 7, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(365, 54, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(366, 54, 'info', NULL, 0.0000, 0.000000, NULL, 1, 0, 'raw'),
+(367, 54, 'side', 29, 0.1000, 0.000000, NULL, 1, 0, 'raw'),
+(368, 54, 'side', 30, 0.1500, 0.000000, NULL, 1, 0, 'raw'),
+(369, 54, 'info', NULL, 0.0000, 0.000000, NULL, 2, 0, 'raw'),
+(370, 54, 'side', 93, 1.0000, 0.000000, NULL, 2, 0, 'product'),
+(371, 54, 'info', NULL, 0.0000, 0.000000, NULL, 3, 0, 'raw'),
+(372, 54, 'side', 6, 0.0900, 0.000000, NULL, 3, 0, 'manufactured'),
+(373, 54, 'info', NULL, 0.0000, 0.000000, NULL, 4, 0, 'raw'),
+(374, 54, 'info', NULL, 0.0000, 0.000000, NULL, 5, 0, 'raw'),
+(375, 54, 'side', 15, 1.0000, 0.000000, NULL, 5, 0, 'raw'),
+(376, 54, 'info', NULL, 0.0000, 0.000000, NULL, 6, 0, 'raw'),
+(377, 54, 'side', 4, 1.0000, 0.000000, NULL, 6, 0, 'raw'),
+(380, 55, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(381, 55, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(382, 55, 'info', NULL, 0.0000, 0.000000, NULL, 1, 0, 'raw'),
+(383, 55, 'info', NULL, 0.0000, 0.000000, NULL, 2, 0, 'raw'),
+(384, 55, 'side', 98, 1.0000, 0.000000, NULL, 2, 0, 'product'),
+(385, 55, 'info', NULL, 0.0000, 0.000000, NULL, 3, 0, 'raw'),
+(386, 55, 'side', 207, 1.0000, 0.000000, NULL, 3, 0, 'product'),
+(387, 56, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(388, 56, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(389, 56, 'info', NULL, 0.0000, 0.000000, NULL, 1, 0, 'raw'),
+(390, 56, 'side', 29, 0.1000, 0.000000, NULL, 1, 0, 'raw'),
+(391, 56, 'side', 30, 0.1500, 0.000000, NULL, 1, 0, 'raw'),
+(392, 56, 'info', NULL, 0.0000, 0.000000, NULL, 2, 0, 'raw'),
+(393, 56, 'side', 29, 0.1000, 0.000000, NULL, 2, 0, 'raw'),
+(394, 56, 'side', 30, 0.1500, 0.000000, NULL, 2, 0, 'raw'),
+(402, 57, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(403, 57, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(404, 57, 'side', 28, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(405, 58, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(406, 58, 'side', 207, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(408, 60, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(409, 60, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(410, 60, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(411, 61, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(412, 61, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(414, 62, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(415, 62, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(417, 63, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(418, 63, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(419, 63, 'info', NULL, 0.0000, 0.000000, NULL, 1, 0, 'raw'),
+(420, 63, 'side', 6, 0.0900, 0.000000, NULL, 1, 0, 'manufactured'),
+(421, 63, 'info', NULL, 0.0000, 0.000000, NULL, 2, 0, 'raw'),
+(422, 63, 'side', 6, 0.0900, 0.000000, NULL, 2, 0, 'manufactured'),
+(423, 63, 'info', NULL, 0.0000, 0.000000, NULL, 3, 0, 'raw'),
+(424, 63, 'side', 6, 0.0900, 0.000000, NULL, 3, 0, 'manufactured'),
+(432, 64, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(433, 64, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(435, 65, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(436, 65, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(438, 66, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(439, 66, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(440, 66, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(468, 77, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(469, 77, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(471, 78, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(472, 78, 'side', 214, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(474, 79, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(475, 79, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(477, 80, 'info', NULL, 0.0000, 0.000000, NULL, 0, 1, 'raw'),
+(478, 80, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(480, 81, 'info', NULL, 0.0000, 0.000000, NULL, 0, 1, 'raw'),
+(481, 81, 'add', 31, 0.2000, 3.000000, NULL, 0, 0, 'raw'),
+(482, 81, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(483, 81, 'side', 7, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(487, 82, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(488, 82, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(489, 82, 'info', NULL, 0.0000, 0.000000, NULL, 1, 0, 'raw'),
+(490, 82, 'side', 30, 0.1500, 0.000000, NULL, 1, 0, 'raw'),
+(491, 82, 'side', 29, 0.1000, 0.000000, NULL, 1, 0, 'raw'),
+(492, 82, 'info', NULL, 0.0000, 0.000000, NULL, 2, 0, 'raw'),
+(493, 82, 'side', 30, 0.1500, 0.000000, NULL, 2, 0, 'raw'),
+(494, 82, 'side', 53, 100.0000, 0.000000, NULL, 2, 0, 'raw'),
+(502, 83, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(503, 83, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(504, 83, 'info', NULL, 0.0000, 0.000000, NULL, 1, 0, 'raw'),
+(505, 83, 'side', 30, 0.1500, 0.000000, NULL, 1, 0, 'raw'),
+(506, 83, 'side', 29, 0.1000, 0.000000, NULL, 1, 0, 'raw'),
+(507, 83, 'info', NULL, 0.0000, 0.000000, NULL, 2, 0, 'raw'),
+(508, 83, 'side', 3, 0.0400, 0.000000, NULL, 2, 0, 'manufactured'),
+(509, 83, 'info', NULL, 0.0000, 0.000000, NULL, 3, 0, 'raw'),
+(510, 83, 'side', 3, 0.0400, 0.000000, NULL, 3, 0, 'manufactured'),
+(511, 83, 'info', NULL, 0.0000, 0.000000, NULL, 4, 0, 'raw'),
+(512, 83, 'side', 3, 0.0400, 0.000000, NULL, 4, 0, 'manufactured'),
+(517, 84, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(518, 84, 'side', 6, 0.0900, 0.000000, NULL, 0, 0, 'manufactured');
 
 -- --------------------------------------------------------
 
@@ -817,14 +976,6 @@ CREATE TABLE `payroll_payments` (
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish_ci;
 
---
--- Volcado de datos para la tabla `payroll_payments`
---
-
-INSERT INTO `payroll_payments` (`id`, `user_id`, `amount`, `deductions_amount`, `payment_date`, `period_start`, `period_end`, `payment_method_id`, `transaction_id`, `notes`, `created_by`, `created_at`) VALUES
-(1, 4, 30.000000, 0.000000, '2026-01-21', NULL, NULL, 1, 24, '', 4, '2026-01-21 18:22:54'),
-(2, 31, 10.000000, 0.000000, '2026-01-21', NULL, NULL, 1, 25, '', 4, '2026-01-21 18:22:57');
-
 -- --------------------------------------------------------
 
 --
@@ -846,23 +997,20 @@ CREATE TABLE `production_orders` (
 --
 
 INSERT INTO `production_orders` (`id`, `manufactured_product_id`, `quantity_produced`, `labor_cost`, `total_cost`, `created_by`, `created_at`) VALUES
-(20, 5, 1.0000, 0.000000, 266.952000, 4, '2026-01-19 04:02:22'),
-(21, 1, 12.0000, 0.000000, 16.696800, 4, '2026-01-19 04:02:36'),
-(22, 7, 1.0000, 0.000000, 31.862000, 4, '2026-01-19 04:02:57'),
-(23, 12, 1.0000, 0.000000, 106.460000, 4, '2026-01-19 04:03:08'),
-(24, 11, 2.0000, 0.000000, 173.446000, 4, '2026-01-19 04:03:19'),
-(25, 6, 2.0000, 0.000000, 13.421620, 4, '2026-01-19 04:08:51'),
-(26, 10, 50.0000, 0.000000, 2.530000, 4, '2026-01-19 04:27:44'),
-(27, 13, 2.0000, 0.000000, 8.796124, 4, '2026-01-19 04:32:21'),
-(28, 3, 5.0000, 0.000000, 39.054075, 4, '2026-01-19 04:33:32'),
-(29, 8, 4.0000, 0.000000, 60.326362, 4, '2026-01-19 04:34:10'),
-(30, 4, 4.0000, 0.000000, 44.401202, 4, '2026-01-19 05:11:15'),
-(31, 2, 4.0000, 0.000000, 0.485000, 4, '2026-01-21 02:42:45'),
-(32, 10, 25.0000, 0.000000, 1.265000, 4, '2026-01-21 04:13:49'),
-(33, 7, 1.0000, 0.000000, 31.862000, 4, '2026-01-21 04:16:40'),
-(34, 13, 1.0000, 0.000000, 4.398062, 4, '2026-01-21 04:17:48'),
-(35, 13, 1.0000, 0.000000, 4.398062, 4, '2026-01-21 04:19:21'),
-(36, 1, 4.0000, 0.000000, 5.565600, 4, '2026-01-21 07:06:35');
+(37, 3, 8.0000, 0.000000, 62.486520, 4, '2026-02-06 19:39:55'),
+(38, 4, 4.0000, 0.000000, 44.401202, 4, '2026-02-06 19:40:07'),
+(39, 5, 4.0000, 0.000000, 68.808000, 4, '2026-02-06 19:40:21'),
+(40, 6, 4.0000, 0.000000, 26.843240, 4, '2026-02-06 19:40:36'),
+(41, 8, 4.0000, 0.000000, 60.326362, 4, '2026-02-06 19:40:48'),
+(42, 1, 8.0000, 0.000000, 11.131200, 4, '2026-02-06 19:41:45'),
+(43, 13, 4.0000, 0.000000, 17.592248, 4, '2026-02-06 19:41:59'),
+(44, 7, 4.0000, 0.000000, 127.448000, 4, '2026-02-06 19:42:12'),
+(45, 9, 4.0000, 0.000000, 5.831000, 4, '2026-02-06 19:42:24'),
+(46, 12, 2.0000, 0.000000, 9.847200, 4, '2026-02-06 19:42:35'),
+(47, 2, 8.0000, 0.000000, 0.970000, 4, '2026-02-06 19:42:59'),
+(48, 10, 50.0000, 0.000000, 2.530000, 4, '2026-02-06 19:43:10'),
+(49, 11, 4.0000, 0.000000, 27.212000, 4, '2026-02-06 19:43:22'),
+(50, 1, 8.0000, 0.000000, 11.131200, 4, '2026-02-13 21:49:22');
 
 -- --------------------------------------------------------
 
@@ -979,91 +1127,89 @@ CREATE TABLE `products` (
   `contour_logic_type` enum('standard','proportional') DEFAULT 'standard',
   `min_stock` int(11) DEFAULT 5,
   `category_id` int(11) DEFAULT NULL,
-  `short_code` varchar(50) DEFAULT NULL
+  `short_code` varchar(50) DEFAULT NULL,
+  `is_visible` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish_ci;
 
 --
 -- Volcado de datos para la tabla `products`
 --
 
-INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `stock`, `product_type`, `kitchen_station`, `image_url`, `created_at`, `profit_margin`, `updated_at`, `linked_manufactured_id`, `max_sides`, `contour_logic_type`, `min_stock`, `category_id`, `short_code`) VALUES
-(91, 'MINI ', '', 1.50, 735.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ad0b8457e7d895856c073200f96ed844.png', '2025-12-27 20:55:13', 20.00, '2026-01-25 01:21:38', NULL, 1, 'standard', 5, 1, NULL),
-(93, 'WHOPPER DE POLLO CRISPY ', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/16aef05c9945a8245692ebacdb314da9.png', '2025-12-27 20:58:49', 20.00, '2026-01-25 01:22:20', NULL, 0, 'standard', 5, 1, NULL),
-(94, 'WHOPPER DE POLLO ', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/2a1af6e99a7aff4c8b3b1fe1b03db7d9.png', '2025-12-27 21:00:55', 20.00, '2026-01-25 01:22:44', NULL, 0, 'standard', 5, 1, NULL),
-(95, 'WHOPPER DE CARNE MECHADA', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/745608a666267606eb0c49038d8ee459.png', '2025-12-27 21:02:04', 20.00, '2026-01-25 01:23:38', NULL, 0, 'standard', 5, 1, NULL),
-(96, 'WHOPPER DE LOMO ', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/a8f3977b64ee08550cee0c02bdfb4f5d.png', '2025-12-27 21:02:30', 20.00, '2026-01-25 01:23:58', NULL, 0, 'standard', 5, 1, NULL),
-(97, 'AMERICANA ', '', 6.50, 3185.00, 0, 'prepared', 'kitchen', 'uploads/product_images/21834e9ed9cb0dfa3e9f34db69f5ad78.png', '2025-12-27 21:10:34', 20.00, '2026-01-25 01:24:20', NULL, 0, 'standard', 5, 1, NULL),
-(98, 'AMERICANA CRISPY ', '', 6.50, 3185.00, 0, 'prepared', 'kitchen', 'uploads/product_images/11399e3da013d3f605e2535a53fd85f2.png', '2025-12-27 21:11:21', 20.00, '2026-01-25 01:24:45', NULL, 0, 'standard', 5, 1, NULL),
-(100, 'AMERICANA OKLAHOMA', '', 6.50, 3185.00, 0, 'prepared', 'kitchen', 'uploads/product_images/7fff51a7c01af46d7a7a23eaddd74a80.png', '2025-12-27 21:13:37', 20.00, '2026-01-25 01:25:09', NULL, 0, 'standard', 5, 1, NULL),
-(101, ' SALCHICHA ', '', 1.50, 735.00, 0, 'prepared', 'kitchen', 'uploads/product_images/f87ead2c1dadd1e74e8deaafe33900fd.png', '2025-12-27 21:15:52', 20.00, '2026-01-25 01:34:12', NULL, 0, 'standard', 5, 6, NULL),
-(134, 'REFRESCO ', '', 2.54, 1242.15, 110, 'simple', NULL, 'uploads/product_images/c21daf1f1fe88b03cde1854275cdc148.png', '2025-12-27 22:03:18', 30.00, '2026-01-25 01:34:33', NULL, 0, 'standard', 5, 3, NULL),
-(135, 'NESTEA', '', 3.00, 1470.00, 50, 'simple', NULL, 'uploads/product_images/0166cc0b690c3ba0e9326d3ffee8109e.png', '2025-12-27 22:03:45', 20.00, '2026-01-25 01:34:57', NULL, 0, 'standard', 5, 3, NULL),
-(136, 'PAPELÓN', '', 3.00, 1470.00, 49, 'simple', NULL, 'uploads/product_images/80dad7a8d57e91e02f57f612922d5bea.png', '2025-12-27 22:04:09', 20.00, '2026-01-25 01:35:21', NULL, 0, 'standard', 5, 3, NULL),
-(137, 'JUGO ', '', 1.00, 490.00, 50, 'simple', NULL, 'uploads/product_images/2c55fc33305b12e855c98638f97b5311.png', '2025-12-27 22:04:44', 20.00, '2026-01-25 01:35:43', NULL, 0, 'standard', 5, 3, NULL),
-(138, 'COMBO 1', 'PIZZA FAMILIAR X3\r\nREFRESCO x2', 23.00, 11270.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:06:51', 20.00, '2026-01-25 01:36:19', NULL, 0, 'standard', 5, 4, NULL),
-(139, 'COMBO 2', 'PIZZA FAMILIAR\r\nWHOPER / PERROS X2\r\nPAPAS FRITAS\r\nREFRESCO', 17.00, 8330.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:09:14', 20.00, '2026-01-25 01:36:43', NULL, 0, 'standard', 5, 4, NULL),
-(140, 'COMBO 3', 'PIZZA FAMILIAR X2\r\nREFRESCO', 15.00, 7350.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:10:17', 20.00, '2026-01-25 01:36:55', NULL, 0, 'standard', 5, 4, NULL),
-(141, 'COMBO 4', 'AMERICANAS X2\r\nPAPAS FRITAS\r\nREFRESCO', 13.00, 6370.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:11:24', 20.00, '2026-01-25 01:37:10', NULL, 0, 'standard', 5, 4, NULL),
-(142, 'COMBO 5', 'PIZZA FAMILIAR X3 (1/2 KILO DE QUESO CON BORDE DE QUESO)\r\nREFRESCO x2', 35.00, 17150.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:14:24', 20.00, '2026-01-25 01:37:32', NULL, 0, 'standard', 5, 4, NULL),
-(143, 'COMBO 6', 'WHOPERS X3\r\nREFRESCO', 12.00, 5880.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:15:47', 20.00, '2026-01-25 01:38:00', NULL, 0, 'standard', 5, 4, NULL),
-(144, 'COMBO 7', 'PIZZA FAMILIAR\r\nMINIS X4\r\nPAPAS FRITAS\r\nREFRESCO', 15.00, 7350.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:16:59', 20.00, '2026-01-25 01:38:16', NULL, 0, 'standard', 5, 4, NULL),
-(145, 'COMBO 8', 'PIZZA FAMILIAR\r\nMINIS X3\r\nREFRESCO', 12.00, 5880.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:18:02', 20.00, '2026-01-25 01:38:31', NULL, 0, 'standard', 5, 4, NULL),
-(146, 'COMBO 10', 'MINIS X10 (CARNE / POLLO)\r\nREFRESCO', 15.00, 7350.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:20:23', 20.00, '2026-01-25 01:38:46', NULL, 0, 'standard', 5, 4, NULL),
-(147, 'WHOPPER ESPECIAL DE POLLO', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/43fc50b27e4dc3c86946de635388fd3b.png', '2025-12-27 22:58:15', 20.00, '2026-01-25 01:43:56', NULL, 0, 'standard', 5, 1, NULL),
-(148, 'WHOPPER ESPECIAL DE CHULETA', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/b146fb80cdff97559093570964807c0c.png', '2025-12-27 22:58:49', 20.00, '2026-01-25 01:44:28', NULL, 0, 'standard', 5, 1, NULL),
-(149, 'WHOPPER ESPECIAL DE POLLO CRISPY', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/2bb618bd5424556949275019bac9c9b4.png', '2025-12-27 22:59:25', 20.00, '2026-01-25 01:44:59', NULL, 0, 'standard', 5, 1, NULL),
-(150, 'WHOPPER ESPECIAL DE LOMO', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/d216707e562530d8c323f5c415c3d03a.png', '2025-12-27 23:00:01', 20.00, '2026-01-25 01:47:11', NULL, 0, 'standard', 5, 1, NULL),
-(151, 'WHOPPER ESPECIAL DE MECHADA', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/5f96ec57491b0fed46ec8c3787ff48d5.png', '2025-12-27 23:00:37', 20.00, '2026-01-25 02:35:02', NULL, 0, 'standard', 5, 1, NULL),
-(152, 'WHOPPER ESPECIAL MIXTA', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/0ff8a95079deea70bc28e3fd5683df4c.png', '2025-12-27 23:01:10', 20.00, '2026-01-25 02:35:28', NULL, 0, 'standard', 5, 1, NULL),
-(153, 'WHOPPER ESPECIAL MARACUCHA', '', 10.00, 4900.00, 0, 'prepared', 'kitchen', 'uploads/product_images/095879541c6987b785c950229e6b62ce.png', '2025-12-27 23:01:49', 20.00, '2026-01-25 03:20:12', NULL, 0, 'standard', 5, 1, NULL),
-(154, 'WHOPPER ESPECIAL MEGA', '', 10.00, 4900.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6372d80bd8f86dc5cd322b8010b48a72.png', '2025-12-27 23:03:08', 20.00, '2026-01-25 03:20:35', NULL, 0, 'standard', 5, 1, NULL),
-(155, 'WHOPPER ESPECIAL TRIFÁSICA', '', 10.00, 4900.00, 0, 'prepared', 'kitchen', 'uploads/product_images/375cf1015e13a189733d41511e7b8d69.png', '2025-12-27 23:03:44', 20.00, '2026-01-25 03:23:23', NULL, 0, 'standard', 5, 1, NULL),
-(157, 'AMERICANA CRISPY CESAR', '', 6.50, 3185.00, 0, 'prepared', 'kitchen', 'uploads/product_images/de745b201a8558fa6d9143cba677e248.png', '2025-12-29 22:43:04', 20.00, '2026-01-25 03:23:49', NULL, 0, 'standard', 5, 1, NULL),
-(158, 'WHOPPER', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/d315de58cbc243c6bd378d9fa9b327a4.png', '2025-12-29 23:47:09', 20.00, '2026-01-25 03:24:15', NULL, 0, 'standard', 5, 1, NULL),
-(159, 'WHOPPER DE PERNIL', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/b590fe8d4c89df3f78a172701f06b634.png', '2025-12-30 01:09:03', 20.00, '2026-01-25 03:25:15', NULL, 0, 'standard', 5, 1, NULL),
-(160, 'WHOPPER ESPECIAL', '', 6.00, 2940.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ee3ddeba9e7f8c3b6f1abb66615726e9.png', '2025-12-30 01:12:46', 20.00, '2026-01-25 03:25:51', NULL, 0, 'standard', 5, 1, NULL),
-(161, 'HUEVO', '', 1.50, 735.00, 0, 'prepared', 'kitchen', 'uploads/product_images/68d460fb91f811c68188b9a4a307a5fe.png', '2026-01-16 00:18:04', 20.00, '2026-01-25 03:26:25', NULL, 0, 'standard', 5, 6, NULL),
-(162, 'QUESO', '', 1.50, 735.00, 0, 'prepared', 'kitchen', 'uploads/product_images/fbd6d4f83c83bcba1e241fa6f82caadc.png', '2026-01-16 00:21:40', 20.00, '2026-01-25 03:26:51', NULL, 0, 'standard', 5, 6, NULL),
-(164, 'SALCHIQUESO', '', 2.00, 980.00, 0, 'prepared', 'kitchen', 'uploads/product_images/96c1ec527c47902b5ff37dcce8cb20ec.png', '2026-01-16 00:25:57', 20.00, '2026-01-25 03:27:14', NULL, 0, 'standard', 5, 6, NULL),
-(165, ' SALCHIHUEVO', '', 2.00, 980.00, 0, 'prepared', 'kitchen', 'uploads/product_images/fda0d279dbcb6fad87a53917c0123a7f.png', '2026-01-16 00:27:57', 20.00, '2026-01-25 03:27:39', NULL, 0, 'standard', 5, 6, NULL),
-(166, 'HUEVO Y CEBÚ', '', 2.00, 980.00, 0, 'prepared', 'kitchen', 'uploads/product_images/caaabb5cc49143eb1e505036ba240349.png', '2026-01-16 00:30:00', 20.00, '2026-01-25 03:28:06', NULL, 0, 'standard', 5, 6, NULL),
-(167, 'CARNE MECHADA', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/7ada077a505b3b03c8aa2b48cb95ecbf.png', '2026-01-16 00:32:13', 20.00, '2026-01-25 03:28:35', NULL, 0, 'standard', 5, 6, NULL),
-(168, 'POLLO', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/e3908b9e4093363e93fafa6eaeb61b58.png', '2026-01-16 00:40:11', 20.00, '2026-01-25 03:29:45', NULL, 0, 'standard', 5, 6, NULL),
-(169, 'LOMO', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/63bdc6ec4b717cc913e57121dffa5892.png', '2026-01-16 00:41:46', 20.00, '2026-01-25 03:30:04', NULL, 0, 'standard', 5, 6, NULL),
-(170, 'PATACÓN', '', 9.00, 4410.00, 0, 'prepared', 'kitchen', 'uploads/product_images/a29b29c4800e2f2aa5b6729ea26d8116.png', '2026-01-16 01:12:07', 20.00, '2026-01-25 03:30:32', NULL, 0, 'standard', 5, 5, NULL),
-(171, 'PATACON GRATINADO', '', 11.00, 5390.00, 0, 'prepared', 'kitchen', 'uploads/product_images/be23338ea72793b6b2096bee37e71329.png', '2026-01-16 01:18:46', 20.00, '2026-01-25 03:33:12', NULL, 0, 'standard', 5, 5, NULL),
-(172, 'SALCHIPAPAS', '', 9.00, 4410.00, 0, 'prepared', 'kitchen', 'uploads/product_images/0bb16bd7a0d159c22ae3ef9c26035d98.png', '2026-01-16 01:24:29', 20.00, '2026-01-25 03:33:38', NULL, 0, 'standard', 5, 5, NULL),
-(173, 'MEGA SALCHIPAPAS', '', 20.00, 9800.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6ca61a48a6ab2f754f9b6b71f782514a.png', '2026-01-16 01:29:53', 20.00, '2026-01-25 03:34:04', NULL, 0, 'standard', 5, 5, NULL),
-(174, 'PAPAS FRITAS', '', 3.00, 1470.00, 0, 'prepared', 'kitchen', 'uploads/product_images/1e422b9c7f3122daaa0398a63acb7c84.png', '2026-01-16 01:58:32', 20.00, '2026-01-25 03:34:42', NULL, 0, 'standard', 5, 5, NULL),
-(175, 'TEQUEÑOS', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/4a4d9ac676ee64e4b6685c21524532df.png', '2026-01-16 02:01:16', 20.00, '2026-01-25 03:35:10', NULL, 0, 'standard', 5, 5, NULL),
-(176, 'NUGGET CON PAPAS FRITAS', '', 5.00, 2450.00, 0, 'prepared', 'kitchen', 'uploads/product_images/82deeea66962459f1e8f7a7e8ab5edc2.png', '2026-01-16 02:34:07', 20.00, '2026-01-25 03:35:37', NULL, 0, 'standard', 5, 5, NULL),
-(178, 'TUMBARRANCHO SENCILLO', '', 1.50, 735.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6e6f086108a5ed15c8364f76c5c13639.png', '2026-01-16 02:57:38', 20.00, '2026-01-25 03:36:13', NULL, 0, 'standard', 5, 5, NULL),
-(179, 'TUMBARRANCHO ESPECIAL', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/aaaacb9b1e543a061a2246c6873ab88f.png', '2026-01-16 03:36:29', 20.00, '2026-01-25 03:36:46', NULL, 0, 'standard', 5, 5, NULL),
-(180, 'AREPA', '', 4.00, 1960.00, 0, 'prepared', 'kitchen', 'uploads/product_images/f16d6e545f1b1689d82d5adf48902d59.png', '2026-01-16 03:39:38', 20.00, '2026-01-25 03:38:08', NULL, 1, 'standard', 5, 5, NULL),
-(181, 'AREPON', '', 9.00, 4410.00, 0, 'prepared', 'kitchen', 'uploads/product_images/d85a13e5d77f9a147ce0626b80ea28af.png', '2026-01-16 03:43:27', 20.00, '2026-01-25 03:38:52', NULL, 0, 'standard', 5, 5, NULL),
-(182, 'NAPOLES', '', 8.00, 3920.00, 0, 'prepared', 'pizza', 'uploads/product_images/113ad44b522f71f3a54bc57906ae0551.png', '2026-01-16 03:57:51', 20.00, '2026-01-25 03:42:40', NULL, 0, 'standard', 5, 2, NULL),
-(183, 'MAÍZ', '', 8.00, 3920.00, 0, 'prepared', 'pizza', 'uploads/product_images/001eff0fd536b5b295427f7380e8a657.png', '2026-01-16 04:23:16', 20.00, '2026-01-25 03:43:07', NULL, 0, 'standard', 5, 2, NULL),
-(184, 'JAMÓN', '', 8.00, 3920.00, 0, 'prepared', 'pizza', 'uploads/product_images/4fd7645bd2506b1117779a2573d6fa3a.png', '2026-01-17 21:58:50', 20.00, '2026-01-25 03:43:29', NULL, 0, 'standard', 5, 2, NULL),
-(185, 'TOCINETA', '', 11.00, 5390.00, 0, 'prepared', 'pizza', 'uploads/product_images/298e41d02e4411d7daa79c23677bfcf4.png', '2026-01-17 22:00:16', 20.00, '2026-01-25 03:44:12', NULL, 0, 'standard', 5, 2, NULL),
-(186, 'PEPPERONI', '', 10.00, 4900.00, 0, 'prepared', 'pizza', 'uploads/product_images/c3219f12bf93d5ca5c0326f023684e94.png', '2026-01-17 22:01:32', 20.00, '2026-01-25 03:45:49', NULL, 0, 'standard', 5, 2, NULL),
-(187, 'CEBOLLA', '', 8.00, 3920.00, 0, 'prepared', 'pizza', 'uploads/product_images/80254a94aec825724988d341dde39a9f.png', '2026-01-17 22:03:37', 20.00, '2026-01-25 03:46:10', NULL, 0, 'standard', 5, 2, NULL),
-(188, 'PIMENTON', '', 8.00, 3920.00, 0, 'prepared', 'pizza', 'uploads/product_images/cd6942877f0ab9f08f94909da6b3693d.png', '2026-01-17 22:10:18', 20.00, '2026-01-25 03:46:38', NULL, 0, 'standard', 5, 2, NULL),
-(189, 'ACEITUNAS NEGRAS', '', 8.00, 3920.00, 0, 'prepared', 'pizza', 'uploads/product_images/01fc80baaae7d3aa39fd5b5e60d104d8.png', '2026-01-17 22:13:16', 20.00, '2026-01-25 03:47:00', NULL, 0, 'standard', 5, 2, NULL),
-(190, 'SALAMI', '', 11.00, 5390.00, 0, 'prepared', 'pizza', 'uploads/product_images/ff9f9a16234246c77f5cc3cca8f7b95a.png', '2026-01-17 22:35:32', 20.00, '2026-01-25 03:47:20', NULL, 0, 'standard', 5, 2, NULL),
-(191, 'CHAMPIÑÓN', '', 11.00, 5390.00, 0, 'prepared', 'pizza', 'uploads/product_images/c0f29cfda155aa6cb95be4b153a5f275.png', '2026-01-17 22:39:28', 20.00, '2026-01-25 03:47:43', NULL, 0, 'standard', 5, 2, NULL),
-(192, 'MEDIO KILO DE QUESO', '', 14.00, 6860.00, 0, 'prepared', 'pizza', 'uploads/product_images/ad084b9f9e529a3041651dac58d26397.png', '2026-01-17 23:01:19', 20.00, '2026-01-25 03:53:03', NULL, 4, 'proportional', 5, 7, NULL),
-(193, '4 ESTACIONES', '', 11.00, 5390.00, 0, 'prepared', 'pizza', 'uploads/product_images/9e683131a5de1c4cddb92a339df592bc.png', '2026-01-17 23:22:37', 20.00, '2026-01-25 03:48:28', NULL, 4, 'proportional', 5, 2, NULL),
-(194, '5 INGREDIENTES', '', 13.00, 6370.00, 0, 'prepared', 'pizza', 'uploads/product_images/82c28558e886b92b253caaf5877b2649.png', '2026-01-17 23:51:56', 20.00, '2026-01-25 03:49:03', NULL, 3, 'proportional', 5, 2, NULL),
-(195, 'MARGARITA', '', 13.00, 6370.00, 0, 'prepared', 'pizza', 'uploads/product_images/5fe5b6214b53674e53d9555b475df1eb.png', '2026-01-18 00:04:03', 20.00, '2026-01-25 03:49:21', NULL, 0, 'standard', 5, 2, NULL),
-(196, 'PRIMAVERA', '', 13.00, 6370.00, 0, 'prepared', 'pizza', 'uploads/product_images/b2f20566bdb5bd1506600e85c8587739.png', '2026-01-18 00:10:32', 20.00, '2026-01-25 03:49:36', NULL, 0, 'standard', 5, 2, NULL),
-(197, 'DOBLE RELLENA', '', 18.00, 8820.00, 0, 'prepared', 'pizza', 'uploads/product_images/577a124a65bc704a7419bebc4c5cbeb2.png', '2026-01-18 00:14:40', 20.00, '2026-01-25 03:53:28', NULL, 4, 'proportional', 5, 7, NULL),
-(198, 'CUBANA', '', 18.00, 8820.00, 0, 'prepared', 'pizza', 'uploads/product_images/487f1dd1cf90a3ecf8c7896b5b60d871.png', '2026-01-18 00:36:15', 20.00, '2026-01-25 03:53:46', NULL, 4, 'proportional', 5, 7, NULL),
-(199, 'BORDE DE TEQUEÑO', '', 18.00, 8820.00, 0, 'prepared', 'pizza', 'uploads/product_images/7a8841f2e8ca35c0aac94cb22d669a3f.png', '2026-01-18 00:37:42', 20.00, '2026-01-25 03:54:10', NULL, 4, 'proportional', 5, 7, NULL),
-(200, 'MARACUCHA', '', 15.00, 7350.00, 0, 'prepared', 'pizza', 'uploads/product_images/f11b956fddb5a6b2f7b63c441ff1ee2c.png', '2026-01-18 00:38:31', 20.00, '2026-01-25 03:54:33', NULL, 0, 'standard', 5, 7, NULL),
-(201, 'POLLO BBQ', '', 18.00, 8820.00, 0, 'prepared', 'pizza', 'uploads/product_images/b24950b4c54885fb6afd6223feceb5a6.png', '2026-01-18 00:39:17', 20.00, '2026-01-25 03:54:56', NULL, 0, 'standard', 5, 7, NULL),
-(202, 'AMERICANA', '', 15.00, 7350.00, 0, 'prepared', 'pizza', 'uploads/product_images/0a656825233811e568d70ef6879ad417.png', '2026-01-18 01:30:09', 20.00, '2026-01-25 03:55:16', NULL, 0, 'standard', 5, 7, NULL),
-(205, 'MEDIO KILO DE QUESO CON BORDE DE QUESO', '', 16.00, 7840.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ad084b9f9e529a3041651dac58d26397.png', '2026-01-21 21:35:49', 20.00, '2026-01-25 03:55:34', NULL, 4, 'proportional', 5, 7, NULL),
-(206, '2 INGREDIENTES', '', 11.00, 5390.00, 0, 'prepared', 'kitchen', 'uploads/product_images/9e683131a5de1c4cddb92a339df592bc.png', '2026-01-25 03:57:02', 20.00, '2026-01-25 03:57:40', NULL, 2, 'proportional', 5, 2, NULL);
+INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `stock`, `product_type`, `kitchen_station`, `image_url`, `created_at`, `profit_margin`, `updated_at`, `linked_manufactured_id`, `max_sides`, `contour_logic_type`, `min_stock`, `category_id`, `short_code`, `is_visible`) VALUES
+(91, 'MINI ', '', 2.00, 1000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ad0b8457e7d895856c073200f96ed844.png', '2025-12-27 20:55:13', 20.00, '2026-02-10 03:44:40', NULL, 1, 'standard', 5, 1, NULL, 1),
+(93, 'POLLO CRISPY ', '', 5.00, 2500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/16aef05c9945a8245692ebacdb314da9.png', '2025-12-27 20:58:49', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 0),
+(97, 'AMERICANA ', '', 8.50, 4250.00, 0, 'prepared', 'kitchen', 'uploads/product_images/21834e9ed9cb0dfa3e9f34db69f5ad78.png', '2025-12-27 21:10:34', 20.00, '2026-02-10 03:44:40', NULL, 1, 'standard', 5, 1, NULL, 1),
+(98, 'CRISPY ', '', 8.50, 4250.00, 0, 'prepared', 'kitchen', 'uploads/product_images/11399e3da013d3f605e2535a53fd85f2.png', '2025-12-27 21:11:21', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 0),
+(100, 'OKLAHOMA', '', 8.50, 4250.00, 0, 'prepared', 'kitchen', 'uploads/product_images/7fff51a7c01af46d7a7a23eaddd74a80.png', '2025-12-27 21:13:37', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 0),
+(101, 'PAN', '', 1.50, 750.00, 0, 'prepared', 'kitchen', 'uploads/product_images/f87ead2c1dadd1e74e8deaafe33900fd.png', '2025-12-27 21:15:52', 20.00, '2026-02-10 03:44:40', NULL, 1, 'standard', 5, 6, NULL, 1),
+(134, 'REFRESCO ', '', 2.00, 1000.00, 0, 'compound', NULL, 'uploads/product_images/c21daf1f1fe88b03cde1854275cdc148.png', '2025-12-27 22:03:18', 30.00, '2026-02-12 20:26:48', NULL, 1, 'standard', 5, 3, NULL, 0),
+(135, 'NESTEA', '', 3.00, 1500.00, 50, 'simple', NULL, 'uploads/product_images/0166cc0b690c3ba0e9326d3ffee8109e.png', '2025-12-27 22:03:45', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 1),
+(136, 'PAPELÓN', '', 3.00, 1500.00, 49, 'simple', NULL, 'uploads/product_images/80dad7a8d57e91e02f57f612922d5bea.png', '2025-12-27 22:04:09', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 1),
+(137, 'JUGO ', '', 1.00, 500.00, 50, 'simple', NULL, 'uploads/product_images/2c55fc33305b12e855c98638f97b5311.png', '2025-12-27 22:04:44', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 1),
+(138, 'COMBO 1', 'PIZZA FAMILIAR X3\r\nREFRESCO x2', 23.00, 11500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:06:51', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(139, 'COMBO 2', 'PIZZA FAMILIAR\r\nWHOPER / PERROS X2\r\nPAPAS FRITAS\r\nREFRESCO', 17.00, 8500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:09:14', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(140, 'COMBO 3', 'PIZZA FAMILIAR X2\r\nREFRESCO', 15.00, 7500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:10:17', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(141, 'COMBO 4', 'AMERICANAS X2\r\nPAPAS FRITAS\r\nREFRESCO', 13.00, 6500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:11:24', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(142, 'COMBO 5', 'PIZZA FAMILIAR X3 (1/2 KILO DE QUESO CON BORDE DE QUESO)\r\nREFRESCO x2', 35.00, 17500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:14:24', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(143, 'COMBO 6', 'WHOPERS X3\r\nREFRESCO', 12.00, 6000.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:15:47', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(144, 'COMBO 7', 'PIZZA FAMILIAR\r\nMINIS X4\r\nPAPAS FRITAS\r\nREFRESCO', 15.00, 7500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:16:59', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(145, 'COMBO 8', 'PIZZA FAMILIAR\r\nMINIS X3\r\nREFRESCO', 12.00, 6000.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:18:02', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(146, 'COMBO 9', 'MINIS X10 (CARNE / POLLO)\r\nREFRESCO', 15.00, 7500.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:20:23', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 4, NULL, 1),
+(153, 'WHOPPER ESPECIAL MARACUCHA', '', 12.00, 6000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/095879541c6987b785c950229e6b62ce.png', '2025-12-27 23:01:49', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 1),
+(154, 'WHOPPER ESPECIAL MEGA', '', 12.00, 6000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6372d80bd8f86dc5cd322b8010b48a72.png', '2025-12-27 23:03:08', 20.00, '2026-02-10 03:44:40', NULL, 3, 'standard', 5, 1, NULL, 1),
+(155, 'WHOPPER ESPECIAL TRIFÁSICA', '', 12.00, 6000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/375cf1015e13a189733d41511e7b8d69.png', '2025-12-27 23:03:44', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 1),
+(157, 'CRISPY CESAR', '', 8.50, 4250.00, 0, 'prepared', 'kitchen', 'uploads/product_images/de745b201a8558fa6d9143cba677e248.png', '2025-12-29 22:43:04', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 0),
+(158, 'WHOPPER', '', 5.00, 2500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/d315de58cbc243c6bd378d9fa9b327a4.png', '2025-12-29 23:47:09', 20.00, '2026-02-10 03:44:40', NULL, 1, 'standard', 5, 1, 'WS', 1),
+(160, 'WHOPPER ESPECIAL', '', 8.00, 4000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ee3ddeba9e7f8c3b6f1abb66615726e9.png', '2025-12-30 01:12:46', 20.00, '2026-02-10 03:44:40', NULL, 2, 'standard', 5, 1, 'WE', 1),
+(164, 'PAN  SALCHIQUESO', '', 2.00, 1000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/96c1ec527c47902b5ff37dcce8cb20ec.png', '2026-01-16 00:25:57', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 6, NULL, 1),
+(165, ' PAN SALCHIHUEVO', '', 2.00, 1000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/fda0d279dbcb6fad87a53917c0123a7f.png', '2026-01-16 00:27:57', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 6, NULL, 1),
+(166, 'PAN HUEVO Y CEBÚ', '', 2.00, 1000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/caaabb5cc49143eb1e505036ba240349.png', '2026-01-16 00:30:00', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 6, NULL, 1),
+(167, 'PAN CARNE MECHADA', '', 4.00, 2000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/7ada077a505b3b03c8aa2b48cb95ecbf.png', '2026-01-16 00:32:13', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 6, NULL, 1),
+(168, 'PAN POLLO', '', 4.00, 2000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/e3908b9e4093363e93fafa6eaeb61b58.png', '2026-01-16 00:40:11', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 6, NULL, 1),
+(169, 'PAN LOMO', '', 4.00, 2000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/63bdc6ec4b717cc913e57121dffa5892.png', '2026-01-16 00:41:46', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 6, NULL, 1),
+(170, 'PATACÓN', '', 9.00, 4500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/a29b29c4800e2f2aa5b6729ea26d8116.png', '2026-01-16 01:12:07', 20.00, '2026-02-10 03:44:40', NULL, 2, 'standard', 5, 5, NULL, 1),
+(171, 'PATACON GRATINADO', '', 11.00, 5500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/be23338ea72793b6b2096bee37e71329.png', '2026-01-16 01:18:46', 20.00, '2026-02-10 03:44:40', NULL, 2, 'standard', 5, 5, NULL, 1),
+(172, 'SALCHIPAPAS', '', 9.00, 4500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/0bb16bd7a0d159c22ae3ef9c26035d98.png', '2026-01-16 01:24:29', 20.00, '2026-02-10 03:44:40', NULL, 2, 'standard', 5, 5, NULL, 1),
+(173, 'MEGA SALCHIPAPAS', '', 20.00, 10000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6ca61a48a6ab2f754f9b6b71f782514a.png', '2026-01-16 01:29:53', 20.00, '2026-02-10 03:44:40', NULL, 3, 'standard', 5, 5, NULL, 1),
+(174, 'PAPAS FRITAS', '', 3.00, 1500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/1e422b9c7f3122daaa0398a63acb7c84.png', '2026-01-16 01:58:32', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 5, NULL, 1),
+(175, 'TEQUEÑOS', '', 4.00, 2000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/4a4d9ac676ee64e4b6685c21524532df.png', '2026-01-16 02:01:16', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 5, NULL, 1),
+(176, 'NUGGET CON PAPAS FRITAS', '', 5.00, 2500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/82deeea66962459f1e8f7a7e8ab5edc2.png', '2026-01-16 02:34:07', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 5, NULL, 1),
+(178, 'TUMBARRANCHO SENCILLO', '', 1.50, 750.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6e6f086108a5ed15c8364f76c5c13639.png', '2026-01-16 02:57:38', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 5, NULL, 1),
+(179, 'TUMBARRANCHO ESPECIAL', '', 4.00, 2000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/aaaacb9b1e543a061a2246c6873ab88f.png', '2026-01-16 03:36:29', 20.00, '2026-02-10 03:44:40', NULL, 1, 'standard', 5, 5, NULL, 1),
+(180, 'AREPA', '', 4.00, 2000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/f16d6e545f1b1689d82d5adf48902d59.png', '2026-01-16 03:39:38', 20.00, '2026-02-10 03:44:40', NULL, 1, 'standard', 5, 5, NULL, 1),
+(181, 'AREPON', '', 9.00, 4500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/d85a13e5d77f9a147ce0626b80ea28af.png', '2026-01-16 03:43:27', 20.00, '2026-02-10 03:44:40', NULL, 2, 'standard', 5, 5, NULL, 1),
+(182, 'NAPOLES', '', 8.00, 4000.00, 0, 'prepared', 'pizza', 'uploads/product_images/113ad44b522f71f3a54bc57906ae0551.png', '2026-01-16 03:57:51', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(183, 'MAÍZ', '', 8.00, 4000.00, 0, 'prepared', 'pizza', 'uploads/product_images/001eff0fd536b5b295427f7380e8a657.png', '2026-01-16 04:23:16', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(184, 'JAMÓN', '', 8.00, 4000.00, 0, 'prepared', 'pizza', 'uploads/product_images/4fd7645bd2506b1117779a2573d6fa3a.png', '2026-01-17 21:58:50', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(185, 'TOCINETA', '', 11.00, 5500.00, 0, 'prepared', 'pizza', 'uploads/product_images/298e41d02e4411d7daa79c23677bfcf4.png', '2026-01-17 22:00:16', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(186, 'PEPPERONI', '', 10.00, 5000.00, 0, 'prepared', 'pizza', 'uploads/product_images/c3219f12bf93d5ca5c0326f023684e94.png', '2026-01-17 22:01:32', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(187, 'CEBOLLA', '', 8.00, 4000.00, 0, 'prepared', 'pizza', 'uploads/product_images/80254a94aec825724988d341dde39a9f.png', '2026-01-17 22:03:37', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(188, 'PIMENTON', '', 8.00, 4000.00, 0, 'prepared', 'pizza', 'uploads/product_images/cd6942877f0ab9f08f94909da6b3693d.png', '2026-01-17 22:10:18', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(189, 'ACEITUNAS NEGRAS', '', 8.00, 4000.00, 0, 'prepared', 'pizza', 'uploads/product_images/01fc80baaae7d3aa39fd5b5e60d104d8.png', '2026-01-17 22:13:16', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(190, 'SALAMI', '', 11.00, 5500.00, 0, 'prepared', 'pizza', 'uploads/product_images/ff9f9a16234246c77f5cc3cca8f7b95a.png', '2026-01-17 22:35:32', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(191, 'CHAMPIÑÓN', '', 11.00, 5500.00, 0, 'prepared', 'pizza', 'uploads/product_images/c0f29cfda155aa6cb95be4b153a5f275.png', '2026-01-17 22:39:28', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(192, 'MEDIO KILO DE QUESO', '', 14.00, 7000.00, 0, 'prepared', 'pizza', 'uploads/product_images/ad084b9f9e529a3041651dac58d26397.png', '2026-01-17 23:01:19', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 7, NULL, 1),
+(193, '4 ESTACIONES', '', 11.00, 5500.00, 0, 'prepared', 'pizza', 'uploads/product_images/9e683131a5de1c4cddb92a339df592bc.png', '2026-01-17 23:22:37', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 2, NULL, 1),
+(194, '5 INGREDIENTES', '', 13.00, 6500.00, 0, 'prepared', 'pizza', 'uploads/product_images/82c28558e886b92b253caaf5877b2649.png', '2026-01-17 23:51:56', 20.00, '2026-02-10 03:44:40', NULL, 5, 'standard', 5, 2, NULL, 1),
+(195, 'MARGARITA', '', 13.00, 6500.00, 0, 'prepared', 'pizza', 'uploads/product_images/5fe5b6214b53674e53d9555b475df1eb.png', '2026-01-18 00:04:03', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(196, 'PRIMAVERA', '', 13.00, 6500.00, 0, 'prepared', 'pizza', 'uploads/product_images/b2f20566bdb5bd1506600e85c8587739.png', '2026-01-18 00:10:32', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 2, NULL, 1),
+(197, 'DOBLE RELLENA', '', 18.00, 9000.00, 0, 'prepared', 'pizza', 'uploads/product_images/577a124a65bc704a7419bebc4c5cbeb2.png', '2026-01-18 00:14:40', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 7, NULL, 1),
+(198, 'CUBANA', '', 18.00, 9000.00, 0, 'prepared', 'pizza', 'uploads/product_images/487f1dd1cf90a3ecf8c7896b5b60d871.png', '2026-01-18 00:36:15', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 7, NULL, 1),
+(199, 'BORDE DE TEQUEÑO', '', 18.00, 9000.00, 0, 'prepared', 'pizza', 'uploads/product_images/7a8841f2e8ca35c0aac94cb22d669a3f.png', '2026-01-18 00:37:42', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 7, NULL, 1),
+(200, 'MARACUCHA', '', 15.00, 7500.00, 0, 'prepared', 'pizza', 'uploads/product_images/f11b956fddb5a6b2f7b63c441ff1ee2c.png', '2026-01-18 00:38:31', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 7, NULL, 1),
+(201, 'POLLO BBQ', '', 18.00, 9000.00, 0, 'prepared', 'pizza', 'uploads/product_images/b24950b4c54885fb6afd6223feceb5a6.png', '2026-01-18 00:39:17', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 7, NULL, 1),
+(202, 'AMERICANA', '', 15.00, 7500.00, 0, 'prepared', 'pizza', 'uploads/product_images/0a656825233811e568d70ef6879ad417.png', '2026-01-18 01:30:09', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 7, NULL, 1),
+(205, 'MEDIO KILO DE QUESO CON BORDE DE QUESO', '', 16.00, 8000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ad084b9f9e529a3041651dac58d26397.png', '2026-01-21 21:35:49', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 7, NULL, 1),
+(206, 'FAMILIAR', '', 11.00, 5500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/9e683131a5de1c4cddb92a339df592bc.png', '2026-01-25 03:57:02', 20.00, '2026-02-10 03:44:40', NULL, 2, 'proportional', 5, 2, 'F', 1),
+(207, 'AMERICANA', '', 8.50, 4250.00, 0, 'prepared', 'kitchen', 'uploads/product_images/21834e9ed9cb0dfa3e9f34db69f5ad78.png', '2026-02-08 01:17:47', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 0),
+(208, 'COCA-COLA', '', 1.20, 600.00, 24, 'simple', 'kitchen', 'default.jpg', '2026-02-08 02:08:15', 20.00, '2026-02-13 21:47:31', NULL, 0, 'standard', 5, 3, NULL, 0),
+(209, 'CHINOTTO', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 02:20:23', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
+(211, 'NARANJA', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:23:50', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
+(212, 'MANZANITA', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:25:04', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
+(213, 'TORONJA', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:25:36', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
+(214, 'UVA', '', 1.20, 600.00, 12, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:26:05', 20.00, '2026-02-13 21:47:31', NULL, 0, 'standard', 5, 3, NULL, 0),
+(215, 'FRESCOLITA', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:28:19', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
+(216, 'REFRESCO', '', 2.00, 1000.00, 0, 'compound', 'kitchen', 'uploads/product_images/c21daf1f1fe88b03cde1854275cdc148.png', '2026-02-12 20:27:09', 30.00, '2026-02-12 20:27:35', NULL, 0, 'standard', 5, 3, NULL, 1);
 
 -- --------------------------------------------------------
 
@@ -1085,7 +1231,40 @@ CREATE TABLE `product_companions` (
 --
 
 INSERT INTO `product_companions` (`id`, `product_id`, `companion_id`, `quantity`, `price_override`, `is_default`) VALUES
-(3, 97, 174, 1.0000, 0.00, 1);
+(4, 97, 174, 1.0000, 0.00, 1),
+(10, 202, 134, 1.0000, 0.00, 1),
+(11, 201, 134, 1.0000, 0.00, 1),
+(12, 200, 134, 1.0000, 0.00, 1),
+(13, 199, 134, 1.0000, 0.00, 1),
+(14, 198, 134, 1.0000, 0.00, 1),
+(15, 197, 134, 1.0000, 0.00, 1),
+(16, 196, 134, 1.0000, 0.00, 1),
+(17, 195, 134, 1.0000, 0.00, 1),
+(18, 194, 134, 1.0000, 0.00, 1),
+(19, 193, 134, 1.0000, 0.00, 1),
+(20, 192, 134, 1.0000, 0.00, 1),
+(23, 205, 216, 1.0000, 0.00, 1);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `product_companion_components`
+--
+
+CREATE TABLE `product_companion_components` (
+  `id` int(11) NOT NULL,
+  `product_companion_id` int(11) NOT NULL,
+  `component_type` enum('raw','manufactured','product') NOT NULL,
+  `component_id` int(11) NOT NULL,
+  `quantity` decimal(10,6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `product_companion_components`
+--
+
+INSERT INTO `product_companion_components` (`id`, `product_companion_id`, `component_type`, `component_id`, `quantity`) VALUES
+(15, 4, 'raw', 14, 0.150000);
 
 -- --------------------------------------------------------
 
@@ -1235,15 +1414,12 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (212, 92, 'manufactured', 6, 0.0450),
 (214, 91, 'raw', 108, 0.1250),
 (215, 92, 'raw', 108, 0.1250),
-(216, 93, 'raw', 109, 1.0000),
 (217, 94, 'raw', 109, 1.0000),
 (218, 95, 'raw', 109, 1.0000),
 (219, 96, 'raw', 109, 1.0000),
 (220, 147, 'raw', 109, 1.0000),
 (229, 97, 'raw', 26, 1.0000),
-(230, 98, 'raw', 26, 1.0000),
 (231, 99, 'raw', 26, 1.0000),
-(232, 100, 'raw', 26, 1.0000),
 (233, 94, 'raw', 108, 0.5000),
 (234, 94, 'raw', 13, 0.0200),
 (235, 97, 'raw', 11, 2.0000),
@@ -1252,30 +1428,15 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (238, 97, 'raw', 55, 24.0000),
 (239, 97, 'raw', 52, 0.0100),
 (240, 97, 'raw', 56, 0.0250),
-(241, 97, 'manufactured', 4, 0.1800),
-(242, 98, 'raw', 11, 2.0000),
 (243, 98, 'raw', 7, 0.0250),
-(244, 98, 'manufactured', 12, 0.0600),
-(245, 98, 'raw', 55, 24.0000),
-(246, 98, 'raw', 52, 0.0100),
+(246, 98, 'raw', 52, 0.0200),
 (247, 98, 'raw', 56, 0.0250),
 (248, 98, 'manufactured', 6, 0.1800),
-(249, 157, 'raw', 26, 1.0000),
-(250, 157, 'raw', 11, 2.0000),
 (251, 157, 'raw', 7, 0.0250),
-(252, 157, 'manufactured', 12, 0.0600),
-(253, 157, 'raw', 55, 24.0000),
-(254, 157, 'raw', 52, 0.0100),
+(254, 157, 'raw', 52, 0.0200),
 (255, 157, 'raw', 56, 0.0250),
 (256, 157, 'manufactured', 6, 0.1800),
-(257, 100, 'raw', 11, 2.0000),
-(258, 100, 'raw', 7, 0.0250),
-(259, 100, 'manufactured', 12, 0.0600),
-(260, 100, 'raw', 55, 24.0000),
-(261, 100, 'raw', 52, 0.0100),
-(262, 100, 'raw', 56, 0.0250),
 (263, 100, 'raw', 54, 20.0000),
-(264, 100, 'manufactured', 4, 0.1800),
 (265, 94, 'raw', 16, 0.0250),
 (266, 94, 'raw', 19, 0.0250),
 (267, 94, 'raw', 18, 0.0100),
@@ -1283,14 +1444,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (269, 94, 'raw', 56, 0.0250),
 (270, 94, 'raw', 8, 0.0150),
 (271, 94, 'manufactured', 6, 0.0900),
-(272, 93, 'raw', 108, 0.5000),
-(273, 93, 'raw', 13, 0.0200),
-(274, 93, 'raw', 16, 0.0250),
-(275, 93, 'raw', 19, 0.0250),
-(276, 93, 'raw', 18, 0.0100),
-(277, 93, 'raw', 52, 0.0100),
-(278, 93, 'raw', 56, 0.0250),
-(279, 93, 'raw', 8, 0.0150),
 (280, 93, 'manufactured', 6, 0.0900),
 (281, 95, 'raw', 108, 0.5000),
 (282, 95, 'raw', 13, 0.0200),
@@ -1319,7 +1472,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (306, 158, 'raw', 52, 0.0100),
 (307, 158, 'raw', 56, 0.0250),
 (308, 158, 'raw', 8, 0.0150),
-(310, 158, 'manufactured', 3, 0.0900),
 (311, 147, 'raw', 108, 0.5000),
 (312, 147, 'raw', 13, 0.0400),
 (313, 147, 'raw', 16, 0.0500),
@@ -1343,17 +1495,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (331, 148, 'raw', 12, 0.0200),
 (332, 148, 'raw', 7, 0.0250),
 (333, 148, 'raw', 9, 0.2400),
-(334, 149, 'raw', 109, 1.0000),
-(335, 149, 'raw', 108, 0.5000),
-(336, 149, 'raw', 13, 0.0400),
-(337, 149, 'raw', 16, 0.0500),
-(338, 149, 'raw', 19, 0.0500),
-(339, 149, 'raw', 18, 0.0200),
-(340, 149, 'raw', 52, 0.0200),
-(341, 149, 'raw', 56, 0.0250),
-(342, 149, 'raw', 8, 0.0150),
-(343, 149, 'raw', 12, 0.0200),
-(344, 149, 'raw', 7, 0.0250),
 (345, 149, 'manufactured', 6, 0.1800),
 (346, 150, 'raw', 109, 1.0000),
 (347, 150, 'raw', 108, 0.5000),
@@ -1393,7 +1534,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (381, 152, 'manufactured', 3, 0.0900),
 (382, 152, 'manufactured', 6, 0.0900),
 (383, 153, 'raw', 109, 1.0000),
-(384, 153, 'raw', 108, 0.5000),
 (385, 153, 'raw', 13, 0.0400),
 (386, 153, 'raw', 16, 0.0500),
 (387, 153, 'raw', 19, 0.0500),
@@ -1403,20 +1543,18 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (391, 153, 'raw', 8, 0.0150),
 (392, 153, 'raw', 12, 0.0200),
 (393, 153, 'raw', 7, 0.0250),
-(394, 153, 'manufactured', 3, 0.1800),
 (395, 153, 'raw', 21, 0.5000),
 (396, 154, 'raw', 109, 1.0000),
-(397, 154, 'raw', 108, 0.5000),
+(397, 154, 'raw', 108, 1.0000),
 (398, 154, 'raw', 13, 0.0400),
 (399, 154, 'raw', 16, 0.0500),
 (400, 154, 'raw', 19, 0.0500),
 (401, 154, 'raw', 18, 0.0200),
 (402, 154, 'raw', 52, 0.0200),
 (403, 154, 'raw', 56, 0.0250),
-(404, 154, 'raw', 8, 0.0150),
-(405, 154, 'raw', 12, 0.0200),
-(406, 154, 'raw', 7, 0.0250),
-(407, 154, 'manufactured', 3, 0.3600),
+(404, 154, 'raw', 8, 0.0300),
+(405, 154, 'raw', 12, 0.0400),
+(406, 154, 'raw', 7, 0.0500),
 (408, 155, 'raw', 109, 1.0000),
 (409, 155, 'raw', 108, 1.0000),
 (410, 155, 'raw', 13, 0.0400),
@@ -1449,7 +1587,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (441, 160, 'raw', 8, 0.0150),
 (442, 160, 'raw', 12, 0.0200),
 (443, 160, 'raw', 7, 0.0250),
-(445, 160, 'manufactured', 3, 0.1800),
 (446, 93, 'manufactured', 13, 0.1400),
 (447, 149, 'manufactured', 13, 0.2800),
 (448, 98, 'manufactured', 13, 0.2400),
@@ -1460,7 +1597,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (453, 101, 'raw', 16, 0.0300),
 (454, 101, 'raw', 18, 0.0100),
 (455, 101, 'raw', 52, 0.0100),
-(456, 101, 'raw', 4, 1.0000),
 (457, 101, 'raw', 110, 4.0000),
 (458, 161, 'raw', 24, 1.0000),
 (459, 161, 'raw', 13, 0.0300),
@@ -1550,7 +1686,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (550, 170, 'raw', 12, 0.0200),
 (553, 170, 'raw', 15, 1.0000),
 (554, 170, 'raw', 22, 2.0000),
-(555, 170, 'manufactured', 8, 0.1600),
 (556, 171, 'raw', 108, 0.5000),
 (557, 171, 'raw', 16, 0.0500),
 (558, 171, 'raw', 19, 0.0500),
@@ -1561,7 +1696,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (563, 171, 'raw', 12, 0.0200),
 (564, 171, 'raw', 15, 1.0000),
 (565, 171, 'raw', 22, 2.0000),
-(566, 171, 'manufactured', 8, 0.1600),
 (567, 171, 'raw', 31, 0.2000),
 (568, 172, 'raw', 108, 0.5000),
 (569, 172, 'raw', 16, 0.0500),
@@ -1571,7 +1705,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (573, 172, 'raw', 56, 0.0250),
 (574, 172, 'raw', 8, 0.0150),
 (575, 172, 'raw', 12, 0.0200),
-(578, 172, 'manufactured', 8, 0.1600),
 (579, 172, 'raw', 110, 6.0000),
 (580, 172, 'raw', 14, 0.4000),
 (581, 173, 'raw', 108, 1.5000),
@@ -1582,7 +1715,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (586, 173, 'raw', 56, 0.0500),
 (587, 173, 'raw', 8, 0.0450),
 (588, 173, 'raw', 12, 0.0600),
-(589, 173, 'manufactured', 8, 0.2700),
 (590, 173, 'raw', 110, 15.0000),
 (591, 173, 'raw', 14, 1.0000),
 (592, 173, 'raw', 4, 6.0000),
@@ -1613,7 +1745,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (621, 179, 'raw', 108, 0.5000),
 (622, 179, 'manufactured', 10, 1.0000),
 (624, 179, 'manufactured', 9, 0.0800),
-(625, 179, 'manufactured', 8, 0.0800),
 (626, 180, 'raw', 52, 0.0100),
 (627, 180, 'raw', 16, 0.0250),
 (628, 180, 'raw', 19, 0.0250),
@@ -1628,7 +1759,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (639, 181, 'raw', 56, 0.0250),
 (640, 181, 'raw', 8, 0.0150),
 (641, 181, 'raw', 12, 0.0200),
-(642, 181, 'manufactured', 8, 0.1600),
 (643, 181, 'raw', 110, 6.0000),
 (645, 181, 'manufactured', 10, 5.0000),
 (646, 181, 'raw', 15, 1.0000),
@@ -1707,8 +1837,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (721, 194, 'raw', 31, 0.3000),
 (722, 194, 'raw', 33, 0.0600),
 (723, 194, 'raw', 2, 0.0500),
-(724, 194, 'raw', 53, 100.0000),
-(725, 194, 'raw', 54, 80.0000),
 (726, 195, 'manufactured', 1, 0.5500),
 (727, 195, 'manufactured', 2, 0.1100),
 (728, 195, 'raw', 31, 0.3000),
@@ -1786,7 +1914,6 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (804, 204, 'raw', 28, 0.1000),
 (805, 204, 'raw', 29, 0.1000),
 (806, 204, 'raw', 20, 0.1000),
-(807, 138, 'product', 193, 3.0000),
 (808, 146, 'product', 91, 10.0000),
 (809, 205, 'manufactured', 1, 0.5500),
 (810, 205, 'manufactured', 2, 0.1100),
@@ -1806,13 +1933,121 @@ INSERT INTO `product_components` (`id`, `product_id`, `component_type`, `compone
 (824, 144, 'product', 206, 1.0000),
 (825, 144, 'product', 91, 4.0000),
 (826, 144, 'product', 174, 1.0000),
-(827, 141, 'product', 202, 2.0000),
 (828, 141, 'product', 174, 1.0000),
 (829, 140, 'product', 206, 2.0000),
 (830, 139, 'product', 206, 1.0000),
 (831, 139, 'product', 158, 2.0000),
 (832, 139, 'product', 174, 1.0000),
-(833, 139, 'product', 101, 2.0000);
+(833, 139, 'product', 101, 2.0000),
+(834, 171, 'raw', 79, 1.0000),
+(835, 153, 'manufactured', 5, 0.1600),
+(836, 153, 'raw', 32, 0.1500),
+(837, 155, 'manufactured', 4, 0.0900),
+(838, 155, 'manufactured', 6, 0.0900),
+(839, 155, 'raw', 9, 0.1200),
+(865, 141, 'product', 97, 2.0000),
+(866, 170, 'raw', 13, 0.0400),
+(867, 138, 'product', 206, 3.0000),
+(868, 100, 'manufactured', 4, 0.1800),
+(876, 207, 'manufactured', 4, 0.1800),
+(878, 216, 'product', 134, 1.0000);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `product_component_overrides`
+--
+
+CREATE TABLE `product_component_overrides` (
+  `id` int(11) NOT NULL,
+  `component_row_id` int(11) NOT NULL,
+  `ingredient_type` enum('raw','manufactured','product') NOT NULL,
+  `ingredient_id` int(11) NOT NULL,
+  `quantity` decimal(15,6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `product_component_overrides`
+--
+
+INSERT INTO `product_component_overrides` (`id`, `component_row_id`, `ingredient_type`, `ingredient_id`, `quantity`) VALUES
+(16, 830, 'manufactured', 1, 0.550000),
+(17, 830, 'manufactured', 2, 0.110000),
+(18, 830, 'raw', 31, 0.300000),
+(19, 830, 'raw', 33, 0.060000),
+(20, 830, 'raw', 2, 0.050000),
+(21, 829, 'manufactured', 1, 0.550000),
+(22, 829, 'manufactured', 2, 0.110000),
+(23, 829, 'raw', 31, 0.300000),
+(24, 829, 'raw', 33, 0.060000),
+(25, 829, 'raw', 2, 0.050000),
+(26, 824, 'manufactured', 1, 0.550000),
+(27, 824, 'manufactured', 2, 0.110000),
+(28, 824, 'raw', 31, 0.300000),
+(29, 824, 'raw', 33, 0.060000),
+(30, 824, 'raw', 2, 0.050000),
+(31, 825, 'raw', 25, 1.000000),
+(32, 825, 'raw', 52, 0.010000),
+(33, 825, 'raw', 16, 0.025000),
+(34, 825, 'raw', 19, 0.025000),
+(35, 825, 'raw', 18, 0.010000),
+(36, 825, 'raw', 13, 0.020000),
+(37, 825, 'raw', 108, 0.125000),
+(38, 822, 'manufactured', 1, 0.550000),
+(39, 822, 'manufactured', 2, 0.110000),
+(40, 822, 'raw', 31, 0.300000),
+(41, 822, 'raw', 33, 0.060000),
+(42, 822, 'raw', 2, 0.050000),
+(43, 823, 'raw', 25, 1.000000),
+(44, 823, 'raw', 52, 0.010000),
+(45, 823, 'raw', 16, 0.025000),
+(46, 823, 'raw', 19, 0.025000),
+(47, 823, 'raw', 18, 0.010000),
+(48, 823, 'raw', 13, 0.020000),
+(49, 823, 'raw', 108, 0.125000);
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `product_component_side_overrides`
+--
+
+CREATE TABLE `product_component_side_overrides` (
+  `id` int(11) NOT NULL,
+  `component_row_id` int(11) NOT NULL,
+  `side_type` enum('raw','manufactured','product') NOT NULL,
+  `side_id` int(11) NOT NULL,
+  `quantity` decimal(15,6) NOT NULL,
+  `is_default` tinyint(1) DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `product_component_side_overrides`
+--
+
+INSERT INTO `product_component_side_overrides` (`id`, `component_row_id`, `side_type`, `side_id`, `quantity`, `is_default`) VALUES
+(22, 830, 'raw', 54, 80.000000, 0),
+(23, 830, 'raw', 29, 0.100000, 0),
+(24, 830, 'raw', 30, 0.150000, 0),
+(25, 830, 'raw', 28, 0.100000, 0),
+(26, 830, 'raw', 53, 100.000000, 0),
+(27, 829, 'raw', 54, 80.000000, 0),
+(28, 829, 'raw', 29, 0.100000, 0),
+(29, 829, 'raw', 30, 0.150000, 0),
+(30, 829, 'raw', 28, 0.100000, 0),
+(31, 829, 'raw', 53, 100.000000, 0),
+(32, 824, 'raw', 54, 80.000000, 0),
+(33, 824, 'raw', 29, 0.100000, 0),
+(34, 824, 'raw', 30, 0.150000, 0),
+(35, 824, 'raw', 28, 0.100000, 0),
+(36, 824, 'raw', 53, 100.000000, 0),
+(37, 825, 'manufactured', 3, 0.040000, 0),
+(38, 822, 'raw', 54, 80.000000, 0),
+(39, 822, 'raw', 29, 0.100000, 0),
+(40, 822, 'raw', 30, 0.150000, 0),
+(41, 822, 'raw', 28, 0.100000, 0),
+(42, 822, 'raw', 53, 100.000000, 0),
+(43, 823, 'manufactured', 3, 0.040000, 0);
 
 -- --------------------------------------------------------
 
@@ -1839,33 +2074,6 @@ CREATE TABLE `product_default_modifiers` (
 --
 
 INSERT INTO `product_default_modifiers` (`id`, `product_id`, `modifier_type`, `sub_item_index`, `component_id`, `component_type`, `quantity_adjustment`, `price_adjustment`, `note`, `is_takeaway`, `created_at`) VALUES
-(1, 138, 'info', -1, NULL, NULL, 1.000, 0.00, 'Test de nota global', 0, '2026-01-23 21:34:31'),
-(2, 138, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 21:34:31'),
-(3, 138, 'add', 0, 1, 'raw', 1.000, 2.50, NULL, 0, '2026-01-23 21:34:31'),
-(4, 138, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 1, '2026-01-23 21:34:31'),
-(5, 138, 'remove', 1, 5, 'raw', 1.000, 0.00, NULL, 0, '2026-01-23 21:34:31'),
-(6, 138, 'side', 1, 2, 'manufactured', 1.000, 0.00, NULL, 0, '2026-01-23 21:34:31'),
-(57, 146, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(58, 146, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(59, 146, 'side', 1, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(60, 146, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(61, 146, 'side', 2, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(62, 146, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(63, 146, 'side', 3, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(64, 146, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(65, 146, 'side', 4, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(66, 146, 'info', 5, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(67, 146, 'side', 5, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(68, 146, 'info', 6, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(69, 146, 'side', 6, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(70, 146, 'info', 7, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(71, 146, 'side', 7, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(72, 146, 'info', 8, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(73, 146, 'side', 8, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(74, 146, 'info', 9, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(75, 146, 'side', 9, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(76, 146, 'info', 10, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:06:30'),
-(77, 146, 'side', 10, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-01-23 22:06:30'),
 (78, 205, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-01-23 22:07:51'),
 (79, 205, 'side', 0, 29, 'raw', 0.100, 0.00, NULL, 0, '2026-01-23 22:07:51'),
 (80, 205, 'side', 0, 30, 'raw', 0.150, 0.00, NULL, 0, '2026-01-23 22:07:51'),
@@ -1875,7 +2083,93 @@ INSERT INTO `product_default_modifiers` (`id`, `product_id`, `modifier_type`, `s
 (84, 198, 'side', 0, 29, 'raw', 0.100, 0.00, NULL, 0, '2026-01-24 21:04:49'),
 (85, 198, 'side', 0, 30, 'raw', 0.150, 0.00, NULL, 0, '2026-01-24 21:04:49'),
 (86, 198, 'side', 0, 53, 'raw', 100.000, 0.00, NULL, 0, '2026-01-24 21:04:49'),
-(87, 198, 'side', 0, 7, 'raw', 0.100, 0.00, NULL, 0, '2026-01-24 21:04:49');
+(87, 198, 'side', 0, 7, 'raw', 0.100, 0.00, NULL, 0, '2026-01-24 21:04:49'),
+(88, 193, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-06 00:37:30'),
+(89, 193, 'side', 0, 29, 'raw', 0.100, 0.00, NULL, 0, '2026-02-06 00:37:30'),
+(90, 193, 'side', 0, 30, 'raw', 0.150, 0.00, NULL, 0, '2026-02-06 00:37:30'),
+(91, 193, 'side', 0, 53, 'raw', 100.000, 0.00, NULL, 0, '2026-02-06 00:37:30'),
+(92, 193, 'side', 0, 7, 'raw', 0.100, 0.00, NULL, 0, '2026-02-06 00:37:30'),
+(129, 194, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-07 19:50:56'),
+(130, 194, 'side', 0, 54, 'raw', 80.000, 0.00, NULL, 0, '2026-02-07 19:50:56'),
+(131, 194, 'side', 0, 53, 'raw', 100.000, 0.00, NULL, 0, '2026-02-07 19:50:56'),
+(132, 216, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:35:30'),
+(133, 216, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:35:30'),
+(142, 139, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(143, 139, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(144, 139, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(145, 139, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(146, 139, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(147, 139, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(148, 139, 'info', 5, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(149, 139, 'info', 6, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
+(150, 140, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:40:23'),
+(151, 140, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:40:23'),
+(152, 140, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:40:23'),
+(153, 140, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:40:23'),
+(154, 141, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:41:37'),
+(155, 141, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:41:37'),
+(156, 141, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:41:37'),
+(157, 141, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:41:37'),
+(158, 141, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:41:37'),
+(159, 142, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(160, 142, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(161, 142, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(162, 142, 'side', 1, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(163, 142, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(164, 142, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(165, 142, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:23'),
+(166, 143, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:58'),
+(167, 143, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:42:58'),
+(168, 143, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:58'),
+(169, 143, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:58'),
+(170, 143, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:42:58'),
+(171, 144, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(172, 144, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(173, 144, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(174, 144, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(175, 144, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(176, 144, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(177, 144, 'info', 5, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(178, 144, 'info', 6, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:19'),
+(188, 145, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(189, 145, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(190, 145, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(191, 145, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(192, 145, 'side', 2, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(193, 145, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(194, 145, 'side', 3, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(195, 145, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(196, 145, 'side', 4, 3, 'manufactured', 0.040, 0.00, NULL, 0, '2026-02-12 20:43:57'),
+(197, 146, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(198, 146, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(199, 146, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(200, 146, 'side', 1, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(201, 146, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(202, 146, 'side', 2, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(203, 146, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(204, 146, 'side', 3, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(205, 146, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(206, 146, 'side', 4, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(207, 146, 'info', 5, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(208, 146, 'side', 5, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(209, 146, 'info', 6, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(210, 146, 'side', 6, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(211, 146, 'info', 7, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(212, 146, 'side', 7, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(213, 146, 'info', 8, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(214, 146, 'side', 8, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(215, 146, 'info', 9, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(216, 146, 'side', 9, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(217, 146, 'info', 10, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:44:19'),
+(218, 146, 'side', 10, 6, 'manufactured', 0.045, 0.50, NULL, 0, '2026-02-12 20:44:19'),
+(219, 138, 'info', -1, NULL, NULL, 1.000, 0.00, 'Test de nota global', 0, '2026-02-12 20:45:52'),
+(220, 138, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(221, 138, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(222, 138, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(223, 138, 'side', 1, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(224, 138, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(225, 138, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(226, 138, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52');
 
 -- --------------------------------------------------------
 
@@ -1934,20 +2228,556 @@ CREATE TABLE `product_valid_extras` (
 --
 
 INSERT INTO `product_valid_extras` (`id`, `product_id`, `component_type`, `component_id`, `quantity_required`, `price_override`, `is_default`) VALUES
-(7, 155, 'raw', 9, 0.1200, 0.00, 0),
+(7, 155, 'raw', 9, 0.1200, 2.00, 0),
 (8, 180, 'raw', 108, 0.5000, 1.00, 0),
 (9, 182, 'raw', 29, 0.1000, 1.50, 0),
-(10, 182, 'raw', 30, 0.2000, 1.50, 0),
+(10, 182, 'raw', 30, 0.1000, 1.50, 0),
 (11, 182, 'raw', 7, 0.1000, 3.00, 0),
-(12, 182, 'raw', 28, 0.1000, 3.00, 0),
-(13, 182, 'raw', 95, 0.1000, 3.00, 0),
-(14, 182, 'raw', 36, 0.1000, 1.50, 0),
+(12, 182, 'raw', 28, 0.1000, 2.00, 0),
+(13, 182, 'raw', 95, 0.1000, 4.00, 0),
+(14, 182, 'raw', 36, 0.1000, 2.00, 0),
 (15, 182, 'raw', 20, 0.1000, 3.00, 0),
 (16, 182, 'raw', 23, 3.0000, 2.00, 0),
 (17, 182, 'raw', 54, 80.0000, 1.00, 0),
 (18, 182, 'raw', 53, 100.0000, 1.00, 0),
 (19, 182, 'raw', 31, 0.2000, 3.00, 0),
-(20, 182, 'raw', 32, 0.2000, 3.00, 0);
+(20, 182, 'raw', 32, 0.2000, 3.00, 0),
+(24, 158, 'manufactured', 5, 0.0800, 2.00, 0),
+(25, 158, 'raw', 9, 0.1200, 2.00, 0),
+(26, 158, 'manufactured', 6, 0.0900, 2.00, 0),
+(27, 158, 'manufactured', 8, 0.0800, 2.00, 0),
+(28, 158, 'manufactured', 7, 0.0800, 2.00, 0),
+(30, 91, 'manufactured', 5, 0.0800, 2.00, 0),
+(31, 91, 'raw', 9, 0.1200, 2.00, 0),
+(32, 91, 'manufactured', 6, 0.0900, 2.00, 0),
+(33, 91, 'manufactured', 8, 0.0800, 2.00, 0),
+(34, 91, 'manufactured', 7, 0.0800, 2.00, 0),
+(36, 93, 'manufactured', 5, 0.0800, 2.00, 0),
+(37, 93, 'raw', 9, 0.1200, 2.00, 0),
+(38, 93, 'manufactured', 6, 0.0900, 2.00, 0),
+(39, 93, 'manufactured', 8, 0.0800, 2.00, 0),
+(40, 93, 'manufactured', 7, 0.0800, 2.00, 0),
+(42, 160, 'manufactured', 5, 0.0800, 2.00, 0),
+(43, 160, 'raw', 9, 0.1200, 2.00, 0),
+(44, 160, 'manufactured', 6, 0.0900, 2.00, 0),
+(45, 160, 'manufactured', 8, 0.0800, 2.00, 0),
+(46, 160, 'manufactured', 7, 0.0800, 2.00, 0),
+(54, 153, 'manufactured', 5, 0.0800, 2.00, 0),
+(55, 153, 'raw', 9, 0.1200, 2.00, 0),
+(56, 153, 'manufactured', 6, 0.0900, 2.00, 0),
+(57, 153, 'manufactured', 8, 0.0800, 2.00, 0),
+(58, 153, 'manufactured', 7, 0.0800, 2.00, 0),
+(60, 154, 'manufactured', 5, 0.0800, 2.00, 0),
+(61, 154, 'raw', 9, 0.1200, 2.00, 0),
+(62, 154, 'manufactured', 6, 0.0900, 2.00, 0),
+(63, 154, 'manufactured', 8, 0.0800, 2.00, 0),
+(64, 154, 'manufactured', 7, 0.0800, 2.00, 0),
+(66, 155, 'manufactured', 5, 0.0800, 2.00, 0),
+(67, 155, 'manufactured', 6, 0.0900, 2.00, 0),
+(68, 155, 'manufactured', 8, 0.0800, 2.00, 0),
+(69, 155, 'manufactured', 7, 0.0800, 2.00, 0),
+(70, 155, 'manufactured', 4, 0.0900, 2.00, 0),
+(71, 158, 'manufactured', 4, 0.0900, 2.00, 0),
+(73, 154, 'manufactured', 4, 0.0900, 2.00, 0),
+(74, 153, 'manufactured', 4, 0.0900, 2.00, 0),
+(76, 93, 'manufactured', 4, 0.0900, 2.00, 0),
+(77, 91, 'manufactured', 4, 0.0900, 2.00, 0),
+(78, 160, 'manufactured', 4, 0.0900, 2.00, 0),
+(85, 97, 'manufactured', 5, 0.0800, 2.00, 0),
+(86, 97, 'raw', 9, 0.1200, 2.00, 0),
+(87, 97, 'manufactured', 6, 0.0900, 2.00, 0),
+(88, 97, 'manufactured', 8, 0.0800, 2.00, 0),
+(89, 97, 'manufactured', 7, 0.0800, 2.00, 0),
+(90, 97, 'manufactured', 4, 0.0900, 2.00, 0),
+(109, 101, 'raw', 15, 1.0000, 0.50, 0),
+(110, 101, 'raw', 4, 1.0000, 0.50, 0),
+(111, 101, 'raw', 108, 0.5000, 1.00, 0),
+(112, 101, 'manufactured', 5, 0.0800, 2.00, 0),
+(113, 101, 'raw', 9, 0.1200, 2.00, 0),
+(114, 101, 'manufactured', 6, 0.0900, 2.00, 0),
+(115, 101, 'manufactured', 8, 0.0800, 2.00, 0),
+(116, 101, 'manufactured', 7, 0.0800, 2.00, 0),
+(117, 101, 'manufactured', 4, 0.0900, 2.00, 0),
+(118, 91, 'raw', 7, 0.0250, 1.00, 0),
+(119, 91, 'raw', 8, 0.0300, 1.00, 0),
+(120, 91, 'raw', 12, 0.0400, 1.00, 0),
+(121, 91, 'raw', 108, 0.5000, 1.00, 0),
+(122, 91, 'raw', 15, 1.0000, 0.50, 0),
+(123, 169, 'raw', 15, 1.0000, 0.50, 0),
+(124, 169, 'raw', 4, 1.0000, 0.50, 0),
+(125, 169, 'raw', 108, 0.5000, 1.00, 0),
+(126, 169, 'manufactured', 5, 0.0800, 2.00, 0),
+(127, 169, 'raw', 9, 0.1200, 2.00, 0),
+(128, 169, 'manufactured', 6, 0.0900, 2.00, 0),
+(129, 169, 'manufactured', 8, 0.0800, 2.00, 0),
+(130, 169, 'manufactured', 7, 0.0800, 2.00, 0),
+(131, 169, 'manufactured', 4, 0.0900, 2.00, 0),
+(132, 168, 'raw', 15, 1.0000, 0.50, 0),
+(133, 168, 'raw', 4, 1.0000, 0.50, 0),
+(134, 168, 'raw', 108, 0.5000, 1.00, 0),
+(135, 168, 'manufactured', 5, 0.0800, 2.00, 0),
+(136, 168, 'raw', 9, 0.1200, 2.00, 0),
+(137, 168, 'manufactured', 6, 0.0900, 2.00, 0),
+(138, 168, 'manufactured', 8, 0.0800, 2.00, 0),
+(139, 168, 'manufactured', 7, 0.0800, 2.00, 0),
+(140, 168, 'manufactured', 4, 0.0900, 2.00, 0),
+(141, 167, 'raw', 15, 1.0000, 0.50, 0),
+(142, 167, 'raw', 4, 1.0000, 0.50, 0),
+(143, 167, 'raw', 108, 0.5000, 1.00, 0),
+(144, 167, 'manufactured', 5, 0.0800, 2.00, 0),
+(145, 167, 'raw', 9, 0.1200, 2.00, 0),
+(146, 167, 'manufactured', 6, 0.0900, 2.00, 0),
+(147, 167, 'manufactured', 8, 0.0800, 2.00, 0),
+(148, 167, 'manufactured', 7, 0.0800, 2.00, 0),
+(149, 167, 'manufactured', 4, 0.0900, 2.00, 0),
+(150, 166, 'raw', 15, 1.0000, 0.50, 0),
+(151, 166, 'raw', 4, 1.0000, 0.50, 0),
+(152, 166, 'raw', 108, 0.5000, 1.00, 0),
+(153, 166, 'manufactured', 5, 0.0800, 2.00, 0),
+(154, 166, 'raw', 9, 0.1200, 2.00, 0),
+(155, 166, 'manufactured', 6, 0.0900, 2.00, 0),
+(156, 166, 'manufactured', 8, 0.0800, 2.00, 0),
+(157, 166, 'manufactured', 7, 0.0800, 2.00, 0),
+(158, 166, 'manufactured', 4, 0.0900, 2.00, 0),
+(159, 165, 'raw', 15, 1.0000, 0.50, 0),
+(160, 165, 'raw', 4, 1.0000, 0.50, 0),
+(161, 165, 'raw', 108, 0.5000, 1.00, 0),
+(162, 165, 'manufactured', 5, 0.0800, 2.00, 0),
+(163, 165, 'raw', 9, 0.1200, 2.00, 0),
+(164, 165, 'manufactured', 6, 0.0900, 2.00, 0),
+(165, 165, 'manufactured', 8, 0.0800, 2.00, 0),
+(166, 165, 'manufactured', 7, 0.0800, 2.00, 0),
+(167, 165, 'manufactured', 4, 0.0900, 2.00, 0),
+(168, 164, 'raw', 15, 1.0000, 0.50, 0),
+(169, 164, 'raw', 4, 1.0000, 0.50, 0),
+(170, 164, 'raw', 108, 0.5000, 1.00, 0),
+(171, 164, 'manufactured', 5, 0.0800, 2.00, 0),
+(172, 164, 'raw', 9, 0.1200, 2.00, 0),
+(173, 164, 'manufactured', 6, 0.0900, 2.00, 0),
+(174, 164, 'manufactured', 8, 0.0800, 2.00, 0),
+(175, 164, 'manufactured', 7, 0.0800, 2.00, 0),
+(176, 164, 'manufactured', 4, 0.0900, 2.00, 0),
+(177, 160, 'raw', 7, 0.0250, 1.00, 0),
+(178, 160, 'raw', 8, 0.0300, 1.00, 0),
+(179, 160, 'raw', 12, 0.0400, 1.00, 0),
+(180, 160, 'raw', 108, 0.5000, 1.00, 0),
+(181, 160, 'raw', 15, 1.0000, 0.50, 0),
+(182, 158, 'raw', 7, 0.0250, 1.00, 0),
+(183, 158, 'raw', 8, 0.0300, 1.00, 0),
+(184, 158, 'raw', 12, 0.0400, 1.00, 0),
+(185, 158, 'raw', 108, 0.5000, 1.00, 0),
+(186, 158, 'raw', 15, 1.0000, 0.50, 0),
+(187, 155, 'raw', 7, 0.0250, 1.00, 0),
+(188, 155, 'raw', 8, 0.0300, 1.00, 0),
+(189, 155, 'raw', 12, 0.0400, 1.00, 0),
+(190, 155, 'raw', 108, 0.5000, 1.00, 0),
+(191, 155, 'raw', 15, 1.0000, 0.50, 0),
+(192, 154, 'raw', 7, 0.0250, 1.00, 0),
+(193, 154, 'raw', 8, 0.0300, 1.00, 0),
+(194, 154, 'raw', 12, 0.0400, 1.00, 0),
+(195, 154, 'raw', 108, 0.5000, 1.00, 0),
+(196, 154, 'raw', 15, 1.0000, 0.50, 0),
+(197, 153, 'raw', 7, 0.0250, 1.00, 0),
+(198, 153, 'raw', 8, 0.0300, 1.00, 0),
+(199, 153, 'raw', 12, 0.0400, 1.00, 0),
+(200, 153, 'raw', 108, 0.5000, 1.00, 0),
+(201, 153, 'raw', 15, 1.0000, 0.50, 0),
+(207, 93, 'raw', 7, 0.0250, 1.00, 0),
+(208, 93, 'raw', 8, 0.0300, 1.00, 0),
+(209, 93, 'raw', 12, 0.0400, 1.00, 0),
+(210, 93, 'raw', 108, 0.5000, 1.00, 0),
+(211, 93, 'raw', 15, 1.0000, 0.50, 0),
+(212, 97, 'raw', 7, 0.0250, 1.00, 0),
+(213, 97, 'raw', 8, 0.0300, 1.00, 0),
+(214, 97, 'raw', 12, 0.0400, 1.00, 0),
+(215, 97, 'raw', 108, 0.5000, 1.00, 0),
+(216, 97, 'raw', 15, 1.0000, 0.50, 0),
+(232, 170, 'manufactured', 5, 0.0800, 2.00, 0),
+(233, 170, 'raw', 9, 0.1200, 2.00, 0),
+(234, 170, 'manufactured', 6, 0.0900, 2.00, 0),
+(235, 170, 'manufactured', 8, 0.0800, 2.00, 0),
+(236, 170, 'manufactured', 7, 0.0800, 2.00, 0),
+(237, 170, 'manufactured', 4, 0.0900, 2.00, 0),
+(238, 170, 'raw', 7, 0.0250, 1.00, 0),
+(239, 170, 'raw', 8, 0.0300, 1.00, 0),
+(240, 170, 'raw', 12, 0.0400, 1.00, 0),
+(241, 170, 'raw', 108, 0.5000, 1.00, 0),
+(242, 170, 'raw', 15, 1.0000, 0.50, 0),
+(243, 171, 'manufactured', 5, 0.0800, 2.00, 0),
+(244, 171, 'raw', 9, 0.1200, 2.00, 0),
+(245, 171, 'manufactured', 6, 0.0900, 2.00, 0),
+(246, 171, 'manufactured', 8, 0.0800, 2.00, 0),
+(247, 171, 'manufactured', 7, 0.0800, 2.00, 0),
+(248, 171, 'manufactured', 4, 0.0900, 2.00, 0),
+(249, 171, 'raw', 7, 0.0250, 1.00, 0),
+(250, 171, 'raw', 8, 0.0300, 1.00, 0),
+(251, 171, 'raw', 12, 0.0400, 1.00, 0),
+(252, 171, 'raw', 108, 0.5000, 1.00, 0),
+(253, 171, 'raw', 15, 1.0000, 0.50, 0),
+(254, 172, 'manufactured', 5, 0.0800, 2.00, 0),
+(255, 172, 'raw', 9, 0.1200, 2.00, 0),
+(256, 172, 'manufactured', 6, 0.0900, 2.00, 0),
+(257, 172, 'manufactured', 8, 0.0800, 2.00, 0),
+(258, 172, 'manufactured', 7, 0.0800, 2.00, 0),
+(259, 172, 'manufactured', 4, 0.0900, 2.00, 0),
+(260, 172, 'raw', 7, 0.0250, 1.00, 0),
+(261, 172, 'raw', 8, 0.0300, 1.00, 0),
+(262, 172, 'raw', 12, 0.0400, 1.00, 0),
+(263, 172, 'raw', 108, 0.5000, 1.00, 0),
+(264, 172, 'raw', 15, 1.0000, 0.50, 0),
+(265, 173, 'manufactured', 5, 0.0800, 2.00, 0),
+(266, 173, 'raw', 9, 0.1200, 2.00, 0),
+(267, 173, 'manufactured', 6, 0.0900, 2.00, 0),
+(268, 173, 'manufactured', 8, 0.0800, 2.00, 0),
+(269, 173, 'manufactured', 7, 0.0800, 2.00, 0),
+(270, 173, 'manufactured', 4, 0.0900, 2.00, 0),
+(271, 173, 'raw', 7, 0.0250, 1.00, 0),
+(272, 173, 'raw', 8, 0.0300, 1.00, 0),
+(273, 173, 'raw', 12, 0.0400, 1.00, 0),
+(274, 173, 'raw', 108, 0.5000, 1.00, 0),
+(275, 173, 'raw', 15, 1.0000, 0.50, 0),
+(276, 178, 'manufactured', 5, 0.0800, 2.00, 0),
+(277, 178, 'raw', 9, 0.1200, 2.00, 0),
+(278, 178, 'manufactured', 6, 0.0900, 2.00, 0),
+(279, 178, 'manufactured', 8, 0.0800, 2.00, 0),
+(280, 178, 'manufactured', 7, 0.0800, 2.00, 0),
+(281, 178, 'manufactured', 4, 0.0900, 2.00, 0),
+(282, 178, 'raw', 7, 0.0250, 1.00, 0),
+(283, 178, 'raw', 8, 0.0300, 1.00, 0),
+(284, 178, 'raw', 12, 0.0400, 1.00, 0),
+(285, 178, 'raw', 108, 0.5000, 1.00, 0),
+(286, 178, 'raw', 15, 1.0000, 0.50, 0),
+(287, 179, 'manufactured', 5, 0.0800, 2.00, 0),
+(288, 179, 'raw', 9, 0.1200, 2.00, 0),
+(289, 179, 'manufactured', 6, 0.0900, 2.00, 0),
+(290, 179, 'manufactured', 8, 0.0800, 2.00, 0),
+(291, 179, 'manufactured', 7, 0.0800, 2.00, 0),
+(292, 179, 'manufactured', 4, 0.0900, 2.00, 0),
+(293, 179, 'raw', 7, 0.0250, 1.00, 0),
+(294, 179, 'raw', 8, 0.0300, 1.00, 0),
+(295, 179, 'raw', 12, 0.0400, 1.00, 0),
+(296, 179, 'raw', 108, 0.5000, 1.00, 0),
+(297, 179, 'raw', 15, 1.0000, 0.50, 0),
+(298, 180, 'manufactured', 5, 0.0800, 2.00, 0),
+(299, 180, 'raw', 9, 0.1200, 2.00, 0),
+(300, 180, 'manufactured', 6, 0.0900, 2.00, 0),
+(301, 180, 'manufactured', 8, 0.0800, 2.00, 0),
+(302, 180, 'manufactured', 7, 0.0800, 2.00, 0),
+(303, 180, 'manufactured', 4, 0.0900, 2.00, 0),
+(304, 180, 'raw', 7, 0.0250, 1.00, 0),
+(305, 180, 'raw', 8, 0.0300, 1.00, 0),
+(306, 180, 'raw', 12, 0.0400, 1.00, 0),
+(307, 180, 'raw', 15, 1.0000, 0.50, 0),
+(308, 181, 'manufactured', 5, 0.0800, 2.00, 0),
+(309, 181, 'raw', 9, 0.1200, 2.00, 0),
+(310, 181, 'manufactured', 6, 0.0900, 2.00, 0),
+(311, 181, 'manufactured', 8, 0.0800, 2.00, 0),
+(312, 181, 'manufactured', 7, 0.0800, 2.00, 0),
+(313, 181, 'manufactured', 4, 0.0900, 2.00, 0),
+(314, 181, 'raw', 7, 0.0250, 1.00, 0),
+(315, 181, 'raw', 8, 0.0300, 1.00, 0),
+(316, 181, 'raw', 12, 0.0400, 1.00, 0),
+(317, 181, 'raw', 108, 0.5000, 1.00, 0),
+(318, 181, 'raw', 15, 1.0000, 0.50, 0),
+(319, 206, 'raw', 29, 0.1000, 1.50, 0),
+(320, 206, 'raw', 30, 0.1000, 1.50, 0),
+(321, 206, 'raw', 7, 0.1000, 3.00, 0),
+(322, 206, 'raw', 28, 0.1000, 2.00, 0),
+(323, 206, 'raw', 95, 0.1000, 4.00, 0),
+(324, 206, 'raw', 36, 0.1000, 2.00, 0),
+(325, 206, 'raw', 37, 100.0000, 3.00, 0),
+(326, 206, 'raw', 23, 3.0000, 2.00, 0),
+(327, 206, 'raw', 54, 80.0000, 1.00, 0),
+(328, 206, 'raw', 53, 100.0000, 1.00, 0),
+(329, 206, 'raw', 31, 0.2000, 3.00, 0),
+(330, 206, 'raw', 32, 0.2000, 3.00, 0),
+(331, 182, 'raw', 37, 100.0000, 3.00, 0),
+(332, 183, 'raw', 29, 0.1000, 1.50, 0),
+(333, 183, 'raw', 30, 0.1000, 1.50, 0),
+(334, 183, 'raw', 7, 0.1000, 3.00, 0),
+(335, 183, 'raw', 28, 0.1000, 2.00, 0),
+(336, 183, 'raw', 95, 0.1000, 4.00, 0),
+(337, 183, 'raw', 36, 0.1000, 2.00, 0),
+(338, 183, 'raw', 37, 100.0000, 3.00, 0),
+(339, 183, 'raw', 23, 3.0000, 2.00, 0),
+(340, 183, 'raw', 54, 80.0000, 1.00, 0),
+(341, 183, 'raw', 53, 100.0000, 1.00, 0),
+(342, 183, 'raw', 31, 0.2000, 3.00, 0),
+(343, 183, 'raw', 32, 0.2000, 3.00, 0),
+(344, 184, 'raw', 29, 0.1000, 1.50, 0),
+(345, 184, 'raw', 30, 0.1000, 1.50, 0),
+(346, 184, 'raw', 7, 0.1000, 3.00, 0),
+(347, 184, 'raw', 28, 0.1000, 2.00, 0),
+(348, 184, 'raw', 95, 0.1000, 4.00, 0),
+(349, 184, 'raw', 36, 0.1000, 2.00, 0),
+(350, 184, 'raw', 37, 100.0000, 3.00, 0),
+(351, 184, 'raw', 23, 3.0000, 2.00, 0),
+(352, 184, 'raw', 54, 80.0000, 1.00, 0),
+(353, 184, 'raw', 53, 100.0000, 1.00, 0),
+(354, 184, 'raw', 31, 0.2000, 3.00, 0),
+(355, 184, 'raw', 32, 0.2000, 3.00, 0),
+(356, 185, 'raw', 29, 0.1000, 1.50, 0),
+(357, 185, 'raw', 30, 0.1000, 1.50, 0),
+(358, 185, 'raw', 7, 0.1000, 3.00, 0),
+(359, 185, 'raw', 28, 0.1000, 2.00, 0),
+(360, 185, 'raw', 95, 0.1000, 4.00, 0),
+(361, 185, 'raw', 36, 0.1000, 2.00, 0),
+(362, 185, 'raw', 37, 100.0000, 3.00, 0),
+(363, 185, 'raw', 23, 3.0000, 2.00, 0),
+(364, 185, 'raw', 54, 80.0000, 1.00, 0),
+(365, 185, 'raw', 53, 100.0000, 1.00, 0),
+(366, 185, 'raw', 31, 0.2000, 3.00, 0),
+(367, 185, 'raw', 32, 0.2000, 3.00, 0),
+(368, 188, 'raw', 29, 0.1000, 1.50, 0),
+(369, 188, 'raw', 30, 0.1000, 1.50, 0),
+(370, 188, 'raw', 7, 0.1000, 3.00, 0),
+(371, 188, 'raw', 28, 0.1000, 2.00, 0),
+(372, 188, 'raw', 95, 0.1000, 4.00, 0),
+(373, 188, 'raw', 36, 0.1000, 2.00, 0),
+(374, 188, 'raw', 37, 100.0000, 3.00, 0),
+(375, 188, 'raw', 23, 3.0000, 2.00, 0),
+(376, 188, 'raw', 54, 80.0000, 1.00, 0),
+(377, 188, 'raw', 53, 100.0000, 1.00, 0),
+(378, 188, 'raw', 31, 0.2000, 3.00, 0),
+(379, 188, 'raw', 32, 0.2000, 3.00, 0),
+(380, 187, 'raw', 29, 0.1000, 1.50, 0),
+(381, 187, 'raw', 30, 0.1000, 1.50, 0),
+(382, 187, 'raw', 7, 0.1000, 3.00, 0),
+(383, 187, 'raw', 28, 0.1000, 2.00, 0),
+(384, 187, 'raw', 95, 0.1000, 4.00, 0),
+(385, 187, 'raw', 36, 0.1000, 2.00, 0),
+(386, 187, 'raw', 37, 100.0000, 3.00, 0),
+(387, 187, 'raw', 23, 3.0000, 2.00, 0),
+(388, 187, 'raw', 54, 80.0000, 1.00, 0),
+(389, 187, 'raw', 53, 100.0000, 1.00, 0),
+(390, 187, 'raw', 31, 0.2000, 3.00, 0),
+(391, 187, 'raw', 32, 0.2000, 3.00, 0),
+(392, 186, 'raw', 29, 0.1000, 1.50, 0),
+(393, 186, 'raw', 30, 0.1000, 1.50, 0),
+(394, 186, 'raw', 7, 0.1000, 3.00, 0),
+(395, 186, 'raw', 28, 0.1000, 2.00, 0),
+(396, 186, 'raw', 95, 0.1000, 4.00, 0),
+(397, 186, 'raw', 36, 0.1000, 2.00, 0),
+(398, 186, 'raw', 37, 100.0000, 3.00, 0),
+(399, 186, 'raw', 23, 3.0000, 2.00, 0),
+(400, 186, 'raw', 54, 80.0000, 1.00, 0),
+(401, 186, 'raw', 53, 100.0000, 1.00, 0),
+(402, 186, 'raw', 31, 0.2000, 3.00, 0),
+(403, 186, 'raw', 32, 0.2000, 3.00, 0),
+(404, 189, 'raw', 29, 0.1000, 1.50, 0),
+(405, 189, 'raw', 30, 0.1000, 1.50, 0),
+(406, 189, 'raw', 7, 0.1000, 3.00, 0),
+(407, 189, 'raw', 28, 0.1000, 2.00, 0),
+(408, 189, 'raw', 95, 0.1000, 4.00, 0),
+(409, 189, 'raw', 36, 0.1000, 2.00, 0),
+(410, 189, 'raw', 37, 100.0000, 3.00, 0),
+(411, 189, 'raw', 23, 3.0000, 2.00, 0),
+(412, 189, 'raw', 54, 80.0000, 1.00, 0),
+(413, 189, 'raw', 53, 100.0000, 1.00, 0),
+(414, 189, 'raw', 31, 0.2000, 3.00, 0),
+(415, 189, 'raw', 32, 0.2000, 3.00, 0),
+(416, 190, 'raw', 29, 0.1000, 1.50, 0),
+(417, 190, 'raw', 30, 0.1000, 1.50, 0),
+(418, 190, 'raw', 7, 0.1000, 3.00, 0),
+(419, 190, 'raw', 28, 0.1000, 2.00, 0),
+(420, 190, 'raw', 95, 0.1000, 4.00, 0),
+(421, 190, 'raw', 36, 0.1000, 2.00, 0),
+(422, 190, 'raw', 37, 100.0000, 3.00, 0),
+(423, 190, 'raw', 23, 3.0000, 2.00, 0),
+(424, 190, 'raw', 54, 80.0000, 1.00, 0),
+(425, 190, 'raw', 53, 100.0000, 1.00, 0),
+(426, 190, 'raw', 31, 0.2000, 3.00, 0),
+(427, 190, 'raw', 32, 0.2000, 3.00, 0),
+(428, 191, 'raw', 29, 0.1000, 1.50, 0),
+(429, 191, 'raw', 30, 0.1000, 1.50, 0),
+(430, 191, 'raw', 7, 0.1000, 3.00, 0),
+(431, 191, 'raw', 28, 0.1000, 2.00, 0),
+(432, 191, 'raw', 95, 0.1000, 4.00, 0),
+(433, 191, 'raw', 36, 0.1000, 2.00, 0),
+(434, 191, 'raw', 37, 100.0000, 3.00, 0),
+(435, 191, 'raw', 23, 3.0000, 2.00, 0),
+(436, 191, 'raw', 54, 80.0000, 1.00, 0),
+(437, 191, 'raw', 53, 100.0000, 1.00, 0),
+(438, 191, 'raw', 31, 0.2000, 3.00, 0),
+(439, 191, 'raw', 32, 0.2000, 3.00, 0),
+(440, 192, 'raw', 29, 0.1000, 1.50, 0),
+(441, 192, 'raw', 30, 0.1000, 1.50, 0),
+(442, 192, 'raw', 7, 0.1000, 3.00, 0),
+(443, 192, 'raw', 28, 0.1000, 2.00, 0),
+(444, 192, 'raw', 95, 0.1000, 4.00, 0),
+(445, 192, 'raw', 36, 0.1000, 2.00, 0),
+(446, 192, 'raw', 37, 100.0000, 3.00, 0),
+(447, 192, 'raw', 23, 3.0000, 2.00, 0),
+(448, 192, 'raw', 54, 80.0000, 1.00, 0),
+(449, 192, 'raw', 53, 100.0000, 1.00, 0),
+(450, 192, 'raw', 31, 0.2000, 3.00, 0),
+(451, 192, 'raw', 32, 0.2000, 3.00, 0),
+(452, 193, 'raw', 29, 0.1000, 1.50, 0),
+(453, 193, 'raw', 30, 0.1000, 1.50, 0),
+(454, 193, 'raw', 7, 0.1000, 3.00, 0),
+(455, 193, 'raw', 28, 0.1000, 2.00, 0),
+(456, 193, 'raw', 95, 0.1000, 4.00, 0),
+(457, 193, 'raw', 36, 0.1000, 2.00, 0),
+(458, 193, 'raw', 37, 100.0000, 3.00, 0),
+(459, 193, 'raw', 23, 3.0000, 2.00, 0),
+(460, 193, 'raw', 54, 80.0000, 1.00, 0),
+(461, 193, 'raw', 53, 100.0000, 1.00, 0),
+(462, 193, 'raw', 31, 0.2000, 3.00, 0),
+(463, 193, 'raw', 32, 0.2000, 3.00, 0),
+(464, 194, 'raw', 29, 0.1000, 1.50, 0),
+(465, 194, 'raw', 30, 0.1000, 1.50, 0),
+(466, 194, 'raw', 7, 0.1000, 3.00, 0),
+(467, 194, 'raw', 28, 0.1000, 2.00, 0),
+(468, 194, 'raw', 95, 0.1000, 4.00, 0),
+(469, 194, 'raw', 36, 0.1000, 2.00, 0),
+(470, 194, 'raw', 37, 100.0000, 3.00, 0),
+(471, 194, 'raw', 23, 3.0000, 2.00, 0),
+(472, 194, 'raw', 54, 80.0000, 1.00, 0),
+(473, 194, 'raw', 53, 100.0000, 1.00, 0),
+(474, 194, 'raw', 31, 0.2000, 3.00, 0),
+(475, 194, 'raw', 32, 0.2000, 3.00, 0),
+(476, 195, 'raw', 29, 0.1000, 1.50, 0),
+(477, 195, 'raw', 30, 0.1000, 1.50, 0),
+(478, 195, 'raw', 7, 0.1000, 3.00, 0),
+(479, 195, 'raw', 28, 0.1000, 2.00, 0),
+(480, 195, 'raw', 95, 0.1000, 4.00, 0),
+(481, 195, 'raw', 36, 0.1000, 2.00, 0),
+(482, 195, 'raw', 37, 100.0000, 3.00, 0),
+(483, 195, 'raw', 23, 3.0000, 2.00, 0),
+(484, 195, 'raw', 54, 80.0000, 1.00, 0),
+(485, 195, 'raw', 53, 100.0000, 1.00, 0),
+(486, 195, 'raw', 31, 0.2000, 3.00, 0),
+(487, 195, 'raw', 32, 0.2000, 3.00, 0),
+(488, 196, 'raw', 29, 0.1000, 1.50, 0),
+(489, 196, 'raw', 30, 0.1000, 1.50, 0),
+(490, 196, 'raw', 7, 0.1000, 3.00, 0),
+(491, 196, 'raw', 28, 0.1000, 2.00, 0),
+(492, 196, 'raw', 95, 0.1000, 4.00, 0),
+(493, 196, 'raw', 36, 0.1000, 2.00, 0),
+(494, 196, 'raw', 37, 100.0000, 3.00, 0),
+(495, 196, 'raw', 23, 3.0000, 2.00, 0),
+(496, 196, 'raw', 54, 80.0000, 1.00, 0),
+(497, 196, 'raw', 53, 100.0000, 1.00, 0),
+(498, 196, 'raw', 31, 0.2000, 3.00, 0),
+(499, 196, 'raw', 32, 0.2000, 3.00, 0),
+(500, 197, 'raw', 29, 0.1000, 1.50, 0),
+(501, 197, 'raw', 30, 0.1000, 1.50, 0),
+(502, 197, 'raw', 7, 0.0250, 1.00, 0),
+(503, 197, 'raw', 28, 0.1000, 2.00, 0),
+(504, 197, 'raw', 95, 0.1000, 4.00, 0),
+(505, 197, 'raw', 36, 0.1000, 2.00, 0),
+(506, 197, 'raw', 37, 100.0000, 3.00, 0),
+(507, 197, 'raw', 23, 3.0000, 2.00, 0),
+(508, 197, 'raw', 54, 80.0000, 1.00, 0),
+(509, 197, 'raw', 53, 100.0000, 1.00, 0),
+(510, 197, 'raw', 31, 0.2000, 3.00, 0),
+(511, 197, 'raw', 32, 0.2000, 3.00, 0),
+(512, 198, 'raw', 29, 0.1000, 1.50, 0),
+(513, 198, 'raw', 30, 0.1000, 1.50, 0),
+(514, 198, 'raw', 7, 0.1000, 3.00, 0),
+(515, 198, 'raw', 28, 0.1000, 2.00, 0),
+(516, 198, 'raw', 95, 0.1000, 4.00, 0),
+(517, 198, 'raw', 36, 0.1000, 2.00, 0),
+(518, 198, 'raw', 37, 100.0000, 3.00, 0),
+(519, 198, 'raw', 23, 3.0000, 2.00, 0),
+(520, 198, 'raw', 54, 80.0000, 1.00, 0),
+(521, 198, 'raw', 53, 100.0000, 1.00, 0),
+(522, 198, 'raw', 31, 0.2000, 3.00, 0),
+(523, 198, 'raw', 32, 0.2000, 3.00, 0),
+(524, 199, 'raw', 29, 0.1000, 1.50, 0),
+(525, 199, 'raw', 30, 0.1000, 1.50, 0),
+(526, 199, 'raw', 7, 0.1000, 3.00, 0),
+(527, 199, 'raw', 28, 0.1000, 2.00, 0),
+(528, 199, 'raw', 95, 0.1000, 4.00, 0),
+(529, 199, 'raw', 36, 0.1000, 2.00, 0),
+(530, 199, 'raw', 37, 100.0000, 3.00, 0),
+(531, 199, 'raw', 23, 3.0000, 2.00, 0),
+(532, 199, 'raw', 54, 80.0000, 1.00, 0),
+(533, 199, 'raw', 53, 100.0000, 1.00, 0),
+(534, 199, 'raw', 31, 0.2000, 3.00, 0),
+(535, 199, 'raw', 32, 0.2000, 3.00, 0),
+(536, 200, 'raw', 29, 0.1000, 1.50, 0),
+(537, 200, 'raw', 30, 0.1000, 1.50, 0),
+(538, 200, 'raw', 7, 0.0250, 1.00, 0),
+(539, 200, 'raw', 28, 0.1000, 2.00, 0),
+(540, 200, 'raw', 95, 0.1000, 4.00, 0),
+(541, 200, 'raw', 36, 0.1000, 2.00, 0),
+(542, 200, 'raw', 37, 100.0000, 3.00, 0),
+(543, 200, 'raw', 23, 3.0000, 2.00, 0),
+(544, 200, 'raw', 54, 80.0000, 1.00, 0),
+(545, 200, 'raw', 53, 100.0000, 1.00, 0),
+(546, 200, 'raw', 31, 0.2000, 3.00, 0),
+(547, 200, 'raw', 32, 0.2000, 3.00, 0),
+(548, 201, 'raw', 29, 0.1000, 1.50, 0),
+(549, 201, 'raw', 30, 0.1000, 1.50, 0),
+(550, 201, 'raw', 7, 0.0250, 1.00, 0),
+(551, 201, 'raw', 28, 0.1000, 2.00, 0),
+(552, 201, 'raw', 95, 0.1000, 4.00, 0),
+(553, 201, 'raw', 36, 0.1000, 2.00, 0),
+(554, 201, 'raw', 37, 100.0000, 3.00, 0),
+(555, 201, 'raw', 23, 3.0000, 2.00, 0),
+(556, 201, 'raw', 54, 80.0000, 1.00, 0),
+(557, 201, 'raw', 53, 100.0000, 1.00, 0),
+(558, 201, 'raw', 31, 0.2000, 3.00, 0),
+(559, 201, 'raw', 32, 0.2000, 3.00, 0),
+(560, 202, 'raw', 29, 0.1000, 1.50, 0),
+(561, 202, 'raw', 30, 0.1000, 1.50, 0),
+(562, 202, 'raw', 7, 0.0250, 1.00, 0),
+(563, 202, 'raw', 28, 0.1000, 2.00, 0),
+(564, 202, 'raw', 95, 0.1000, 4.00, 0),
+(565, 202, 'raw', 36, 0.1000, 2.00, 0),
+(566, 202, 'raw', 37, 100.0000, 3.00, 0),
+(567, 202, 'raw', 23, 3.0000, 2.00, 0),
+(568, 202, 'raw', 54, 80.0000, 1.00, 0),
+(569, 202, 'raw', 53, 100.0000, 1.00, 0),
+(570, 202, 'raw', 31, 0.2000, 3.00, 0),
+(571, 202, 'raw', 32, 0.2000, 3.00, 0),
+(572, 205, 'raw', 29, 0.1000, 1.50, 0),
+(573, 205, 'raw', 30, 0.1000, 1.50, 0),
+(574, 205, 'raw', 7, 0.1000, 3.00, 0),
+(575, 205, 'raw', 28, 0.1000, 2.00, 0),
+(576, 205, 'raw', 95, 0.1000, 4.00, 0),
+(577, 205, 'raw', 36, 0.1000, 2.00, 0),
+(578, 205, 'raw', 37, 100.0000, 3.00, 0),
+(579, 205, 'raw', 23, 3.0000, 2.00, 0),
+(580, 205, 'raw', 54, 80.0000, 1.00, 0),
+(581, 205, 'raw', 53, 100.0000, 1.00, 0),
+(582, 205, 'raw', 31, 0.2000, 3.00, 0),
+(583, 205, 'raw', 32, 0.2000, 3.00, 0),
+(584, 202, 'manufactured', 5, 0.0800, 2.00, 0),
+(585, 202, 'raw', 9, 0.1200, 2.00, 0),
+(586, 202, 'manufactured', 6, 0.0900, 2.00, 0),
+(587, 202, 'manufactured', 8, 0.0800, 2.00, 0),
+(588, 202, 'manufactured', 7, 0.0800, 2.00, 0),
+(589, 202, 'manufactured', 4, 0.0900, 2.00, 0),
+(594, 197, 'manufactured', 5, 0.0800, 2.00, 0),
+(595, 197, 'raw', 9, 0.1200, 2.00, 0),
+(596, 197, 'manufactured', 6, 0.0900, 2.00, 0),
+(597, 197, 'manufactured', 8, 0.0800, 2.00, 0),
+(598, 197, 'manufactured', 7, 0.0800, 2.00, 0),
+(599, 197, 'manufactured', 4, 0.0900, 2.00, 0),
+(600, 200, 'manufactured', 5, 0.0800, 2.00, 0),
+(601, 200, 'raw', 9, 0.1200, 2.00, 0),
+(602, 200, 'manufactured', 6, 0.0900, 2.00, 0),
+(603, 200, 'manufactured', 8, 0.0800, 2.00, 0),
+(604, 200, 'manufactured', 7, 0.0800, 2.00, 0),
+(605, 200, 'manufactured', 4, 0.0900, 2.00, 0),
+(606, 201, 'manufactured', 5, 0.0800, 2.00, 0),
+(607, 201, 'raw', 9, 0.1200, 2.00, 0),
+(608, 201, 'manufactured', 6, 0.0900, 2.00, 0),
+(609, 201, 'manufactured', 8, 0.0800, 2.00, 0),
+(610, 201, 'manufactured', 7, 0.0800, 2.00, 0),
+(611, 201, 'manufactured', 4, 0.0900, 2.00, 0),
+(612, 158, 'product', 93, 1.0000, 2.00, 0),
+(613, 160, 'product', 93, 1.0000, 2.00, 0),
+(614, 155, 'product', 93, 1.0000, 2.00, 0),
+(615, 154, 'product', 93, 1.0000, 2.00, 0),
+(616, 153, 'product', 93, 1.0000, 2.00, 0),
+(617, 97, 'product', 93, 1.0000, 2.00, 0),
+(625, 202, 'product', 93, 1.0000, 2.00, 0),
+(630, 201, 'product', 93, 1.0000, 2.00, 0),
+(635, 200, 'product', 93, 1.0000, 2.00, 0),
+(640, 197, 'product', 93, 1.0000, 2.00, 0);
 
 -- --------------------------------------------------------
 
@@ -1971,7 +2801,7 @@ CREATE TABLE `product_valid_sides` (
 
 INSERT INTO `product_valid_sides` (`id`, `product_id`, `component_type`, `component_id`, `quantity`, `price_override`, `is_default`) VALUES
 (2, 180, 'manufactured', 8, 0.0800, 0.000000, 0),
-(3, 180, 'manufactured', 6, 0.0800, 0.000000, 0),
+(3, 180, 'manufactured', 6, 0.0900, 0.000000, 0),
 (5, 192, 'raw', 95, 0.1000, 0.000000, 0),
 (6, 192, 'raw', 28, 0.1000, 0.000000, 0),
 (7, 192, 'raw', 30, 0.1500, 0.000000, 0),
@@ -2043,7 +2873,84 @@ INSERT INTO `product_valid_sides` (`id`, `product_id`, `component_type`, `compon
 (80, 206, 'raw', 53, 100.0000, 0.000000, 0),
 (81, 206, 'raw', 29, 0.1000, 0.000000, 0),
 (82, 206, 'raw', 7, 0.1000, 0.000000, 0),
-(83, 206, 'raw', 36, 0.1000, 0.000000, 0);
+(83, 206, 'raw', 36, 0.1000, 0.000000, 0),
+(85, 158, 'manufactured', 7, 0.0800, 0.000000, 0),
+(86, 158, 'manufactured', 8, 0.0800, 0.000000, 0),
+(87, 158, 'manufactured', 5, 0.0800, 0.000000, 0),
+(88, 158, 'manufactured', 6, 0.0900, 0.000000, 0),
+(89, 158, 'raw', 9, 0.1200, 0.000000, 0),
+(91, 160, 'manufactured', 7, 0.0800, 0.000000, 0),
+(92, 160, 'manufactured', 8, 0.0800, 0.000000, 0),
+(93, 160, 'manufactured', 5, 0.0800, 0.000000, 0),
+(94, 160, 'manufactured', 6, 0.0900, 0.000000, 0),
+(95, 160, 'raw', 9, 0.1200, 0.000000, 0),
+(97, 154, 'manufactured', 7, 0.0800, 0.000000, 0),
+(98, 154, 'manufactured', 8, 0.0800, 0.000000, 0),
+(99, 154, 'manufactured', 5, 0.0800, 0.000000, 0),
+(100, 154, 'manufactured', 6, 0.0900, 0.000000, 0),
+(101, 154, 'raw', 9, 0.1200, 0.000000, 0),
+(102, 158, 'manufactured', 4, 0.0900, 0.000000, 0),
+(103, 160, 'manufactured', 4, 0.0900, 0.000000, 0),
+(104, 154, 'manufactured', 4, 0.0900, 0.000000, 0),
+(105, 101, 'raw', 4, 1.0000, 0.000000, 0),
+(106, 101, 'raw', 15, 1.0000, 0.000000, 0),
+(107, 101, 'raw', 108, 0.5000, 0.000000, 0),
+(108, 170, 'manufactured', 7, 0.0800, 0.000000, 0),
+(109, 170, 'manufactured', 8, 0.0800, 0.000000, 0),
+(110, 170, 'manufactured', 5, 0.0800, 0.000000, 0),
+(111, 170, 'manufactured', 6, 0.0900, 0.000000, 0),
+(112, 170, 'raw', 9, 0.1200, 0.000000, 0),
+(113, 170, 'manufactured', 4, 0.0900, 0.000000, 0),
+(114, 171, 'manufactured', 7, 0.0800, 0.000000, 0),
+(115, 171, 'manufactured', 8, 0.0800, 0.000000, 0),
+(116, 171, 'manufactured', 5, 0.0800, 0.000000, 0),
+(117, 171, 'manufactured', 6, 0.0900, 0.000000, 0),
+(118, 171, 'raw', 9, 0.1200, 0.000000, 0),
+(119, 171, 'manufactured', 4, 0.0900, 0.000000, 0),
+(120, 172, 'manufactured', 7, 0.0800, 0.000000, 0),
+(121, 172, 'manufactured', 8, 0.0800, 0.000000, 0),
+(122, 172, 'manufactured', 5, 0.0800, 0.000000, 0),
+(123, 172, 'manufactured', 6, 0.0900, 0.000000, 0),
+(124, 172, 'raw', 9, 0.1200, 0.000000, 0),
+(125, 172, 'manufactured', 4, 0.0900, 0.000000, 0),
+(126, 173, 'manufactured', 7, 0.0800, 0.000000, 0),
+(127, 173, 'manufactured', 8, 0.0800, 0.000000, 0),
+(128, 173, 'manufactured', 5, 0.0800, 0.000000, 0),
+(129, 173, 'manufactured', 6, 0.0900, 0.000000, 0),
+(130, 173, 'raw', 9, 0.1200, 0.000000, 0),
+(131, 173, 'manufactured', 4, 0.0900, 0.000000, 0),
+(132, 179, 'manufactured', 7, 0.0800, 0.000000, 0),
+(133, 179, 'manufactured', 8, 0.0800, 0.000000, 0),
+(134, 179, 'manufactured', 5, 0.0800, 0.000000, 0),
+(135, 179, 'manufactured', 6, 0.0900, 0.000000, 0),
+(136, 179, 'raw', 9, 0.1200, 0.000000, 0),
+(137, 179, 'manufactured', 4, 0.0900, 0.000000, 0),
+(138, 180, 'manufactured', 7, 0.0800, 0.000000, 0),
+(139, 180, 'manufactured', 5, 0.0800, 0.000000, 0),
+(140, 180, 'raw', 9, 0.1200, 0.000000, 0),
+(141, 180, 'manufactured', 4, 0.0900, 0.000000, 0),
+(142, 181, 'manufactured', 7, 0.0800, 0.000000, 0),
+(143, 181, 'manufactured', 8, 0.0800, 0.000000, 0),
+(144, 181, 'manufactured', 5, 0.0800, 0.000000, 0),
+(145, 181, 'manufactured', 6, 0.0900, 0.000000, 0),
+(146, 181, 'raw', 9, 0.1200, 0.000000, 0),
+(147, 181, 'manufactured', 4, 0.0900, 0.000000, 0),
+(148, 194, 'raw', 54, 80.0000, 0.000000, 0),
+(149, 194, 'raw', 53, 100.0000, 0.000000, 0),
+(151, 158, 'product', 93, 1.0000, 0.000000, 0),
+(152, 160, 'product', 93, 1.0000, 0.000000, 0),
+(153, 97, 'product', 100, 1.0000, 0.000000, 0),
+(155, 97, 'product', 207, 1.0000, 0.000000, 0),
+(156, 97, 'product', 98, 1.0000, 0.000000, 0),
+(157, 97, 'product', 157, 1.0000, 0.000000, 0),
+(158, 134, 'product', 208, 1.0000, 0.000000, 0),
+(159, 134, 'product', 209, 1.0000, 0.000000, 0),
+(160, 210, 'product', 208, 1.0000, 0.000000, 0),
+(161, 134, 'product', 211, 1.0000, 0.000000, 0),
+(162, 134, 'product', 212, 1.0000, 0.000000, 0),
+(163, 134, 'product', 213, 1.0000, 0.000000, 0),
+(164, 134, 'product', 214, 1.0000, 0.000000, 0),
+(165, 134, 'product', 215, 1.0000, 0.000000, 0);
 
 -- --------------------------------------------------------
 
@@ -2070,12 +2977,7 @@ CREATE TABLE `purchase_orders` (
 --
 
 INSERT INTO `purchase_orders` (`id`, `supplier_id`, `order_date`, `expected_delivery_date`, `total_amount`, `payment_status`, `paid_amount`, `status`, `created_at`, `updated_at`, `exchange_rate`) VALUES
-(1, 1, '2026-01-21', '2026-01-24', 15.00, 'pending', 0.00, 'received', '2026-01-21 06:39:59', '2026-01-21 06:51:17', 490.00),
-(2, 1, '2026-01-21', '2026-01-24', 15.00, 'pending', 0.00, 'received', '2026-01-21 06:40:17', '2026-01-21 06:52:59', 490.00),
-(3, 1, '2026-01-21', '2026-01-24', 15.00, 'pending', 0.00, 'received', '2026-01-21 06:40:24', '2026-01-21 07:05:00', 490.00),
-(4, 1, '2026-01-21', '2026-01-24', 60.00, 'pending', 0.00, 'received', '2026-01-21 07:07:40', '2026-01-21 08:02:52', 490.00),
-(6, 1, '2026-01-21', '2026-01-24', 18.00, 'pending', 0.00, 'received', '2026-01-21 08:12:57', '2026-01-21 08:13:04', 490.00),
-(7, 1, '2026-01-21', '2026-01-24', 11.70, 'paid', 0.00, 'received', '2026-01-21 18:42:28', '2026-01-21 19:04:15', 490.00);
+(10, 1, '2026-02-13', '2026-02-16', 36.00, 'paid', 0.00, 'received', '2026-02-13 21:47:11', '2026-02-13 21:47:52', 500.00);
 
 -- --------------------------------------------------------
 
@@ -2100,12 +3002,8 @@ CREATE TABLE `purchase_order_items` (
 --
 
 INSERT INTO `purchase_order_items` (`id`, `purchase_order_id`, `item_type`, `item_id`, `product_id`, `quantity`, `unit_price`, `created_at`, `updated_at`) VALUES
-(1, 1, 'product', 134, 134, 10, 1.500000, '2026-01-21 06:39:59', '2026-01-21 06:39:59'),
-(2, 2, 'product', 134, 134, 10, 1.500000, '2026-01-21 06:40:17', '2026-01-21 06:40:17'),
-(3, 3, 'product', 134, 134, 10, 1.500000, '2026-01-21 06:40:24', '2026-01-21 06:40:24'),
-(4, 4, 'raw_material', 2, NULL, 50, 1.200000, '2026-01-21 07:07:40', '2026-01-21 07:07:40'),
-(6, 6, 'product', 134, 134, 12, 1.500000, '2026-01-21 08:12:57', '2026-01-21 08:12:57'),
-(7, 7, 'product', 134, 134, 6, 1.950000, '2026-01-21 18:42:28', '2026-01-21 18:42:28');
+(20, 10, 'product', 214, 214, 12, 1.000000, '2026-02-13 21:47:11', '2026-02-13 21:47:11'),
+(21, 10, 'product', 208, 208, 24, 1.000000, '2026-02-13 21:47:11', '2026-02-13 21:47:11');
 
 -- --------------------------------------------------------
 
@@ -2126,12 +3024,7 @@ CREATE TABLE `purchase_receipts` (
 --
 
 INSERT INTO `purchase_receipts` (`id`, `purchase_order_id`, `receipt_date`, `created_at`, `updated_at`) VALUES
-(1, 1, '2026-01-21', '2026-01-21 06:51:17', '2026-01-21 06:51:17'),
-(2, 2, '2026-01-21', '2026-01-21 06:52:59', '2026-01-21 06:52:59'),
-(3, 3, '2026-01-21', '2026-01-21 07:05:00', '2026-01-21 07:05:00'),
-(9, 4, '2026-01-21', '2026-01-21 08:02:52', '2026-01-21 08:02:52'),
-(10, 6, '2026-01-21', '2026-01-21 08:13:04', '2026-01-21 08:13:04'),
-(11, 7, '2026-01-21', '2026-01-21 18:42:53', '2026-01-21 18:42:53');
+(14, 10, '2026-02-13', '2026-02-13 21:47:31', '2026-02-13 21:47:31');
 
 -- --------------------------------------------------------
 
@@ -2157,57 +3050,57 @@ CREATE TABLE `raw_materials` (
 --
 
 INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_unit`, `min_stock`, `is_cooking_supply`, `category`, `updated_at`, `short_code`) VALUES
-(1, 'azucar', 'kg', 9.224800, 1.500000, 5.000000, 0, 'ingredient', '2026-01-21 07:06:35', NULL),
-(2, 'harina de trigo', 'kg', 123.944400, 1.200000, 25.000000, 0, 'ingredient', '2026-01-25 08:05:39', NULL),
-(3, 'lomito', 'kg', 14.515400, 16.000000, 2.500000, 0, 'ingredient', '2026-01-19 04:35:14', NULL),
-(4, 'salchicha', 'und', 61.000000, 0.370000, 50.000000, 0, 'ingredient', '2026-01-25 08:17:00', NULL),
-(5, 'carne mechada', 'kg', 4.000000, 16.000000, 2.500000, 0, 'ingredient', '2026-01-19 04:02:22', NULL),
-(6, 'pollo', 'kg', 4.928000, 8.000000, 3.000000, 0, 'ingredient', '2026-01-19 04:08:51', NULL),
-(7, 'tosineta', 'kg', 1.825000, 20.000000, 2.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
-(8, 'jamon ahumado', 'kg', 0.355000, 10.000000, 0.500000, 0, 'ingredient', '2026-01-25 08:17:00', NULL),
+(1, 'azucar', 'kg', 8.527200, 1.500000, 5.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
+(2, 'harina de trigo', 'kg', 103.384400, 1.200000, 25.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
+(3, 'lomito', 'kg', 10.859000, 16.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:40:48', NULL),
+(4, 'salchicha', 'und', 60.000000, 0.370000, 50.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL),
+(5, 'carne mechada', 'kg', 8.000000, 16.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
+(6, 'pollo', 'kg', 9.856000, 8.000000, 3.000000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
+(7, 'tosineta', 'kg', 15.575000, 20.000000, 2.000000, 0, 'ingredient', '2026-02-13 18:57:18', 'T'),
+(8, 'jamon ahumado', 'kg', 8.280000, 10.000000, 0.500000, 0, 'ingredient', '2026-02-12 22:29:32', NULL),
 (9, 'chuleta ahumada', 'kg', 2.000000, 10.000000, 1.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
-(11, 'facilitas', 'und', 42.000000, 0.300000, 24.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
+(11, 'facilitas', 'und', 32.000000, 0.300000, 24.000000, 0, 'ingredient', '2026-02-09 19:35:20', NULL),
 (12, 'queso amarillo', 'kg', 1.000000, 11.000000, 0.500000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
-(13, 'papitas rayadas', 'kg', 17.510000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-02 11:05:17', NULL),
-(14, 'papas fritas', 'kg', 19.500000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
-(15, 'huevo', 'und', 70.502400, 0.240000, 60.000000, 0, 'ingredient', '2026-01-21 04:19:21', NULL),
-(16, 'salsa de tomate', 'kg', 12.490000, 3.750000, 8.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
-(17, 'salsa BBQ', 'kg', 4.579300, 3.000000, 3.500000, 0, 'ingredient', '2026-01-19 05:11:15', NULL),
-(18, 'salsa mostaza', 'kg', 4.770000, 5.770000, 3.000000, 0, 'ingredient', '2026-02-02 11:05:17', NULL),
-(19, 'salsa mayonesa', 'kg', 9.130000, 7.400000, 7.200000, 0, 'ingredient', '2026-02-02 11:05:17', NULL),
-(20, 'aceite vegetal', 'lt', 30.828900, 3.000000, 17.000000, 1, 'ingredient', '2026-01-19 05:11:15', NULL),
+(13, 'papitas rayadas', 'kg', 17.290000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
+(14, 'papas fritas', 'kg', 18.250000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-12 22:37:38', NULL),
+(15, 'huevo', 'und', 339.253600, 0.240000, 60.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL),
+(16, 'salsa de tomate', 'kg', 11.305000, 3.750000, 8.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(17, 'salsa BBQ', 'kg', 3.688500, 3.000000, 3.500000, 0, 'ingredient', '2026-02-06 19:40:48', NULL),
+(18, 'salsa mostaza', 'kg', 4.360000, 5.770000, 3.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(19, 'salsa mayonesa', 'kg', 10.445000, 7.400000, 7.200000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(20, 'aceite vegetal', 'lt', 29.159700, 3.000000, 17.000000, 1, 'ingredient', '2026-02-06 19:40:36', NULL),
 (21, 'platano amarillo (patacon)', 'und', 20.000000, 0.500000, 10.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (22, 'platano verde (patacon)', 'und', 20.000000, 0.500000, 10.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (23, 'platano amarillo (pizza)', 'und', 24.000000, 0.340000, 12.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
-(24, 'pan de perro', 'und', 41.000000, 0.200000, 40.000000, 0, 'ingredient', '2026-01-25 08:17:00', NULL),
-(25, 'pan mini', 'und', 73.000000, 0.200000, 48.000000, 0, 'ingredient', '2026-02-02 11:05:17', NULL),
-(26, 'pan de americana', 'und', 57.000000, 0.360000, 30.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
+(24, 'pan de perro', 'und', 39.000000, 0.200000, 40.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL),
+(25, 'pan mini', 'und', 70.000000, 0.200000, 48.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
+(26, 'pan de americana', 'und', 52.000000, 0.360000, 30.000000, 0, 'ingredient', '2026-02-09 19:35:20', NULL),
 (27, 'vinagre', 'lt', 4.000000, 1.500000, 2.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(28, 'peperoni', 'kg', 1.700000, 11.000000, 1.000000, 0, 'ingredient', '2026-01-21 00:39:46', NULL),
-(29, 'jamon de pierna', 'kg', 7.800000, 7.000000, 5.000000, 0, 'ingredient', '2026-01-25 08:05:39', NULL),
-(30, 'maiz', 'kg', 7.150000, 5.500000, 5.000000, 0, 'ingredient', '2026-01-25 08:05:39', NULL),
-(31, 'queso mozzarella', 'kg', 40.300000, 8.500000, 24.000000, 0, 'ingredient', '2026-01-25 08:05:39', NULL),
+(28, 'peperoni', 'kg', 1.650000, 11.000000, 1.000000, 0, 'ingredient', '2026-02-09 19:34:44', 'P'),
+(29, 'jamon de pierna', 'kg', 7.350000, 7.000000, 5.000000, 0, 'ingredient', '2026-02-13 18:59:52', 'J'),
+(30, 'maiz', 'kg', 6.475000, 5.500000, 5.000000, 0, 'ingredient', '2026-02-13 18:59:52', 'M'),
+(31, 'queso mozzarella', 'kg', 36.800000, 8.500000, 24.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
 (32, 'queso pasteurizado', 'kg', 11.560000, 7.500000, 6.000000, 0, 'ingredient', '2026-01-25 04:27:56', NULL),
-(33, 'mantequilla', 'kg', 2.500000, 4.700000, 2.000000, 0, 'ingredient', '2026-01-25 08:05:39', NULL),
-(34, 'manteca', 'kg', 9.244000, 1.700000, 5.000000, 0, 'ingredient', '2026-01-21 07:06:35', NULL),
-(35, 'levadura', 'kg', 0.364000, 9.000000, 0.200000, 0, 'ingredient', '2026-01-21 07:06:35', NULL),
-(36, 'champiñones', 'kg', 5.600000, 5.900000, 3.000000, 0, 'ingredient', '2026-01-20 22:58:30', NULL),
-(37, 'aceitunas negras', 'gr', 860.000000, 0.020000, 480.000000, 0, 'ingredient', '2026-01-20 22:58:30', NULL),
+(33, 'mantequilla', 'kg', 1.840000, 4.700000, 2.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
+(34, 'manteca', 'kg', 8.572000, 1.700000, 5.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
+(35, 'levadura', 'kg', 0.332000, 9.000000, 0.200000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
+(36, 'champiñones', 'kg', 5.600000, 5.900000, 3.000000, 0, 'ingredient', '2026-02-06 22:40:01', 'CH'),
+(37, 'aceitunas negras', 'gr', 860.000000, 0.020000, 480.000000, 0, 'ingredient', '2026-02-06 22:40:01', 'AC'),
 (38, 'caja de pizza normal', 'und', 50.000000, 0.600000, 25.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
-(39, 'caja de pizza personalizada', 'und', 93.000000, 0.750000, 50.000000, 1, 'packaging', '2026-01-24 22:37:47', NULL),
-(40, 'sal', 'kg', 8.237000, 0.300000, 5.000000, 0, 'ingredient', '2026-01-21 07:06:35', NULL),
+(39, 'caja de pizza personalizada', 'und', 88.000000, 0.750000, 50.000000, 1, 'packaging', '2026-02-13 18:57:18', NULL),
+(40, 'sal', 'kg', 6.773000, 0.300000, 5.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
 (41, 'vasos 77', 'und', 1000.000000, 0.020000, 500.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (44, 'guantes caja', 'und', 100.000000, 0.090000, 50.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (45, 'axion 850gr', 'gr', 3400.000000, 0.010000, 1700.000000, 1, 'ingredient', '2026-01-17 01:31:28', NULL),
-(46, 'bolsa de 5kg', 'und', 991.000000, 0.012000, 500.000000, 1, 'packaging', '2026-01-21 21:55:52', NULL),
-(48, 'papel de envolver', 'gr', 7964.000000, 0.010000, 4000.000000, 1, 'packaging', '2026-01-21 21:55:52', NULL),
-(49, 'botellon de agua ', 'lt', 27.000000, 0.030000, 18.000000, 1, 'ingredient', '2026-01-21 07:06:35', NULL),
+(46, 'bolsa de 5kg', 'und', 990.000000, 0.012000, 500.000000, 1, 'packaging', '2026-02-13 19:02:18', NULL),
+(48, 'papel de envolver', 'gr', 7960.000000, 0.010000, 4000.000000, 1, 'packaging', '2026-02-13 19:02:18', NULL),
+(49, 'botellon de agua ', 'lt', 19.000000, 0.030000, 18.000000, 1, 'ingredient', '2026-02-13 21:49:22', NULL),
 (50, 'toallin ', 'und', 4.000000, 0.700000, 2.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(52, 'lechuga', 'kg', 8.820000, 1.000000, 5.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
-(53, 'pimenton', 'gr', 3200.000000, 0.000182, 500.000000, 0, 'ingredient', '2026-01-24 22:37:47', NULL),
-(54, 'cebolla redonda', 'gr', 674.000000, 0.001000, 500.000000, 0, 'ingredient', '2026-01-21 03:09:20', NULL),
-(55, 'pepinillo', 'gr', 1928.000000, 0.006300, 1000.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
-(56, 'tomate', 'kg', 18.850000, 1.000000, 10.000000, 0, 'ingredient', '2026-02-02 13:21:29', NULL),
+(52, 'lechuga', 'kg', 8.640000, 1.000000, 5.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(53, 'pimenton', 'gr', 3150.000000, 0.000182, 500.000000, 0, 'ingredient', '2026-02-13 18:59:05', 'PIME'),
+(54, 'cebolla redonda', 'gr', 2186.000000, 0.001000, 500.000000, 0, 'ingredient', '2026-02-06 22:40:01', 'C'),
+(55, 'pepinillo', 'gr', 1808.000000, 0.006300, 1000.000000, 0, 'ingredient', '2026-02-09 19:35:20', NULL),
+(56, 'tomate', 'kg', 18.575000, 1.000000, 10.000000, 0, 'ingredient', '2026-02-12 22:29:32', NULL),
 (57, 'esponja doble uso', 'und', 12.000000, 0.270000, 6.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (58, 'esponja de alambre', 'und', 12.000000, 0.270000, 6.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (59, 'escoba', 'und', 6.000000, 3.000000, 3.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
@@ -2216,40 +3109,40 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (62, 'cloro', 'lt', 10.000000, 0.400000, 5.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (63, 'desengrasante ', 'lt', 10.000000, 0.700000, 5.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (64, 'desinfectante', 'lt', 10.000000, 0.400000, 5.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(65, 'pimienta', 'gr', 496.760000, 0.028000, 250.000000, 0, 'ingredient', '2026-01-21 02:42:45', NULL),
-(66, 'oregano', 'gr', 966.415600, 0.007000, 500.000000, 0, 'ingredient', '2026-01-21 04:16:40', NULL),
-(67, 'aliño ', 'gr', 882.020900, 0.005000, 500.000000, 0, 'ingredient', '2026-01-19 04:33:32', NULL),
-(68, 'adobo', 'gr', 2638.649500, 0.010000, 500.000000, 0, 'ingredient', '2026-01-21 04:16:40', NULL),
-(69, 'curry ', 'gr', 882.020900, 0.008000, 500.000000, 0, 'ingredient', '2026-01-19 04:33:32', NULL),
-(70, 'comino', 'gr', 763.761900, 0.007000, 500.000000, 0, 'ingredient', '2026-01-21 04:16:40', NULL),
+(65, 'pimienta', 'gr', 492.440000, 0.028000, 250.000000, 0, 'ingredient', '2026-02-06 19:42:59', NULL),
+(66, 'oregano', 'gr', 926.351200, 0.007000, 500.000000, 0, 'ingredient', '2026-02-06 19:42:59', NULL),
+(67, 'aliño ', 'gr', 813.930500, 0.005000, 500.000000, 0, 'ingredient', '2026-02-06 19:40:21', NULL),
+(68, 'adobo', 'gr', 2100.541900, 0.010000, 500.000000, 0, 'ingredient', '2026-02-06 19:42:12', NULL),
+(69, 'curry ', 'gr', 813.930500, 0.008000, 500.000000, 0, 'ingredient', '2026-02-06 19:40:21', NULL),
+(70, 'comino', 'gr', 636.735900, 0.007000, 500.000000, 0, 'ingredient', '2026-02-06 19:42:12', NULL),
 (71, 'cebolla en polvo', 'gr', 200.000000, 0.020000, 100.000000, 0, 'ingredient', '2026-01-17 01:31:28', NULL),
-(72, 'paprika dulce', 'gr', 1100.000000, 0.003636, 100.000000, 0, 'ingredient', '2026-01-19 04:06:36', NULL),
+(72, 'paprika dulce', 'gr', 900.000000, 0.003636, 100.000000, 0, 'ingredient', '2026-02-06 19:42:35', NULL),
 (73, 'albaca ', 'gr', 1000.000000, 0.007000, 500.000000, 0, 'ingredient', '2026-01-17 01:31:28', NULL),
-(74, 'ajo', 'kg', 3.182300, 3.000000, 2.500000, 0, 'ingredient', '2026-01-21 02:42:45', NULL),
+(74, 'ajo', 'kg', 8.319900, 3.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
 (75, 'cucharillas', 'und', 100.000000, 0.022000, 50.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (76, 'cuchillos', 'und', 100.000000, 0.019000, 50.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (77, 'tenedor', 'und', 100.000000, 0.025000, 50.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(78, 'vasos de 1 oz con tapa', 'und', 397.000000, 0.034000, 200.000000, 1, 'packaging', '2026-02-02 13:21:29', NULL),
+(78, 'vasos de 1 oz con tapa', 'und', 392.000000, 0.034000, 200.000000, 1, 'packaging', '2026-02-12 22:37:38', NULL),
 (79, 'envase de aluminio 788', 'und', 24.000000, 0.200000, 12.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (80, 'servilleta z 160h', 'und', 1600.000000, 0.006250, 800.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (81, 'bolsa de 30kg', 'und', 200.000000, 0.100000, 100.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (82, 'cinta plastica', 'und', 4.000000, 0.400000, 2.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(83, 'carne molida', 'kg', 13.933600, 12.000000, 5.000000, 0, 'ingredient', '2026-01-21 00:29:04', NULL),
-(84, 'pan rallado', 'kg', 2.217100, 2.000000, 0.500000, 0, 'ingredient', '2026-01-19 04:33:32', NULL),
-(85, 'aji', 'gr', 150.000000, 1.000000, 100.000000, 0, 'ingredient', '2026-01-19 04:02:22', NULL),
-(86, 'ajo porro', 'gr', 1100.000000, 1.000000, 100.000000, 0, 'ingredient', '2026-01-19 04:04:24', NULL),
-(87, 'cebolla larga', 'gr', 1020.000000, 1.000000, 100.000000, 0, 'ingredient', '2026-01-19 04:04:42', NULL),
-(88, 'vini tinto', 'lt', 4.000000, 6.000000, 1.000000, 0, 'ingredient', '2026-01-21 04:22:39', NULL),
-(89, 'Pernil', 'kg', 12.400000, 16.000000, 3.000000, 0, 'ingredient', '2026-01-21 04:21:36', NULL),
-(91, 'colorante amarillo', 'gr', 442.085600, 0.020000, 250.000000, 0, 'ingredient', '2026-01-21 04:19:21', NULL),
-(92, 'harina de maiz', 'kg', 23.250000, 1.000000, 5.000000, 0, 'ingredient', '2026-01-21 04:13:49', NULL),
-(93, 'cilantro', 'gr', 120.000000, 1.000000, 100.000000, 0, 'ingredient', '2026-01-19 04:03:19', NULL),
-(94, 'ajo en polvo', 'gr', 400.000000, 1.000000, 250.000000, 0, 'ingredient', '2026-01-19 04:03:08', NULL),
-(95, 'salami', 'kg', 4.100000, 30.000000, 0.100000, 0, 'ingredient', '2026-01-20 22:58:30', NULL),
+(83, 'carne molida', 'kg', 6.124000, 12.000000, 5.000000, 0, 'ingredient', '2026-02-06 19:40:07', NULL),
+(84, 'pan rallado', 'kg', 0.502700, 2.000000, 0.500000, 0, 'ingredient', '2026-02-06 19:39:55', NULL),
+(85, 'aji', 'gr', 1950.000000, 0.001000, 100.000000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
+(86, 'ajo porro', 'gr', 700.000000, 0.001000, 100.000000, 0, 'ingredient', '2026-02-06 19:40:21', NULL),
+(87, 'cebolla larga', 'gr', 460.000000, 0.001000, 100.000000, 0, 'ingredient', '2026-02-06 19:43:22', NULL),
+(88, 'vini tinto', 'lt', 2.000000, 6.000000, 1.000000, 0, 'ingredient', '2026-02-06 19:42:12', NULL),
+(89, 'Pernil', 'kg', 5.200000, 16.000000, 3.000000, 0, 'ingredient', '2026-02-06 19:42:12', NULL),
+(91, 'colorante amarillo', 'gr', 398.128400, 0.020000, 250.000000, 0, 'ingredient', '2026-02-06 19:42:24', NULL),
+(92, 'harina de maiz', 'kg', 20.750000, 1.000000, 5.000000, 0, 'ingredient', '2026-02-06 19:43:10', NULL),
+(93, 'cilantro', 'gr', 1960.000000, 0.001000, 100.000000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
+(94, 'ajo en polvo', 'gr', 2200.000000, 0.001000, 250.000000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
+(95, 'salami', 'kg', 4.100000, 30.000000, 0.100000, 0, 'ingredient', '2026-02-06 22:40:01', 'S'),
 (96, 'humo liquido', 'ml', 400.000000, 0.020000, 200.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (97, 'hielo cubos ', 'und', 1.000000, 2.000000, 0.500000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (98, 'queso parmesano', 'gr', 500.000000, 0.020000, 250.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
-(99, 'conflei', 'gr', 3992.000000, 0.010000, 4.000000, 0, 'ingredient', '2026-01-21 04:21:12', NULL),
+(99, 'conflei', 'gr', 3044.132800, 0.010000, 4.000000, 0, 'ingredient', '2026-02-06 19:41:59', NULL),
 (100, 'nugguet', 'kg', 1.000000, 10.000000, 0.500000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (101, 'mortadela', 'gr', 400.000000, 0.003000, 200.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (102, 'papel termico', 'und', 50.000000, 0.200000, 25.000000, 0, 'packaging', '2026-01-17 02:52:11', NULL),
@@ -2258,9 +3151,9 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (105, 'envase ct2', 'und', 100.000000, 0.110000, 50.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (106, 'envase ct3', 'und', 100.000000, 0.160000, 50.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (107, 'bolsa de papel', 'und', 40.000000, 0.150000, 20.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
-(108, 'queso cebu', 'und', 72.875000, 0.670000, 60.000000, 0, 'ingredient', '2026-02-02 11:05:17', NULL),
-(109, 'pan whopper', 'und', 17.000000, 0.820000, 30.000000, 0, 'ingredient', '2026-01-25 08:17:00', NULL),
-(110, 'queso de año', 'gr', 244.000000, 0.010000, 200.000000, 0, 'ingredient', '2026-01-25 08:17:00', NULL);
+(108, 'queso cebu', 'und', 69.500000, 0.670000, 60.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(109, 'pan whopper', 'und', 112.000000, 0.461026, 30.000000, 0, 'ingredient', '2026-02-12 22:29:32', NULL),
+(110, 'queso de año', 'gr', 236.000000, 0.010000, 200.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL);
 
 -- --------------------------------------------------------
 
@@ -2351,7 +3244,23 @@ INSERT INTO `transactions` (`id`, `cash_session_id`, `type`, `amount`, `currency
 (37, 4, 'income', 5.00, 'USD', 490.00, 5.00, 1, 'order', 26, 'Cobro Venta #26', 4, '2026-02-02 12:31:52'),
 (38, 4, 'income', 735.00, 'VES', 490.00, 1.50, 4, 'order', 26, 'Cobro Venta #26', 4, '2026-02-02 12:31:52'),
 (39, 4, 'income', 6.50, 'USD', 490.00, 6.50, 1, 'order', 27, 'Cobro Venta #27', 4, '2026-02-02 13:04:42'),
-(40, 4, 'income', 6.50, 'USD', 490.00, 6.50, 1, 'order', 28, 'Cobro Venta #28', 4, '2026-02-02 13:21:27');
+(40, 4, 'income', 6.50, 'USD', 490.00, 6.50, 1, 'order', 28, 'Cobro Venta #28', 4, '2026-02-02 13:21:27'),
+(41, 4, 'income', 24.00, 'USD', 490.00, 24.00, 1, 'order', 29, 'Cobro Venta #29', 4, '2026-02-06 22:42:22'),
+(42, 4, 'income', 17.00, 'USD', 490.00, 17.00, 1, 'order', 30, 'Cobro Venta #30', 4, '2026-02-08 00:44:48'),
+(43, 4, 'income', 28.00, 'USD', 490.00, 28.00, 1, 'order', 31, 'Cobro Venta #31', 4, '2026-02-09 19:17:21'),
+(44, 4, 'income', 11.00, 'USD', 490.00, 11.00, 1, 'order', 32, 'Cobro Venta #32', 4, '2026-02-09 19:34:44'),
+(45, 4, 'income', 8.50, 'USD', 490.00, 8.50, 1, 'order', 33, 'Cobro Venta #33', 4, '2026-02-09 19:35:20'),
+(47, 5, 'income', 11.00, 'USD', 490.00, 11.00, 1, 'order', 34, 'Cobro Venta #34', 33, '2026-02-09 20:18:38'),
+(48, 5, 'income', 0.01, 'USD', 490.00, 0.01, 3, 'order', 34, 'Cobro Venta #34', 33, '2026-02-09 20:18:38'),
+(49, 6, 'income', 18.00, 'USD', 500.00, 18.00, 1, 'order', 35, 'Cobro Venta #35', 4, '2026-02-12 22:29:32'),
+(50, 6, 'income', 16.00, 'USD', 500.00, 16.00, 1, 'order', 36, 'Cobro Venta #36', 4, '2026-02-12 22:37:38'),
+(56, 6, 'income', 2.00, 'USD', 500.00, 2.00, 1, 'order', 42, 'Cobro Venta #42', 4, '2026-02-13 03:04:23'),
+(57, 6, 'income', 4.00, 'USD', 500.00, 4.00, 1, 'order', 43, 'Cobro Venta #43', 4, '2026-02-13 03:15:32'),
+(58, 6, 'income', 16.00, 'USD', 500.00, 16.00, 1, 'order', 44, 'Cobro Venta #44', 4, '2026-02-13 18:57:18'),
+(59, 6, 'income', 7500.00, 'VES', 500.00, 15.00, 4, 'order', 45, 'Cobro Venta #45', 4, '2026-02-13 18:59:05'),
+(60, 6, 'income', 6000.00, 'VES', 500.00, 12.00, 2, 'order', 46, 'Cobro Venta #46', 4, '2026-02-13 18:59:51'),
+(61, 6, 'income', 2000.00, 'VES', 500.00, 4.00, 5, 'order', 47, 'Cobro Venta #47', 4, '2026-02-13 19:02:18'),
+(62, 0, 'expense', 36.00, 'USD', 500.00, 36.00, 1, 'purchase', 10, 'Pago de Compra #10 (Efectivo USD)', 4, '2026-02-13 21:47:52');
 
 -- --------------------------------------------------------
 
@@ -2372,6 +3281,17 @@ CREATE TABLE `tv_playlist_items` (
   `show_suggestion` tinyint(1) DEFAULT 0,
   `suggestion_text` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `tv_playlist_items`
+--
+
+INSERT INTO `tv_playlist_items` (`id`, `product_id`, `custom_title`, `custom_description`, `custom_image_url`, `custom_price`, `duration_seconds`, `sort_order`, `is_active`, `show_suggestion`, `suggestion_text`) VALUES
+(1, 138, '', '', NULL, '', 10, 0, 1, 1, ''),
+(2, 139, '', '', NULL, '', 10, 0, 1, 1, ''),
+(3, 140, '', '', NULL, '', 10, 0, 1, 1, ''),
+(4, 141, '', '', NULL, '', 10, 0, 1, 1, ''),
+(5, 142, '', '', NULL, '', 10, 0, 1, 1, '');
 
 -- --------------------------------------------------------
 
@@ -2416,7 +3336,10 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `phone`, `document_id`, `address`, `role`, `profile_pic`, `balance`, `salary_amount`, `salary_frequency`, `job_role`, `reset_token`, `token_expiry`, `created_at`, `updated_at`) VALUES
 (4, 'roberto', 'robertopv100@gmail.com', '$2y$10$7GPIEd7LC.leGjt7EgKNvOQ/J7Ht.J2gjOC8njG51PAefmEGWa4bq', '04246746570', 'v-19451788', 'asdasdasd12', 'admin', 'default.jpg', 0.00, 30.000000, 'monthly', 'manager', NULL, NULL, '2025-02-23 23:37:13', '2025-12-10 12:29:45'),
-(31, 'Test Client', 'cliente_123456@local.com', '$2y$12$6v3nSh4iXCUqc8iS9Z/o4.dm.LgLRbMRne85Rn3AwXZPAwmCGVpaK', '555555', '123456', '', 'user', 'default.jpg', 0.00, 10.000000, 'monthly', 'cashier', NULL, NULL, '2026-01-19 06:01:55', '2026-01-19 06:53:37');
+(31, 'Test Client', 'cliente_123456@local.com', '$2y$12$6v3nSh4iXCUqc8iS9Z/o4.dm.LgLRbMRne85Rn3AwXZPAwmCGVpaK', '555555', '123456', '', 'user', 'default.jpg', 0.00, 10.000000, 'monthly', 'cashier', NULL, NULL, '2026-01-19 06:01:55', '2026-01-19 06:53:37'),
+(33, 'cajero', 'cajero@gmail.com', '$2y$10$hBQ8LMcjb4eugZ2z3WS90OaiPWsyJeyW2vVt0RCckg1qORbYIc/C.', '', '12345173', '', 'user', 'default.jpg', 0.00, 0.000000, 'weekly', 'cashier', NULL, NULL, '2026-02-09 19:46:03', '2026-02-09 20:08:52'),
+(34, 'pizza', 'pizza@gmail.com', '$2y$10$BPgpWsxu7a7dnluw0cRAWe9Vlt8.FWM2b06O0r1SDQdjCGtICJ.Jq', '', '12837918273', '', 'user', 'default.jpg', 0.00, 0.000000, 'weekly', 'kitchen', NULL, NULL, '2026-02-09 19:46:35', '2026-02-13 18:44:36'),
+(35, 'cocina', 'cocina@gmail.com', '$2y$10$nyGoatApX1HW55nfegtUcuV3xi2lL4oWmN98RGr9g86QGR0bdAtfu', '', '1827391827', '', 'user', 'default.jpg', 0.00, 0.000000, 'monthly', 'kitchen', NULL, NULL, '2026-02-09 19:47:03', '2026-02-13 18:45:11');
 
 -- --------------------------------------------------------
 
@@ -2453,7 +3376,9 @@ INSERT INTO `vault_movements` (`id`, `type`, `origin`, `amount`, `currency`, `de
 (10, 'withdrawal', 'supplier_payment', 18.00, 'USD', 'Pago a Proveedor - Compra #6', 6, 4, '2026-01-21 08:12:57'),
 (11, 'withdrawal', 'owner_withdrawal', 30.00, 'USD', 'Pago Nómina: roberto (ID: 1)', 1, 4, '2026-01-21 18:22:54'),
 (12, 'withdrawal', 'owner_withdrawal', 10.00, 'USD', 'Pago Nómina: Test Client (ID: 2)', 2, 4, '2026-01-21 18:22:57'),
-(13, 'withdrawal', 'supplier_payment', 11.70, 'USD', 'Pago a Proveedor - Compra #7', 7, 4, '2026-01-21 19:04:15');
+(13, 'withdrawal', 'supplier_payment', 11.70, 'USD', 'Pago a Proveedor - Compra #7', 7, 4, '2026-01-21 19:04:15'),
+(15, 'deposit', 'session_close', 416.50, 'USD', 'Cierre de Caja #4', 4, 4, '2026-02-09 20:10:40'),
+(16, 'withdrawal', 'supplier_payment', 36.00, 'USD', 'Pago a Proveedor - Compra #10', 10, 4, '2026-02-13 21:47:52');
 
 --
 -- Índices para tablas volcadas
@@ -2618,12 +3543,33 @@ ALTER TABLE `product_companions`
   ADD KEY `companion_id` (`companion_id`);
 
 --
+-- Indices de la tabla `product_companion_components`
+--
+ALTER TABLE `product_companion_components`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `product_companion_id` (`product_companion_id`);
+
+--
 -- Indices de la tabla `product_components`
 --
 ALTER TABLE `product_components`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_prod_component` (`product_id`),
   ADD KEY `idx_product_components_product` (`product_id`,`component_type`);
+
+--
+-- Indices de la tabla `product_component_overrides`
+--
+ALTER TABLE `product_component_overrides`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `component_row_id` (`component_row_id`);
+
+--
+-- Indices de la tabla `product_component_side_overrides`
+--
+ALTER TABLE `product_component_side_overrides`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `component_row_id` (`component_row_id`);
 
 --
 -- Indices de la tabla `product_default_modifiers`
@@ -2734,19 +3680,19 @@ ALTER TABLE `accounts_receivable`
 -- AUTO_INCREMENT de la tabla `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=90;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=192;
 
 --
 -- AUTO_INCREMENT de la tabla `cart_item_modifiers`
 --
 ALTER TABLE `cart_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=863;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1823;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
 --
 ALTER TABLE `cash_sessions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de la tabla `categories`
@@ -2758,7 +3704,7 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT de la tabla `clients`
 --
 ALTER TABLE `clients`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `company_vault`
@@ -2770,7 +3716,7 @@ ALTER TABLE `company_vault`
 -- AUTO_INCREMENT de la tabla `global_config`
 --
 ALTER TABLE `global_config`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=115;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=148;
 
 --
 -- AUTO_INCREMENT de la tabla `kds_item_status`
@@ -2800,19 +3746,19 @@ ALTER TABLE `menu_roles`
 -- AUTO_INCREMENT de la tabla `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
 
 --
 -- AUTO_INCREMENT de la tabla `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=85;
 
 --
 -- AUTO_INCREMENT de la tabla `order_item_modifiers`
 --
 ALTER TABLE `order_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=362;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=520;
 
 --
 -- AUTO_INCREMENT de la tabla `payment_methods`
@@ -2824,13 +3770,13 @@ ALTER TABLE `payment_methods`
 -- AUTO_INCREMENT de la tabla `payroll_payments`
 --
 ALTER TABLE `payroll_payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `production_orders`
 --
 ALTER TABLE `production_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
 
 --
 -- AUTO_INCREMENT de la tabla `production_recipes`
@@ -2842,25 +3788,43 @@ ALTER TABLE `production_recipes`
 -- AUTO_INCREMENT de la tabla `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=207;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=217;
 
 --
 -- AUTO_INCREMENT de la tabla `product_companions`
 --
 ALTER TABLE `product_companions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+
+--
+-- AUTO_INCREMENT de la tabla `product_companion_components`
+--
+ALTER TABLE `product_companion_components`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT de la tabla `product_components`
 --
 ALTER TABLE `product_components`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=834;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=879;
+
+--
+-- AUTO_INCREMENT de la tabla `product_component_overrides`
+--
+ALTER TABLE `product_component_overrides`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+
+--
+-- AUTO_INCREMENT de la tabla `product_component_side_overrides`
+--
+ALTER TABLE `product_component_side_overrides`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
 
 --
 -- AUTO_INCREMENT de la tabla `product_default_modifiers`
 --
 ALTER TABLE `product_default_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=88;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=227;
 
 --
 -- AUTO_INCREMENT de la tabla `product_packaging`
@@ -2872,31 +3836,31 @@ ALTER TABLE `product_packaging`
 -- AUTO_INCREMENT de la tabla `product_valid_extras`
 --
 ALTER TABLE `product_valid_extras`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=653;
 
 --
 -- AUTO_INCREMENT de la tabla `product_valid_sides`
 --
 ALTER TABLE `product_valid_sides`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=173;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_order_items`
 --
 ALTER TABLE `purchase_order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_receipts`
 --
 ALTER TABLE `purchase_receipts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT de la tabla `raw_materials`
@@ -2914,25 +3878,25 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT de la tabla `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT de la tabla `tv_playlist_items`
 --
 ALTER TABLE `tv_playlist_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT de la tabla `vault_movements`
 --
 ALTER TABLE `vault_movements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- Restricciones para tablas volcadas
@@ -2995,6 +3959,24 @@ ALTER TABLE `payroll_payments`
 --
 ALTER TABLE `products`
   ADD CONSTRAINT `fk_product_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL;
+
+--
+-- Filtros para la tabla `product_companion_components`
+--
+ALTER TABLE `product_companion_components`
+  ADD CONSTRAINT `product_companion_components_ibfk_1` FOREIGN KEY (`product_companion_id`) REFERENCES `product_companions` (`id`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `product_component_overrides`
+--
+ALTER TABLE `product_component_overrides`
+  ADD CONSTRAINT `product_component_overrides_ibfk_1` FOREIGN KEY (`component_row_id`) REFERENCES `product_components` (`id`) ON DELETE CASCADE;
+
+--
+-- Filtros para la tabla `product_component_side_overrides`
+--
+ALTER TABLE `product_component_side_overrides`
+  ADD CONSTRAINT `product_component_side_overrides_ibfk_1` FOREIGN KEY (`component_row_id`) REFERENCES `product_components` (`id`) ON DELETE CASCADE;
 
 --
 -- Filtros para la tabla `product_default_modifiers`

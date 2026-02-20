@@ -24,11 +24,13 @@ $endSql = $endDate . " 23:59:59";
 // =========================================================
 
 // A. VENTAS TOTALES (Todas las órdenes pagadas/entregadas, independiente del método de pago)
-$sqlSales = "SELECT SUM(total_price) as total FROM orders
+$sqlSales = "SELECT SUM(total_price) as total_usd, SUM(total_price * exchange_rate) as total_ves FROM orders
              WHERE status IN ('paid', 'delivered') AND created_at BETWEEN ? AND ?";
 $stmt = $db->prepare($sqlSales);
 $stmt->execute([$startSql, $endSql]);
-$ventasNetas = $stmt->fetchColumn() ?: 0;
+$salesData = $stmt->fetch(PDO::FETCH_ASSOC);
+$ventasNetasUsd = $salesData['total_usd'] ?: 0;
+$ventasNetasVes = $salesData['total_ves'] ?: 0;
 
 // B. INGRESOS POR TRANSACCIONES (Para referencia de flujo de caja)
 $sqlIncome = "SELECT SUM(amount_usd_ref) as total FROM transactions
@@ -74,14 +76,19 @@ $stmt = $db->prepare($sqlLaborAdmin);
 $stmt->execute([$startSql, $endSql]);
 $gastosNominaAdmin = $stmt->fetchColumn() ?: 0;
 
-// 3. Otros Gastos Operativos (Proveedores, Servicios, etc - Excluyendo Nómina, Vueltos y Transferencias Internas)
-// Excluimos:
-// - 'order' (vueltos a clientes)
-// - 'adjustment' (nómina, ya contabilizada arriba)
-// - 'manual' (transferencias entre cuentas, NO son gastos reales)
+// 3. Inversión en Inventario (Compras a Proveedores con referencia 'purchase')
+$sqlInventory = "SELECT SUM(amount_usd_ref) FROM transactions 
+                 WHERE type = 'expense' 
+                 AND reference_type = 'purchase'
+                 AND created_at BETWEEN ? AND ?";
+$stmt = $db->prepare($sqlInventory);
+$stmt->execute([$startSql, $endSql]);
+$inversionInventario = $stmt->fetchColumn() ?: 0;
+
+// 4. Otros Gastos Operativos (Servicios, Local, etc. - Excluyendo Nómina, Compras, Vueltos y Internos)
 $sqlTotalExpense = "SELECT SUM(amount_usd_ref) FROM transactions 
                     WHERE type = 'expense' 
-                    AND reference_type NOT IN ('order', 'adjustment', 'manual')
+                    AND reference_type NOT IN ('order', 'adjustment', 'manual', 'purchase')
                     AND created_at BETWEEN ? AND ?";
 $stmt = $db->prepare($sqlTotalExpense);
 $stmt->execute([$startSql, $endSql]);
@@ -93,14 +100,14 @@ $gastosOperativosGenerales = $stmt->fetchColumn() ?: 0;
 // Esta es la métrica más importante. Calcula cuánto gastaste en materia prima
 // para generar esas ventas.
 
-// Consultamos todos los ítems vendidos en el rango
-$sqlItems = "SELECT oi.product_id, SUM(oi.quantity) as qty_sold
+// Consultamos todos los ítems vendidos en el rango (Ahora traemos cost_at_sale)
+$sqlItems = "SELECT oi.product_id, oi.cost_at_sale, SUM(oi.quantity) as qty_sold
              FROM order_items oi
              JOIN orders o ON oi.order_id = o.id
              JOIN products p ON oi.product_id = p.id
              WHERE o.status IN ('paid', 'delivered')
              AND o.created_at BETWEEN ? AND ?
-             GROUP BY oi.product_id, p.name, p.price_usd";
+             GROUP BY oi.product_id, oi.cost_at_sale, p.name, p.price_usd";
 $stmt = $db->prepare($sqlItems);
 $stmt->execute([$startSql, $endSql]);
 $soldItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -110,16 +117,22 @@ $totalCOGS = 0; // New variable for the optimized calculation
 $debugCOGS = []; // Debug array
 
 // 2. COSTO DE VENTA (COGS) - UNIFICADO
-// Usamos calculateProductCost que ya maneja Recetas (recursivas), Contornos (proporcional/estándar) y Empaque.
 foreach ($soldItems as $item) {
     $productId = $item['product_id'];
     $qtySold = $item['qty_sold'];
-
-    $costPerUnit = $productManager->calculateProductCost($productId);
+    
+    // PRIORIDAD: Usar el costo guardado al momento de la venta si existe
+    if (floatval($item['cost_at_sale']) > 0) {
+        $costPerUnit = floatval($item['cost_at_sale']);
+    } else {
+        // Fallback para ventas antiguas sin costo guardado
+        $costPerUnit = $productManager->calculateProductCost($productId);
+    }
+    
     $totalCostThisProduct = $costPerUnit * $qtySold;
     $totalCOGS += $totalCostThisProduct;
 
-    // Debug info (opcional para ver en consola si es necesario)
+    // Debug info
     $debugCOGS[] = [
         'product' => $productManager->getProductById($productId)['name'] ?? 'Unknown',
         'qty' => $qtySold,
@@ -138,13 +151,13 @@ foreach ($soldItems as $item) {
 // Lo pondremos separado para visibilidad.
 
 $costoProduccionTotal = $totalCOGS + $costoManoObraDirecta;
-$utilidadBruta = $ventasNetas - $costoProduccionTotal;
-$margenBruto = ($ventasNetas > 0) ? ($utilidadBruta / $ventasNetas) * 100 : 0;
+$utilidadBruta = $ventasNetasUsd - $costoProduccionTotal;
+$margenBruto = ($ventasNetasUsd > 0) ? ($utilidadBruta / $ventasNetasUsd) * 100 : 0;
 
 // UTILIDAD NETA (Utilidad Bruta - Gastos Op - Nomina Admin)
 $totalGastosOp = $gastosOperativosGenerales + $gastosNominaAdmin;
 $utilidadNeta = $utilidadBruta - $totalGastosOp;
-$margenNeto = ($ventasNetas > 0) ? ($utilidadNeta / $ventasNetas) * 100 : 0;
+$margenNeto = ($ventasNetasUsd > 0) ? ($utilidadNeta / $ventasNetasUsd) * 100 : 0;
 
 // =========================================================
 // 4. ANÁLISIS ADICIONAL - PRODUCTOS MÁS VENDIDOS
@@ -239,7 +252,20 @@ $sqlHourly = "SELECT HOUR(o.created_at) as hour,
               ORDER BY hour ASC";
 $stmt = $db->prepare($sqlHourly);
 $stmt->execute([$startSql, $endSql]);
-$hourlyData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$rawHourly = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Normalizar a 24 horas
+$hourlyData = [];
+for ($i = 0; $i < 24; $i++) {
+    $hourlyData[$i] = ['hour' => $i, 'order_count' => 0, 'revenue' => 0];
+}
+foreach ($rawHourly as $row) {
+    $hourlyData[intval($row['hour'])] = [
+        'hour' => intval($row['hour']),
+        'order_count' => intval($row['order_count']),
+        'revenue' => floatval($row['revenue'])
+    ];
+}
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -298,12 +324,13 @@ require_once '../templates/menu.php';
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-uppercase mb-1 opacity-75">Ventas Netas (Ingresos)</h6>
-                            <h2 class="mb-0 fw-bold">$<?= number_format($ventasNetas, 2) ?></h2>
+                            <h2 class="mb-0 fw-bold">$<?= number_format($ventasNetasUsd, 2) ?></h2>
+                            <small class="fw-bold"><?= number_format($ventasNetasVes, 2) ?> VES</small>
                         </div>
                         <i class="fa fa-cash-register fa-3x opacity-25"></i>
                     </div>
                     <div class="small mt-3 opacity-75">
-                        <i class="fa fa-arrow-up"></i> Ingresos menos vueltos
+                        <i class="fa fa-history"></i> Basado en tasas históricas
                     </div>
                 </div>
             </div>
@@ -346,6 +373,23 @@ require_once '../templates/menu.php';
         </div>
 
         <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white h-100 shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Inversión Inventario</h6>
+                            <h2 class="mb-0 fw-bold">$<?= number_format($inversionInventario, 2) ?></h2>
+                        </div>
+                        <i class="fa fa-shuttle-van fa-3x opacity-25"></i>
+                    </div>
+                    <div class="small mt-3 opacity-75">
+                        <i class="fa fa-sync"></i> Capital en Mercancía
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6">
             <div class="card bg-dark text-white h-100 shadow border-2 border-info">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
@@ -356,7 +400,9 @@ require_once '../templates/menu.php';
                         <i class="fa fa-wallet fa-3x text-info opacity-50"></i>
                     </div>
                     <div class="small mt-3 text-muted">
-                        Después de gastos ($<?= number_format($totalGastosOp, 2) ?>)
+                        Gastos Op: $<?= number_format($totalGastosOp, 2) ?>
+                        <br>
+                        Inv. Stock: $<?= number_format($inversionInventario, 2) ?>
                     </div>
                 </div>
             </div>
@@ -512,7 +558,7 @@ require_once '../templates/menu.php';
                     <h5 class="mb-0"><i class="fa fa-chart-line text-primary"></i> Tendencia de Ventas Diarias</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="dailyTrendChart" height="80"></canvas>
+                    <canvas id="dailyTrendChart" height="150"></canvas>
                 </div>
             </div>
         </div>
@@ -615,7 +661,7 @@ require_once '../templates/menu.php';
                     <h5 class="mb-0"><i class="fa fa-clock text-danger"></i> Patrón de Ventas por Hora (Horas Pico)</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="hourlyChart" height="60"></canvas>
+                    <canvas id="hourlyChart" height="120"></canvas>
                 </div>
             </div>
         </div>
@@ -634,9 +680,9 @@ require_once '../templates/menu.php';
     const financeChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Ganancia Neta', 'Costo Producción', 'Mano Obra (Cocina)', 'Nómina Admin', 'Otros Gastos'],
+            labels: ['Ganancia Neta', 'Costo Producción', 'Inv. Inventario', 'Nómina Admin', 'Gastos Op'],
             datasets: [{
-                data: [<?= max(0, $utilidadNeta) ?>, <?= $totalCOGS ?>, <?= $costoManoObraDirecta ?>, <?= $gastosNominaAdmin ?>, <?= $gastosOperativosGenerales ?>],
+                data: [<?= max(0, $utilidadNeta) ?>, <?= $totalCOGS ?>, <?= $inversionInventario ?>, <?= $gastosNominaAdmin ?>, <?= $gastosOperativosGenerales ?>],
                 backgroundColor: [
                     '#198754', // Verde - Ganancia
                     '#ffc107', // Amarillo - MP
@@ -706,7 +752,10 @@ require_once '../templates/menu.php';
             scales: {
                 y: {
                     beginAtZero: true,
+                    max: 300,
                     ticks: {
+                        stepSize: 25,
+                        autoSkip: false,
                         callback: function (value) {
                             return '$' + value;
                         }
@@ -792,72 +841,46 @@ require_once '../templates/menu.php';
         }
     });
 
-    // 5. Análisis Horario (Bar Chart)
+    // 5. Análisis Horario (Line Chart - Igual a Tendencia Diaria)
     const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
     const hourlyChart = new Chart(hourlyCtx, {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: [<?php foreach ($hourlyData as $h)
                 echo "'" . sprintf('%02d:00', $h['hour']) . "',"; ?>],
             datasets: [{
-                label: 'Órdenes',
-                data: [<?php foreach ($hourlyData as $h)
-                    echo $h['order_count'] . ','; ?>],
-                backgroundColor: 'rgba(13, 110, 253, 0.7)',
-                borderColor: '#0d6efd',
-                borderWidth: 1,
-                yAxisID: 'y'
-            }, {
                 label: 'Ingresos ($)',
                 data: [<?php foreach ($hourlyData as $h)
                     echo $h['revenue'] . ','; ?>],
-                backgroundColor: 'rgba(25, 135, 84, 0.7)',
-                borderColor: '#198754',
-                borderWidth: 1,
-                yAxisID: 'y1'
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 4,
+                pointHoverRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
             plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { padding: 15, font: { size: 12 } }
-                },
+                legend: { display: false }, // Igual a tendencia diaria
                 tooltip: {
                     callbacks: {
                         label: function (context) {
-                            let label = context.dataset.label || '';
-                            let value = context.parsed.y || 0;
-                            if (label.includes('$')) {
-                                return label + ': $' + value.toFixed(2);
-                            }
-                            return label + ': ' + value;
+                            return 'Ingresos: $' + context.parsed.y.toFixed(2);
                         }
                     }
                 }
             },
             scales: {
                 y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    title: { display: true, text: 'Número de Órdenes' },
-                    beginAtZero: true
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: { display: true, text: 'Ingresos ($)' },
                     beginAtZero: true,
-                    grid: { drawOnChartArea: false },
+                    max: 300,
                     ticks: {
+                        stepSize: 25,
+                        autoSkip: false,
                         callback: function (value) {
                             return '$' + value;
                         }

@@ -213,6 +213,16 @@ require_once '../templates/menu.php';
                     <?php if ($purchaseOrder['status'] == 'received'): ?>
                         <span class="badge bg-success fs-5 w-100">RECIBIDO</span>
                         <p class="mt-2 small text-muted">El stock ya fue sumado al inventario.</p>
+                        
+                        <hr>
+                        <form action="process_purchase_order.php" method="POST" onsubmit="return confirm('¿Estás seguro de cancelar esta recepción? Esto restará el stock del inventario.');">
+                            <input type="hidden" name="csrf_token" value="<?= Csrf::getToken() ?>">
+                            <input type="hidden" name="action" value="revert_receipt">
+                            <input type="hidden" name="purchase_id" value="<?= $purchaseOrder['id'] ?>">
+                            <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                <i class="fa fa-undo"></i> Cancelar Recepción
+                            </button>
+                        </form>
                     <?php else: ?>
                         <span class="badge bg-warning text-dark fs-5 w-100">PENDIENTE</span>
                         <p class="mt-2 small text-muted">Falta confirmar la recepción de mercancía.</p>

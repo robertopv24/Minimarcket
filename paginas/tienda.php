@@ -92,16 +92,47 @@ $search = $_GET['search'] ?? '';
 $catId = $_GET['cat'] ?? null;
 
 if (!empty($search)) {
-    $products = $productManager->searchProducts($search, $catId);
+    $products = $productManager->searchProducts($search, $catId, true);
 } else {
-    $products = $productManager->getAllProducts($catId);
+    $products = $productManager->getAllProducts($catId, true);
 }
 
 $categories = $productManager->getCategories();
 
 require_once '../templates/header.php';
-require_once '../templates/menu.php';
 ?>
+
+<script>
+    // --- LÓGICA AJAX PARA AGREGAR AL CARRITO (INTERCEPCIÓN PRIORITARIA) ---
+    // Colocamos este script aquí arriba para que intercepte clics antes de que termine el renderizado
+    document.addEventListener('submit', function (e) {
+        if (e.target && e.target.classList.contains('add-to-cart-form')) {
+            e.preventDefault(); 
+            const form = e.target;
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalContent = submitBtn.innerHTML;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ...';
+
+            fetch('ajax/add_to_cart.php', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '✅ Agregado', showConfirmButton: false, timer: 1500, timerProgressBar: true });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'Oops...', text: data.message });
+                    }
+                })
+                .catch(error => Swal.fire({ icon: 'error', title: 'Error de Red', text: 'No se pudo conectar con el servidor.' }))
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalContent;
+                });
+        }
+    });
+</script>
 
 <?= $cajaAlert ?>
 
@@ -143,7 +174,7 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="card-body py-2 d-flex flex-column justify-content-center">
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white border-0 fw-bold">Cliente:</span>
+                        
                         <!-- Select2 para buscar cliente AJAX -->
                         <select id="posClientSelect" class="form-select" style="width: 100%"></select>
                     </div>
@@ -256,30 +287,48 @@ require_once '../templates/menu.php';
     </div>
 </div>
 
-<!-- MODAL DE SELECCIÓN DE CONTORNOS -->
+<!-- MODAL DE SELECCIÓN DE CONTORNOS (SHOPPING LIST) -->
 <div class="modal fade" id="modalSides" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <form id="formSides" method="POST" class="modal-content">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="product_id" id="side-product-id">
             <input type="hidden" name="quantity" value="1">
+            <div id="sides-hidden-inputs"></div>
 
             <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="fa fa-utensils me-2"></i> Seleccionar Opciones</h5>
+                <h5 class="modal-title"><i class="fa fa-utensils me-2"></i> Personalizar Contornos</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-light border small py-2 mb-3">
-                    <i class="fa fa-info-circle text-info"></i> Puedes elegir hasta <strong
-                        id="side-max-count"></strong> opciones.
+                    <i class="fa fa-info-circle text-info"></i> <span id="side-instruction-label">Selecciona hasta <strong id="side-max-count"></strong> opciones.</span>
                 </div>
-                <div id="sides-container" class="list-group">
-                    <!-- Dinámico -->
+                
+                <div class="row">
+                    <!-- Columna Izquierda: Opciones Disponibles -->
+                    <div class="col-md-6 border-end">
+                        <h6 class="text-muted mb-3">Disponibles</h6>
+                        <div id="sides-options-container" class="d-grid gap-2" style="max-height: 400px; overflow-y: auto;">
+                            <!-- Botones generados dinámicamente -->
+                        </div>
+                    </div>
+                    
+                    <!-- Columna Derecha: Tu Selección -->
+                    <div class="col-md-6">
+                        <h6 class="text-success mb-3">Tu Selección (<span id="current-sides-count">0</span>)</h6>
+                        <ul id="sides-selection-list" class="list-group list-group-flush">
+                            <!-- Items seleccionados -->
+                        </ul>
+                        <div id="selection-placeholder" class="text-center text-muted mt-5">
+                            <i class="fa fa-arrow-left"></i> Elige opciones de la izquierda
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-info text-white fw-bold" id="btnConfirmSides">
+                <button type="button" class="btn btn-info text-white fw-bold" id="btnConfirmSides" onclick="submitSidesForm()">
                     Confirmar y Agregar
                 </button>
             </div>
@@ -350,22 +399,36 @@ require_once '../templates/menu.php';
 </div>
 
 <script>
-    // --- LÓGICA DE CONTORNOS POS ---
-    let sidesModal;
+    // --- LÓGICA DE CONTORNOS POS (SHOPPING LIST STYLE) ---
+    // --- VARIABLES GLOBALES DE MODALES ---
+    let sidesModal, debtModal, newClientModal;
+    
+    // --- ESTADO GLOBAL ---
     let maxAllowedSides = 0;
+    let selectedSides = [];
+    let availableSides = [];
+    let currentContourLogic = 'standard';
 
+    // --- INICIALIZACIÓN DE MODALES ---
     document.addEventListener('DOMContentLoaded', function () {
+        // Inicializar Modales Bootstrap
         debtModal = new bootstrap.Modal(document.getElementById('modalDebtPOS'));
         sidesModal = new bootstrap.Modal(document.getElementById('modalSides'));
+        newClientModal = new bootstrap.Modal(document.getElementById('modalNewClientPOS'));
     });
 
     function openSidesModal(productId, maxSides) {
         maxAllowedSides = maxSides;
+        selectedSides = []; 
+        availableSides = [];
+        
         document.getElementById('side-product-id').value = productId;
         document.getElementById('side-max-count').textContent = maxSides;
-        const container = document.getElementById('sides-container');
+        
+        const container = document.getElementById('sides-options-container');
         container.innerHTML = '<div class="text-center py-4"><i class="fa fa-spinner fa-spin fa-2x text-muted"></i></div>';
-
+        
+        updateSelectionUI();
         sidesModal.show();
 
         fetch(`ajax/get_product_options.php?product_id=${productId}`)
@@ -376,65 +439,120 @@ require_once '../templates/menu.php';
                     sidesModal.hide();
                     return;
                 }
-
-                let html = '';
-                data.sides.forEach((s, index) => {
-                    const priceLabel = parseFloat(s.price_override) > 0 ? ` (+ $${parseFloat(s.price_override).toFixed(2)})` : '';
-                    html += `
-                        <label class="list-group-item d-flex justify-content-between align-items-center" style="cursor:pointer">
-                            <div>
-                                <input class="form-check-input side-checkbox me-2" type="checkbox" 
-                                    name="sides[${index}][id]" value="${s.component_id}" 
-                                    data-type="${s.component_type}" 
-                                    data-price="${s.price_override}"
-                                    data-qty="${s.quantity}"
-                                    onchange="validateMaxSides()">
-                                <span>${s.item_name} ${priceLabel}</span>
-                                <input type="hidden" name="sides[${index}][type]" value="${s.component_type}">
-                                <input type="hidden" name="sides[${index}][qty]" value="${s.quantity}">
-                                <input type="hidden" name="sides[${index}][price]" value="${s.price_override}">
-                            </div>
-                        </label>
-                    `;
-                });
-
+                
                 if (data.sides.length === 0) {
-                    html = '<div class="alert alert-warning">No hay opciones configuradas.</div>';
+                    container.innerHTML = '<div class="alert alert-warning">No hay opciones configuradas.</div>';
+                    return;
                 }
 
-                container.innerHTML = html;
-                validateMaxSides();
+                availableSides = data.sides;
+                currentContourLogic = data.contour_logic_type || 'standard';
+
+                // Update UI Labels
+                const labelText = (currentContourLogic === 'standard') ? 'Obligatorios:' : 'Máximo:';
+                const labelElem = document.getElementById('side-instruction-label');
+                if (labelElem) labelElem.innerHTML = `${labelText} <strong id="side-max-count">${data.max_sides}</strong>`;
+
+                renderOptionsUI();
             })
             .catch(err => {
                 console.error('Error cargando opciones:', err);
-                container.innerHTML = '<div class="alert alert-danger">Error de conexión al cargar las opciones.</div>';
+                container.innerHTML = '<div class="alert alert-danger">Error de conexión.</div>';
             });
     }
 
-    function validateMaxSides() {
-        const checked = document.querySelectorAll('.side-checkbox:checked');
-        const checkboxes = document.querySelectorAll('.side-checkbox');
+    function renderOptionsUI() {
+        const container = document.getElementById('sides-options-container');
+        container.innerHTML = '';
 
-        if (checked.length >= maxAllowedSides) {
-            checkboxes.forEach(cb => {
-                if (!cb.checked) cb.disabled = true;
-            });
+        availableSides.forEach(s => {
+            const priceLabel = parseFloat(s.price_override) > 0 ? `(+$${parseFloat(s.price_override).toFixed(2)})` : '';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-dark text-start py-2';
+            btn.innerHTML = `<div class="fw-bold">${s.item_name}</div><small class="text-muted">${priceLabel}</small>`;
+            btn.onclick = () => addSide(s);
+            container.appendChild(btn);
+        });
+    }
+
+    function addSide(side) {
+        if (selectedSides.length >= maxAllowedSides) {
+            // Animación o feedback visual si se alcanza el límite
+            const countSpan = document.getElementById('current-sides-count');
+            countSpan.classList.add('text-danger', 'fw-bolder');
+            setTimeout(() => countSpan.classList.remove('text-danger', 'fw-bolder'), 300);
+            return;
+        }
+        selectedSides.push({...side});
+        updateSelectionUI();
+    }
+
+    function removeSide(index) {
+        selectedSides.splice(index, 1);
+        updateSelectionUI();
+    }
+
+    function updateSelectionUI() {
+        const list = document.getElementById('sides-selection-list');
+        const countSpan = document.getElementById('current-sides-count');
+        const placeholder = document.getElementById('selection-placeholder');
+        
+        list.innerHTML = '';
+        countSpan.textContent = `${selectedSides.length} / ${maxAllowedSides}`;
+
+        if (currentContourLogic === 'standard') {
+            if (selectedSides.length === maxAllowedSides) {
+                countSpan.className = 'fw-bold text-success';
+            } else {
+                countSpan.className = 'fw-bold text-danger';
+            }
         } else {
-            checkboxes.forEach(cb => cb.disabled = false);
+            countSpan.className = 'text-dark';
         }
 
-        // El botón solo se activa si ha seleccionado el máximo o al menos uno? 
-        // Depende de si es obligatorio. Asumiremos opcional hasta el máximo.
-        // document.getElementById('btnConfirmSides').disabled = (checked.length === 0);
+        if (selectedSides.length === 0) {
+            placeholder.style.display = 'block';
+        } else {
+            placeholder.style.display = 'none';
+            selectedSides.forEach((s, index) => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center bg-light mb-1 rounded';
+                li.innerHTML = `
+                    <span>${s.item_name}</span>
+                    <button type="button" class="btn btn-sm btn-danger py-0 px-2" onclick="removeSide(${index})">
+                        <i class="fa fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(li);
+            });
+        }
+    }
+
+    function submitSidesForm() {
+        if (currentContourLogic === 'standard' && selectedSides.length < maxAllowedSides) {
+            alert(`Debes seleccionar exactamente ${maxAllowedSides} contornos.`);
+            return;
+        }
+        const form = document.getElementById('formSides');
+        const productId = document.getElementById('side-product-id').value;
+        const hiddenContainer = document.getElementById('sides-hidden-inputs');
+        hiddenContainer.innerHTML = '';
+
+        // Generar inputs: sides[0][id], sides[1][id]...
+        selectedSides.forEach((s, index) => {
+           hiddenContainer.innerHTML += `
+               <input type="hidden" name="sides[${index}][id]" value="${s.component_id}">
+               <input type="hidden" name="sides[${index}][type]" value="${s.component_type}">
+               <input type="hidden" name="sides[${index}][qty]" value="${s.quantity}">
+               <input type="hidden" name="sides[${index}][price]" value="${s.price_override}">
+           `; 
+        });
+
+        form.submit();
     }
 
     // --- LÓGICA DE ABONO POS ---
-    let debtModal;
-
-    document.addEventListener('DOMContentLoaded', function () {
-        debtModal = new bootstrap.Modal(document.getElementById('modalDebtPOS'));
-    });
-
     function openDebtModal() {
         resetDebtModal();
         debtModal.show();
@@ -655,64 +773,6 @@ require_once '../templates/menu.php';
             })
             .catch(err => Swal.fire('Error', 'Fallo de conexión', 'error'));
     }
-    // --- LÓGICA AJAX PARA AGREGAR AL CARRITO (SIN RECARGA) ---
-    document.addEventListener('DOMContentLoaded', function () {
-        const forms = document.querySelectorAll('.add-to-cart-form');
-
-        forms.forEach(form => {
-            form.addEventListener('submit', function (e) {
-                e.preventDefault(); // Detener recarga
-
-                const formData = new FormData(this);
-                const submitBtn = this.querySelector('button[type="submit"]');
-                const originalContent = submitBtn.innerHTML;
-
-                // Feedback visual en botón
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ...';
-
-                fetch('ajax/add_to_cart.php', {
-                    method: 'POST',
-                    body: formData
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Toast de Éxito
-                            Swal.fire({
-                                toast: true,
-                                position: 'top-end',
-                                icon: 'success',
-                                title: '✅ Agregado',
-                                showConfirmButton: false,
-                                timer: 1500,
-                                timerProgressBar: true
-                            });
-                        } else {
-                            // Alerta de Error
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Oops...',
-                                text: data.message
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error de Red',
-                            text: 'No se pudo conectar con el servidor.'
-                        });
-                    })
-                    .finally(() => {
-                        // Restaurar botón
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalContent;
-                    });
-            });
-        });
-    });
     // --- VALIDACIÓN DE ACCESO AL CARRITO ---
     function goToCart() {
         const clientId = $('#posClientSelect').val();

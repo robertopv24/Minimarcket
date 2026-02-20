@@ -142,6 +142,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($type === 'packaging') {
             $productManager->copyPackaging($productId, $toId);
             $mensaje = '<div class="alert alert-success">Configuración de empaque copiada.</div>';
+        } elseif ($type === 'companions') {
+            $productManager->copyCompanions($productId, $toId);
+            $mensaje = '<div class="alert alert-success">Lista de acompañantes (y sus recetas) copiada correctamente.</div>';
         }
     }
 
@@ -161,6 +164,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_companion') {
         $productManager->updateCompanion($productId, $_POST['companion_id'], $_POST['companion_qty'], $_POST['companion_price']);
         $mensaje = '<div class="alert alert-success">Acompañante actualizado.</div>';
+    }
+
+    // 19. GUARDAR RECETA PERSONALIZADA ACOMPAÑANTE (NUEVO)
+    if ($action === 'save_companion_recipe') {
+        $compId = $_POST['companion_row_id'];
+        $componentsJSON = $_POST['custom_recipe_data']; // JSON String
+        $components = json_decode($componentsJSON, true);
+
+        if ($productManager->updateCompanionRecipe($compId, $components)) {
+            $mensaje = '<div class="alert alert-success">Receta personalizada guardada correctamente.</div>';
+        } else {
+            $mensaje = '<div class="alert alert-danger">Error al guardar receta personalizada.</div>';
+        }
+    }
+
+    // 20. GUARDAR RECETA PERSONALIZADA COMPONENTE DE COMBO (NUEVO)
+    // 20. GUARDAR RECETA PERSONALIZADA COMPONENTE DE COMBO (NUEVO)
+    if ($action === 'save_component_override') {
+        $rowId = $_POST['component_row_id'];
+        
+        // Receta
+        $ingredientsJSON = $_POST['override_data'];
+        $ingredients = json_decode($ingredientsJSON, true);
+        
+        // Contornos
+        $sidesJSON = $_POST['override_sides_data'];
+        $sides = json_decode($sidesJSON, true);
+
+        $res1 = $productManager->updateComponentOverrides($rowId, $ingredients);
+        $res2 = $productManager->updateComponentSideOverrides($rowId, $sides);
+
+        if ($res1 && $res2) {
+            $mensaje = '<div class="alert alert-success">Personalización de componente para el combo guardada correctamente.</div>';
+        } else {
+            $mensaje = '<div class="alert alert-danger">Error al guardar personalización del componente.</div>';
+        }
     }
 }
 
@@ -562,6 +601,10 @@ require_once '../templates/menu.php';
                 <div
                     class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center">
                     <span><i class="fa fa-handshake"></i> Lista de Acompañantes</span>
+                    <button type="button" class="btn btn-sm btn-light text-primary border"
+                        onclick="openCopyModal('companions')">
+                        <i class="fa fa-copy"></i> Copiar A...
+                    </button>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-striped mb-0 small">
@@ -589,14 +632,21 @@ require_once '../templates/menu.php';
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-end">
-                                        <form method="POST" style="display:inline;"
-                                            onsubmit="return confirmDelete(event, this, '¿Quitar este acompañante?')">
-                                            <input type="hidden" name="action" value="remove_companion">
-                                            <input type="hidden" name="companion_row_id" value="<?= $pc['id'] ?>">
-                                            <button class="btn btn-sm btn-outline-danger py-0">
-                                                <i class="fa fa-trash"></i>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm btn-outline-info py-0 me-1" 
+                                                    title="Personalizar Receta para este combo"
+                                                    onclick="openCompanionRecipeModal(<?= $pc['id'] ?>, '<?= addslashes($pc['name']) ?>')">
+                                                <i class="fa fa-flask"></i>
                                             </button>
-                                        </form>
+                                            <form method="POST" style="display:inline;"
+                                                onsubmit="return confirmDelete(event, this, '¿Quitar este acompañante?')">
+                                                <input type="hidden" name="action" value="remove_companion">
+                                                <input type="hidden" name="companion_row_id" value="<?= $pc['id'] ?>">
+                                                <button class="btn btn-sm btn-outline-danger py-0">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -690,9 +740,9 @@ require_once '../templates/menu.php';
                         </thead>
                         <tbody>
                             <?php foreach ($components as $c):
-                                // FILTRO: No mostrar empaques en la pestaña de Receta Base
-                                // Si es raw material y es categoría packaging, saltar.
-                                if ($c['component_type'] == 'raw' && ($c['item_category'] == 'packaging' || in_array($c['component_id'], array_column($productPackaging, 'raw_material_id')))) {
+                                // FILTRO: en la pestaña de Receta Base
+                                // Solo ocultar si está específicamente asignado como empaque del producto
+                                if ($c['component_type'] == 'raw' && in_array($c['component_id'], array_column($productPackaging, 'raw_material_id'))) {
                                     continue;
                                 }
                                 ?>
@@ -710,6 +760,13 @@ require_once '../templates/menu.php';
                                     <td>$<?= number_format($c['quantity'] * $c['item_cost'], 3) ?></td>
                                     <td class="text-end">
                                         <div class="btn-group">
+                                            <?php if ($product['product_type'] == 'compound' && $c['component_type'] == 'product'): ?>
+                                                <button type="button" class="btn btn-sm text-info p-0 me-2" 
+                                                        title="Personalizar receta de este componente en este combo"
+                                                        onclick="openComponentOverrideModal(<?= $c['id'] ?>, '<?= addslashes($c['item_name']) ?>')">
+                                                    <i class="fa fa-flask"></i>
+                                                </button>
+                                            <?php endif; ?>
                                             <button class="btn btn-sm text-warning p-0 me-2"
                                                 onclick="editComponent(<?= $c['id'] ?>, '<?= addslashes($c['item_name']) ?>', <?= floatval($c['quantity']) ?>)"
                                                 title="Editar cantidad">
@@ -759,7 +816,7 @@ require_once '../templates/menu.php';
                                 <tr>
                                     <td>
                                         <?= htmlspecialchars($ve['name']) ?>
-                                        <?= htmlspecialchars($ve['name']) ?>
+
                                         <span class="badge bg-light text-dark border small">
                                             <?= $ve['component_type'] == 'raw' ? 'Insumo' : ($ve['component_type'] == 'product' ? 'Producto' : 'Cocina') ?>
                                         </span>
@@ -919,7 +976,6 @@ require_once '../templates/menu.php';
     </div>
 </div>
 
-<?php require_once '../templates/footer.php'; ?>
 
 <!-- Modales para Copiado -->
 <div class="modal fade" id="modalCopyConfig" tabindex="-1">
@@ -1083,9 +1139,10 @@ require_once '../templates/menu.php';
             if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
                 if (optsRaw.length > 0) select.value = optsRaw[0].value;
             }
-        } else {
+        } else if (type === 'manufactured') {
             optsRaw.forEach(o => o.style.display = 'none');
             optsManuf.forEach(o => o.style.display = '');
+            optsProd.forEach(o => o.style.display = 'none');
             if (select.selectedOptions.length > 0 && select.selectedOptions[0].style.display === 'none') {
                 if (optsManuf.length > 0) select.value = optsManuf[0].value;
             }
@@ -1184,51 +1241,528 @@ require_once '../templates/menu.php';
     }
 
     function openCopyModal(type) {
-        document.getElementById('copyTypeInput').value = type;
-        const hints = {
-            'recipe': 'Vas a copiar los <strong>ingredientes de la receta base</strong> a otro producto.',
-            'extras': 'Vas a copiar la lista de <strong>extras autorizados</strong> a otro producto.',
-            'sides': 'Vas a copiar las <strong>opciones de contornos</strong> a otro producto.',
-            'packaging': 'Vas a copiar la configuración de <strong>empaque</strong> a otro producto.'
-        };
-        document.getElementById('copyTextHint').innerHTML = hints[type] || 'Iniciando copiado...';
+        console.log('openCopyModal called with:', type);
+        try {
+            document.getElementById('copyTypeInput').value = type;
+            const hints = {
+                'recipe': 'Vas a copiar los <strong>ingredientes de la receta base</strong> a otro producto.',
+                'extras': 'Vas a copiar la lista de <strong>extras autorizados</strong> a otro producto.',
+                'sides': 'Vas a copiar las <strong>opciones de contornos</strong> a otro producto.',
+                'packaging': 'Vas a copiar la configuración de <strong>empaque</strong> a otro producto.',
+                'companions': 'Vas a copiar la <strong>lista de acompañantes y sus recetas personalizadas</strong> a otro producto.'
+            };
+            document.getElementById('copyTextHint').innerHTML = hints[type] || 'Iniciando copiado...';
 
-        // Abrir el modal primero
-        const modalEl = document.getElementById('modalCopyConfig');
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-
-        // Inicializar select2 después de que el modal se muestre para asegurar que el foco funcione
-        modalEl.addEventListener('shown.bs.modal', function () {
-            if (typeof $.fn.select2 !== 'undefined') {
-                $('.select2-modal').select2({
-                    dropdownParent: $('#modalCopyConfig'),
-                    theme: 'bootstrap-5' // Opcional, si tienes el tema
-                });
+            // Abrir el modal primero
+            const modalEl = document.getElementById('modalCopyConfig');
+            if (!modalEl) {
+                alert('Error: Modal de copiado no encontrado en el DOM.');
+                return;
             }
-        }, { once: true });
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+
+            // Inicializar select2 después de que el modal se muestre
+            modalEl.addEventListener('shown.bs.modal', function () {
+                if (typeof $.fn.select2 !== 'undefined') {
+                    $('.select2-modal').select2({
+                        dropdownParent: $('#modalCopyConfig'),
+                        theme: 'bootstrap-5'
+                    });
+                }
+            }, { once: true });
+        } catch (e) {
+            console.error(e);
+            alert('Error al abrir modal: ' + e.message);
+        }
     }
 
-    document.getElementById('side_type_select')?.addEventListener('change', function () {
-        const type = this.value;
-        const select = document.getElementById('side_component_select');
+    // Safer event listener
+    const sideTypeSelect = document.getElementById('side_type_select');
+    if (sideTypeSelect) {
+        sideTypeSelect.addEventListener('change', function () {
+            const type = this.value;
+            const select = document.getElementById('side_component_select');
 
-        // Ocultar todos
-        Array.from(select.options).forEach(opt => opt.style.display = 'none');
+            // Ocultar todos
+            Array.from(select.options).forEach(opt => opt.style.display = 'none');
 
-        // Mostrar correspondientes
-        if (type === 'raw') {
-            select.querySelectorAll('.opt-raw').forEach(opt => opt.style.display = 'block');
-        } else if (type === 'manufactured') {
-            select.querySelectorAll('.opt-manuf').forEach(opt => opt.style.display = 'block');
-        } else if (type === 'product') {
-            select.querySelectorAll('.opt-prod').forEach(opt => opt.style.display = 'block');
+            // Mostrar correspondientes
+            if (type === 'raw') {
+                select.querySelectorAll('.opt-raw').forEach(opt => opt.style.display = 'block');
+            } else if (type === 'manufactured') {
+                select.querySelectorAll('.opt-manuf').forEach(opt => opt.style.display = 'block');
+            } else if (type === 'product') {
+                select.querySelectorAll('.opt-prod').forEach(opt => opt.style.display = 'block');
+            }
+
+            // Reset select value to first visible option
+            const firstVisible = Array.from(select.options).find(opt => opt.style.display === 'block');
+            if (firstVisible) select.value = firstVisible.value;
+        });
+    }
+</script>
+
+    <!-- MODAL DE PERSONALIZACIÓN DE RECETA DE ACOMPAÑANTE -->
+    <div class="modal fade" id="modalCompanionRecipe" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-dark">
+                    <h5 class="modal-title"><i class="fa fa-flask"></i> Personalizar Receta del Acompañante</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="modal_companion_row_id">
+                    <h6 id="modal_companion_name" class="fw-bold mb-3"></h6>
+
+                    <div class="alert alert-warning small">
+                        <i class="fa fa-exclamation-triangle"></i>
+                        Esta receta personalizada aplicará <strong>SOLO</strong> cuando este producto se venda como
+                        parte de
+                        este combo. No afecta al producto original.
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Agregar Ingrediente Extra:</label>
+                            <select id="new_comp_select" class="form-select form-select-sm select2-modal">
+                                <?php foreach ($rawMaterials as $r): ?>
+                                    <option value="<?= $r['id'] ?>" data-type="raw" data-unit="<?= $r['unit'] ?>">
+                                        <?= htmlspecialchars($r['name']) ?> (<?= $r['unit'] ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Cantidad:</label>
+                            <input type="number" id="new_comp_qty" class="form-control form-control-sm" step="0.0001"
+                                placeholder="0.00">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-sm btn-success w-100" onclick="addNewComponentRow()">
+                                <i class="fa fa-plus"></i> Agregar
+                            </button>
+                        </div>
+                    </div>
+
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Ingrediente</th>
+                                <th>Tipo</th>
+                                <th>Cantidad</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companion_recipe_tbody">
+                            <!-- JS populated -->
+                        </tbody>
+                    </table>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="save_companion_recipe">
+                        <input type="hidden" name="companion_row_id" id="form_companion_row_id">
+                        <input type="hidden" name="custom_recipe_data" id="form_custom_recipe_data">
+                        <button type="button" onclick="submitCustomRecipe()" class="btn btn-primary">
+                            <i class="fa fa-save"></i> Guardar Receta Personalizada
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Init select2 inside modal
+            $('#new_comp_select').select2({
+                dropdownParent: $('#modalCompanionRecipe'),
+                width: '100%'
+            });
+        });
+
+        // Store current recipe in memory
+        let currentRecipe = [];
+
+        function openCompanionRecipeModal(rowId, name) {
+            $('#modal_companion_row_id').val(rowId);
+            $('#form_companion_row_id').val(rowId);
+            $('#modal_companion_name').text('Editando: ' + name);
+
+            $('#companion_recipe_tbody').html('<tr><td colspan="4" class="text-center">Cargando...</td></tr>');
+
+            $.ajax({
+                url: '../ajax/get_companion_recipe.php',
+                method: 'GET',
+                data: {
+                    id: rowId
+                },
+                success: function(response) {
+                    try {
+                        // Si jQuery ya parseó el JSON ver el header, response será un objeto.
+                        // Si no, será un string. Manejamos ambos casos.
+                        const data = (typeof response === 'string') ? JSON.parse(response) : response;
+                        
+                        console.log("Datos recibidos:", data); // Para depuración
+
+                        if (data.error) {
+                            alert('Error del servidor: ' + data.error);
+                            return;
+                        }
+
+                        currentRecipe = data.components || [];
+                        renderRecipeTable();
+                        new bootstrap.Modal(document.getElementById('modalCompanionRecipe')).show();
+                    } catch (e) {
+                        console.error(e);
+                        alert('Error al procesar datos: ' + e.message);
+                    }
+                },
+                error: function() {
+                    alert('Error de conexión');
+                }
+            });
         }
 
-        // Reset select value to first visible option
-        const firstVisible = Array.from(select.options).find(opt => opt.style.display === 'block');
-        if (firstVisible) select.value = firstVisible.value;
-    });
-</script>
+        function renderRecipeTable() {
+            const tbody = $('#companion_recipe_tbody');
+            tbody.empty();
+
+            if (currentRecipe.length === 0) {
+                tbody.html('<tr><td colspan="4" class="text-center text-muted">Sin ingredientes definidos (Usará receta por defecto si existe, o nada)</td></tr>');
+                return;
+            }
+
+            currentRecipe.forEach((comp, index) => {
+                let badge = comp.component_type === 'raw' ? '<span class="badge bg-secondary">Insumo</span>' :
+                    (comp.component_type === 'manufactured' ? '<span class="badge bg-warning text-dark">Cocina</span>' : '<span class="badge bg-primary">Producto</span>');
+
+                let row = `
+                <tr>
+                    <td>${comp.item_name}</td>
+                    <td>${badge}</td>
+                    <td>
+                        <input type="number" step="0.0001" class="form-control form-control-sm" 
+                               value="${parseFloat(comp.quantity)}" 
+                               onchange="updateRowQty(${index}, this.value)">
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-danger p-0 px-1" onclick="removeRow(${index})">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+                tbody.append(row);
+            });
+        }
+
+        function updateRowQty(index, val) {
+            currentRecipe[index].quantity = val;
+        }
+
+        function removeRow(index) {
+            if (confirm('¿Quitar ingrediente?')) {
+                currentRecipe.splice(index, 1);
+                renderRecipeTable();
+            }
+        }
+
+        function addNewComponentRow() {
+            const id = $('#new_comp_select').val();
+            const text = $('#new_comp_select option:selected').text();
+            const type = $('#new_comp_select option:selected').data('type');
+            const qty = $('#new_comp_qty').val();
+
+            if (!id || qty <= 0) {
+                alert('Seleccione ingrediente y cantidad válida');
+                return;
+            }
+
+            // Check if exists
+            const exists = currentRecipe.find(r => r.component_id == id && r.component_type == type);
+            if (exists) {
+                alert('El ingrediente ya está en la lista');
+                return;
+            }
+
+            currentRecipe.push({
+                component_id: id,
+                component_type: type,
+                item_name: text, // Visual only
+                quantity: qty,
+                // Normalized keys for saving
+                id: id,
+                type: type,
+                qty: qty
+            });
+
+            renderRecipeTable();
+            $('#new_comp_qty').val('');
+        }
+
+        function submitCustomRecipe() {
+            // Prepare data for PHP
+            // PHP expects: array of {id, type, qty}
+            const dataToSave = currentRecipe.map(c => ({
+                id: c.component_id || c.id, // Handle DB field vs local field
+                type: c.component_type || c.type,
+                qty: c.quantity || c.qty
+            }));
+
+            $('#form_custom_recipe_data').val(JSON.stringify(dataToSave));
+            $('#form_custom_recipe_data').closest('form').submit();
+        }
+    </script>
+
+    <!-- MODAL DE PERSONALIZACIÓN DE RECETA DE COMPONENTE DE COMBO -->
+    <div class="modal fade" id="modalComponentOverride" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title"><i class="fa fa-flask"></i> Personalizar Componente en Combo</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="override_row_id">
+                    <h6 id="override_comp_name" class="fw-bold mb-3"></h6>
+
+                    <!-- Nav Tabs -->
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-recipe" type="button">
+                                <i class="fa fa-list"></i> Receta Personalizada
+                                <span id="badge-recipe-fallback" class="badge bg-warning text-dark d-none" title="Usando valores por defecto">Base</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sides" type="button">
+                                <i class="fa fa-utensils"></i> Contornos Permitidos
+                                <span id="badge-sides-fallback" class="badge bg-warning text-dark d-none" title="Usando valores por defecto">Base</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- TAB: RECETA -->
+                        <div class="tab-pane fade show active" id="tab-recipe">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-5">
+                                    <select id="new_override_select" class="form-select form-select-sm select2-modal">
+                                        <?php foreach ($rawMaterials as $r): ?>
+                                            <option value="<?= $r['id'] ?>" data-type="raw" data-unit="<?= $r['unit'] ?>">
+                                                <?= htmlspecialchars($r['name']) ?> (<?= $r['unit'] ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($manufactured as $m): ?>
+                                            <option value="<?= $m['id'] ?>" data-type="manufactured" data-unit="<?= $m['unit'] ?>">
+                                                [COCINA] <?= htmlspecialchars($m['name']) ?> (<?= $m['unit'] ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" id="new_override_qty" class="form-control form-control-sm" value="1" step="0.0001">
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-sm btn-primary w-100" onclick="addOverrideToList('recipe')">
+                                        <i class="fa fa-plus"></i> Añadir Ingrediente
+                                    </button>
+                                </div>
+                            </div>
+                            <table class="table table-sm table-bordered">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Ingrediente</th>
+                                        <th>Cantidad</th>
+                                        <th>Unidad</th>
+                                        <th style="width: 40px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="override_list_body"></tbody>
+                            </table>
+                        </div>
+
+                        <!-- TAB: CONTORNOS -->
+                        <div class="tab-pane fade" id="tab-sides">
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <select id="new_side_select" class="form-select form-select-sm select2-modal">
+                                        <?php foreach ($rawMaterials as $r): ?>
+                                            <option value="<?= $r['id'] ?>" data-type="raw" data-unit="<?= $r['unit'] ?>">
+                                                <?= htmlspecialchars($r['name']) ?> (<?= $r['unit'] ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                        <?php foreach ($manufactured as $m): ?>
+                                            <option value="<?= $m['id'] ?>" data-type="manufactured" data-unit="<?= $m['unit'] ?>">
+                                                [COCINA] <?= htmlspecialchars($m['name']) ?> (<?= $m['unit'] ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <button type="button" class="btn btn-sm btn-info w-100 text-white" onclick="addOverrideToList('sides')">
+                                        <i class="fa fa-plus"></i> Añadir Contorno
+                                    </button>
+                                </div>
+                            </div>
+                            <table class="table table-sm table-bordered">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Contorno</th>
+                                        <th>Tipo</th>
+                                        <th style="width: 40px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="override_sides_list_body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <form method="POST" id="formSaveOverride">
+                        <input type="hidden" name="action" value="save_component_override">
+                        <input type="hidden" name="component_row_id" id="post_override_row_id">
+                        <input type="hidden" name="override_data" id="post_override_data">
+                        <input type="hidden" name="override_sides_data" id="post_override_sides_data">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Guardar Cambios en Combo</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let overrideList = [];
+        let overrideSidesList = [];
+
+        async function openComponentOverrideModal(rowId, name) {
+            document.getElementById('override_row_id').value = rowId;
+            document.getElementById('post_override_row_id').value = rowId;
+            document.getElementById('override_comp_name').innerText = name;
+            
+            // Cargar datos actuales vía AJAX
+            const response = await fetch(`../ajax/get_component_overrides.php?row_id=${rowId}`);
+            const data = await response.json();
+            
+            // Receta
+            overrideList = data.recipe.map(item => ({
+                id: item.ingredient_id,
+                name: item.item_name,
+                type: item.ingredient_type,
+                qty: parseFloat(item.quantity),
+                unit: item.item_unit
+            }));
+            
+            // Contornos
+            overrideSidesList = data.sides.map(item => ({
+                id: item.side_id,
+                name: item.item_name,
+                type: item.side_type,
+                qty: parseFloat(item.quantity),
+                unit: item.item_unit,
+                is_default: item.is_default
+            }));
+
+            // Badges fallback
+            document.getElementById('badge-recipe-fallback').classList.toggle('d-none', !data.is_recipe_fallback);
+            document.getElementById('badge-sides-fallback').classList.toggle('d-none', !data.is_sides_fallback);
+            
+            renderOverrideList();
+            renderOverrideSidesList();
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalComponentOverride'));
+            modal.show();
+        }
+
+        function addOverrideToList(target) {
+            if (target === 'recipe') {
+                const select = document.getElementById('new_override_select');
+                const selectedOpt = select.options[select.selectedIndex];
+                const qty = parseFloat(document.getElementById('new_override_qty').value);
+                if (qty <= 0) return;
+
+                overrideList.push({
+                    id: select.value,
+                    name: selectedOpt.text.split('(')[0].trim(),
+                    type: selectedOpt.dataset.type,
+                    qty: qty,
+                    unit: selectedOpt.dataset.unit
+                });
+                document.getElementById('badge-recipe-fallback').classList.add('d-none');
+                renderOverrideList();
+            } else {
+                const select = document.getElementById('new_side_select');
+                const selectedOpt = select.options[select.selectedIndex];
+
+                overrideSidesList.push({
+                    id: select.value,
+                    name: selectedOpt.text.split('(')[0].trim(),
+                    type: selectedOpt.dataset.type,
+                    qty: 1,
+                    unit: selectedOpt.dataset.unit,
+                    is_default: 0
+                });
+                document.getElementById('badge-sides-fallback').classList.add('d-none');
+                renderOverrideSidesList();
+            }
+        }
+
+        function removeOverrideItem(index, target) {
+            if (target === 'recipe') {
+                overrideList.splice(index, 1);
+                document.getElementById('badge-recipe-fallback').classList.add('d-none');
+                renderOverrideList();
+            } else {
+                overrideSidesList.splice(index, 1);
+                document.getElementById('badge-sides-fallback').classList.add('d-none');
+                renderOverrideSidesList();
+            }
+        }
+
+        function renderOverrideList() {
+            const tbody = document.getElementById('override_list_body');
+            tbody.innerHTML = '';
+            overrideList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.name} <span class="badge bg-light text-dark border">${item.type}</span></td>
+                    <td>${item.qty}</td>
+                    <td>${item.unit}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm text-danger" onclick="removeOverrideItem(${index}, 'recipe')">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('post_override_data').value = JSON.stringify(overrideList);
+        }
+
+        function renderOverrideSidesList() {
+            const tbody = document.getElementById('override_sides_list_body');
+            tbody.innerHTML = '';
+            overrideSidesList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.name}</td>
+                    <td><span class="badge bg-light text-dark border">${item.type}</span></td>
+                    <td>
+                        <button type="button" class="btn btn-sm text-danger" onclick="removeOverrideItem(${index}, 'sides')">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            document.getElementById('post_override_sides_data').value = JSON.stringify(overrideSidesList);
+        }
+    </script>
 
 <?php require_once '../templates/footer.php'; ?>

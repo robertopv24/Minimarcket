@@ -700,7 +700,12 @@ function renderTicket($data)
             <div>
                 <span class="fw-bold">#<?= $orden['id'] ?></span>
                 <small class="ms-1 opacity-75 d-none d-sm-inline">
-                    <?= substr(strtoupper($orden['cliente']), 0, 8) ?>
+                    <?php
+                    $displayClient = (!empty($orden['shipping_address']) && $orden['shipping_address'] !== 'Tienda Física') 
+                        ? $orden['shipping_address'] 
+                        : $orden['cliente'];
+                    echo substr(strtoupper($displayClient), 0, 20);
+                    ?>
                 </small>
                 <?php if ($orden['kds_kitchen_ready']): ?><i class="fa fa-fire ms-2 text-success"
                         title="Cocina Lista"></i><?php endif; ?>

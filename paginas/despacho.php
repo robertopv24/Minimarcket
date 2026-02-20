@@ -179,6 +179,57 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
         background-color: #198754 !important;
         color: white;
     }
+
+    /* Estilos para botones de cabecera compactos */
+    .btn-header-action {
+        background: none;
+        border: none;
+        padding: 0 4px;
+        font-size: 0.85rem;
+        transition: transform 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-header-action:hover {
+        transform: scale(1.2);
+    }
+    .btn-header-action:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .header-actions-group {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        background: rgba(255,255,255,0.1);
+        padding: 1px 6px;
+        border-radius: 20px;
+        margin: 0 8px;
+    }
+
+    /* Rejilla de alta densidad personalizada */
+    .dispatch-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: flex-start;
+    }
+    .dispatch-card-wrapper {
+        flex: 0 0 auto;
+        width: 210px; /* Ancho optimizado para 8-9 columnas en Full HD */
+    }
+    @media (max-width: 768px) {
+        .dispatch-card-wrapper {
+            width: calc(50% - 6px);
+        }
+    }
+    @media (max-width: 480px) {
+        .dispatch-card-wrapper {
+            width: 100%;
+        }
+    }
 </style>
 
 <div class="container-fluid mt-4 mb-5 px-4">
@@ -197,7 +248,7 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
         </div>
     </div>
 
-    <div class="row">
+    <div class="dispatch-grid">
         <?php foreach ($ordenes as $o):
             // Lógica de colores según estado
             $cardClass = 'shadow-sm';
@@ -205,62 +256,50 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
             $statusLabel = '<span class="badge bg-secondary">En Cola</span>';
             $btnAction = '';
 
-            if ($o['status'] == 'paid') {
-                $headerClass = 'bg-secondary text-white';
-                $statusLabel = '<span class="badge bg-light text-dark">⏳ Pendiente</span>';
-                $btnAction = '
-                    <form method="POST">
-                        <input type="hidden" name="order_id" value="' . $o['id'] . '">
-                        <input type="hidden" name="status" value="preparing">
-                        <button class="btn btn-warning w-100 fw-bold"><i class="fa fa-fire"></i> Mandar a Cocina</button>
-                    </form>';
-            } elseif ($o['status'] == 'preparing') {
-                $headerClass = 'bg-warning text-dark';
-                $statusLabel = '<span class="badge bg-dark" style="font-size: 0.6rem;">🔥 Cocinando</span>';
-                $btnAction = '
-                    <form method="POST">
-                        <input type="hidden" name="order_id" value="' . $o['id'] . '">
-                        <input type="hidden" name="status" value="ready">
-                        <button class="btn btn-success btn-xs w-100 fw-bold text-white py-1" style="font-size: 0.75rem;"><i class="fa fa-bell"></i> ¡LISTO!</button>
-                    </form>';
-            } elseif ($o['status'] == 'ready') {
-                $cardClass = 'card-ready shadow-lg';
-                $headerClass = 'header-ready';
-                $statusLabel = '<span class="badge bg-white text-success fw-bold p-1" style="font-size: 0.6rem;">✅ LISTO</span>';
-                $btnAction = '
-                    <form method="POST" class="mb-1">
+            // Estructura de Acciones en Cabecera (ENTREGAR + DEVOLUCIONES)
+            $headerActions = '<div class="header-actions-group">';
+            
+            // 1. Botón Entregar (Siempre disponible si está Ready o Preparing)
+            $deliverAction = '';
+            if ($o['status'] == 'ready') {
+                $deliverAction = '
+                    <form method="POST" class="d-inline">
                         <input type="hidden" name="order_id" value="' . $o['id'] . '">
                         <input type="hidden" name="status" value="delivered">
-                        <button class="btn btn-dark btn-xs w-100 py-1" style="font-size: 0.75rem; border: 2px solid #0d6efd;"><i class="fa fa-hand-holding-heart"></i> ENTREGAR</button>
+                        <button type="submit" class="btn-header-action text-white" title="ENTREGAR">
+                            <i class="fa fa-hand-holding-heart"></i>
+                        </button>
                     </form>';
             }
 
-            // Botones de Devolución Granular (Independientes del estado global)
-            $returnButtons = '';
-            if ($o['status'] != 'delivered' && ($o['kds_kitchen_ready'] || $o['kds_pizza_ready'])) {
-                $returnButtons = '
-                <form method="POST" class="mb-1">
+            // 2. Indicadores/Botones de Devolución
+            $returnKitchen = '
+                <form method="POST" class="d-inline">
                     <input type="hidden" name="order_id" value="' . $o['id'] . '">
                     <input type="hidden" name="status" value="preparing">
-                    <div class="btn-group w-100 mt-1">';
-                if ($o['kds_kitchen_ready']) {
-                    $returnButtons .= '<button type="submit" name="reset_target" value="kitchen" class="btn btn-outline-warning btn-xs" title="Devolver a Cocina"><i class="fa fa-undo"></i> 🔥</button>';
-                }
-                if ($o['kds_pizza_ready']) {
-                    $returnButtons .= '<button type="submit" name="reset_target" value="pizza" class="btn btn-outline-danger btn-xs" title="Devolver a Pizza"><i class="fa fa-undo"></i> 🍕</button>';
-                }
-                $returnButtons .= '</div></form>';
-            }
+                    <input type="hidden" name="reset_target" value="kitchen">
+                    <button type="submit" class="btn-header-action ' . ($o['kds_kitchen_ready'] ? 'text-warning' : 'text-secondary opacity-25') . '" ' . (!$o['kds_kitchen_ready'] ? 'disabled' : '') . ' title="Devolver a Cocina">
+                        <i class="fa fa-fire"></i>
+                    </button>
+                </form>';
+            
+            $returnPizza = '
+                <form method="POST" class="d-inline">
+                    <input type="hidden" name="order_id" value="' . $o['id'] . '">
+                    <input type="hidden" name="status" value="preparing">
+                    <input type="hidden" name="reset_target" value="pizza">
+                    <button type="submit" class="btn-header-action ' . ($o['kds_pizza_ready'] ? 'text-danger' : 'text-secondary opacity-25') . '" ' . (!$o['kds_pizza_ready'] ? 'disabled' : '') . ' title="Devolver a Pizza">
+                        <i class="fa fa-pizza-slice"></i>
+                    </button>
+                </form>';
 
-            $kitchenBadge = $o['kds_kitchen_ready'] ? '<span class="badge bg-warning text-dark" title="Cocina Lista"><i class="fa fa-fire"></i></span>' : '<span class="badge bg-secondary opacity-50"><i class="fa fa-fire"></i></span>';
-            $pizzaBadge = $o['kds_pizza_ready'] ? '<span class="badge bg-danger" title="Pizza Lista"><i class="fa fa-pizza-slice"></i></span>' : '<span class="badge bg-secondary opacity-50"><i class="fa fa-pizza-slice"></i></span>';
-            $stationStatus = '<div class="station-status-icons ms-2">' . $kitchenBadge . ' ' . $pizzaBadge . '</div>';
+            $headerActions .= $returnKitchen . $returnPizza . $deliverAction . '</div>';
 
             // Obtener Ítems Granulares
             $items = $orderManager->getOrderItems($o['id']);
             ?>
 
-            <div class="col-xl-2 col-lg-3 col-md-4 mb-2">
+            <div class="dispatch-card-wrapper mb-2">
                 <div class="card h-100 <?= $cardClass ?>">
                     <div
                         class="card-header <?= $headerClass ?> d-flex justify-content-between align-items-center py-0 px-2">
@@ -268,7 +307,7 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
                             <h6 class="m-0 fw-bold" style="font-size: 0.85rem;">#
                                 <?= $o['id'] ?>
                             </h6>
-                            <?= $stationStatus ?>
+                            <?= $headerActions ?>
                         </div>
                         <small class="fw-bold" style="font-size: 0.65rem;">
                             <?= date('h:i A', strtotime($o['created_at'])) ?>
@@ -276,16 +315,12 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
                     </div>
 
                     <div class="card-body p-1 bg-dark text-white">
-                        <h6 class="card-title fw-bold border-bottom border-secondary pb-1 mb-1" style="font-size: 1.3rem;">
+                        <h6 class="card-title fw-bold border-bottom border-secondary pb-1 mb-1" style="font-size: 0.85rem;">
                             <i class="fa fa-user-circle me-1"></i>
-                            <?= htmlspecialchars($o['cliente']) ?>
-                            <br>
-                            <small class="text-muted fw-normal" style="font-size:0.55em">
-                                <?= htmlspecialchars($o['shipping_address'] ?? '') ?>
-                            </small>
+                            <?= htmlspecialchars($o['shipping_address']) ?>
                         </h6>
 
-                        <div style="max-height: 200px; overflow-y: auto;" class="mb-2">
+                        <div style="max-height: 250px; overflow-y: auto;">
                             <?php foreach ($items as $item):
                                 $mods = $orderManager->getItemModifiers($item['id']);
                                 $groupedMods = [];
@@ -427,16 +462,9 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
                             <?php endforeach; ?>
                         </div>
 
-                        <div class="text-center mb-3">
-                            <?= $statusLabel ?>
-                        </div>
-
-                        <?= $btnAction ?>
-                        <?= $returnButtons ?>
-
-                        <div class="mt-2 text-center">
+                        <div class="mt-1 text-center border-top border-secondary pt-1">
                             <a href="ticket.php?id=<?= $o['id'] ?>" target="_blank"
-                                class="text-muted small text-decoration-none">
+                                class="text-muted" style="font-size: 0.65rem; text-decoration:none;">
                                 <i class="fa fa-print"></i> Re-imprimir Ticket
                             </a>
                         </div>

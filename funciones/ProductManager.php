@@ -13,10 +13,10 @@ class ProductManager
     }
 
     // Crear un producto con márgenes de ganancia
-    public function createProduct($name, $description, $price_usd, $price_ves, $stock, $image_url = 'default.jpg', $profit_margin = 20.00, $min_stock = 5, $category_id = null)
+    public function createProduct($name, $description, $price_usd, $price_ves, $stock, $image_url = 'default.jpg', $profit_margin = 20.00, $min_stock = 5, $category_id = null, $is_visible = 1)
     {
-        $stmt = $this->db->prepare("INSERT INTO products (name, description, price_usd, price_ves, stock, image_url, profit_margin, min_stock, category_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-        return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image_url, $profit_margin, $min_stock, $category_id]);
+        $stmt = $this->db->prepare("INSERT INTO products (name, description, price_usd, price_ves, stock, image_url, profit_margin, min_stock, category_id, is_visible, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+        return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image_url, $profit_margin, $min_stock, $category_id, $is_visible]);
     }
 
     // Obtener un producto por ID
@@ -45,28 +45,37 @@ class ProductManager
         return $stmt->execute([$newPriceVes, $productId]);
     }
 
-    // Obtener todos los productos (Opcionalmente filtrados por categoría)
-    public function getAllProducts($categoryId = null)
+    // Obtener todos los productos (Opcionalmente filtrados por categoría y visibilidad)
+    public function getAllProducts($categoryId = null, $onlyVisible = false)
     {
         $sql = "SELECT p.*, c.name as category_name FROM products p 
                 LEFT JOIN categories c ON p.category_id = c.id";
 
+        $where = [];
+        $params = [];
+
         if ($categoryId) {
-            $sql .= " WHERE p.category_id = ?";
+            $where[] = "p.category_id = ?";
+            $params[] = $categoryId;
         }
+
+        if ($onlyVisible) {
+            $where[] = "p.is_visible = 1";
+        }
+
+        if (!empty($where)) {
+            $sql .= " WHERE " . implode(" AND ", $where);
+        }
+
         $sql .= " ORDER BY p.created_at DESC";
 
         $stmt = $this->db->prepare($sql);
-        if ($categoryId) {
-            $stmt->execute([$categoryId]);
-        } else {
-            $stmt->execute();
-        }
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Buscar productos por nombre (Opcionalmente dentro de una categoría)
-    public function searchProducts($keyword, $categoryId = null)
+    // Buscar productos por nombre (Opcionalmente dentro de una categoría y visibilidad)
+    public function searchProducts($keyword, $categoryId = null, $onlyVisible = false)
     {
         $sql = "SELECT p.*, c.name as category_name FROM products p 
                 LEFT JOIN categories c ON p.category_id = c.id 
@@ -78,6 +87,11 @@ class ProductManager
             $sql .= " AND p.category_id = ?";
             $params[] = $categoryId;
         }
+
+        if ($onlyVisible) {
+            $sql .= " AND p.is_visible = 1";
+        }
+
         $sql .= " ORDER BY p.created_at DESC";
 
         $stmt = $this->db->prepare($sql);
@@ -128,14 +142,14 @@ class ProductManager
     }
 
     // Actualizar un producto
-    public function updateProduct($id, $name, $description, $price_usd, $price_ves, $stock, $image = null, $profit_margin = 20.00, $min_stock = 5, $category_id = null)
+    public function updateProduct($id, $name, $description, $price_usd, $price_ves, $stock, $image = null, $profit_margin = 20.00, $min_stock = 5, $category_id = null, $is_visible = 1)
     {
         if ($image) {
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, image_url = ?, profit_margin = ?, min_stock = ?, category_id = ?, updated_at = NOW() WHERE id = ?");
-            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image, $profit_margin, $min_stock, $category_id, $id]);
+            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, image_url = ?, profit_margin = ?, min_stock = ?, category_id = ?, is_visible = ?, updated_at = NOW() WHERE id = ?");
+            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image, $profit_margin, $min_stock, $category_id, $is_visible, $id]);
         } else {
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, profit_margin = ?, min_stock = ?, category_id = ?, updated_at = NOW() WHERE id = ?");
-            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $profit_margin, $min_stock, $category_id, $id]);
+            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, profit_margin = ?, min_stock = ?, category_id = ?, is_visible = ?, updated_at = NOW() WHERE id = ?");
+            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $profit_margin, $min_stock, $category_id, $is_visible, $id]);
         }
     }
 
@@ -214,8 +228,12 @@ class ProductManager
 
         // FIX: Para componentes de tipo 'product', calcular su costo real recursivamente
         foreach ($components as &$comp) {
+            // Cargar Overrides si existen
+            $comp['overrides'] = $this->getComponentOverrides($comp['id']);
+            $comp['has_overrides'] = !empty($comp['overrides']);
+
             if ($comp['component_type'] == 'product' && $comp['component_id']) {
-                $comp['item_cost'] = $this->calculateProductCost($comp['component_id'], $depth + 1);
+                $comp['item_cost'] = $this->calculateProductCost($comp['component_id'], $depth + 1, false, $comp['id']);
             }
         }
 
@@ -223,10 +241,145 @@ class ProductManager
     }
 
     /**
+     * Obtener ingredientes personalizados de un componente dentro de un combo
+     */
+    public function getComponentOverrides($componentRowId)
+    {
+        $sql = "SELECT pco.*,
+                pco.ingredient_type as component_type,
+                pco.ingredient_id as component_id,
+                CASE
+                    WHEN pco.ingredient_type = 'raw' THEN rm.name
+                    WHEN pco.ingredient_type = 'manufactured' THEN mp.name
+                    WHEN pco.ingredient_type = 'product' THEN p.name
+                END as item_name,
+                CASE
+                    WHEN pco.ingredient_type = 'raw' THEN rm.unit
+                    WHEN pco.ingredient_type = 'manufactured' THEN mp.unit
+                    WHEN pco.ingredient_type = 'product' THEN 'und'
+                END as item_unit,
+                CASE
+                    WHEN pco.ingredient_type = 'raw' THEN rm.cost_per_unit
+                    WHEN pco.ingredient_type = 'manufactured' THEN mp.unit_cost_average
+                    WHEN pco.ingredient_type = 'product' THEN p.price_usd
+                END as item_cost
+                FROM product_component_overrides pco
+                LEFT JOIN raw_materials rm ON pco.ingredient_id = rm.id AND pco.ingredient_type = 'raw'
+                LEFT JOIN manufactured_products mp ON pco.ingredient_id = mp.id AND pco.ingredient_type = 'manufactured'
+                LEFT JOIN products p ON pco.ingredient_id = p.id AND pco.ingredient_type = 'product'
+                WHERE pco.component_row_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$componentRowId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Guardar receta personalizada para un componente de combo
+     */
+    public function updateComponentOverrides($componentRowId, $ingredients)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Borrar configuración anterior
+            $stmtDel = $this->db->prepare("DELETE FROM product_component_overrides WHERE component_row_id = ?");
+            $stmtDel->execute([$componentRowId]);
+
+            // 2. Insertar nuevos ingredientes
+            if (!empty($ingredients)) {
+                $stmtIns = $this->db->prepare("INSERT INTO product_component_overrides (component_row_id, ingredient_type, ingredient_id, quantity) VALUES (?, ?, ?, ?)");
+                foreach ($ingredients as $ing) {
+                    $stmtIns->execute([
+                        $componentRowId,
+                        $ing['type'],
+                        $ing['id'],
+                        $ing['qty']
+                    ]);
+                }
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Error en updateComponentOverrides: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Obtener contornos personalizados de un componente dentro de un combo
+     */
+    public function getComponentSideOverrides($componentRowId)
+    {
+        $sql = "SELECT pcso.*,
+                pcso.side_type as component_type,
+                pcso.side_id as component_id,
+                CASE
+                    WHEN pcso.side_type = 'raw' THEN rm.name
+                    WHEN pcso.side_type = 'manufactured' THEN mp.name
+                    WHEN pcso.side_type = 'product' THEN p.name
+                END as item_name,
+                CASE
+                    WHEN pcso.side_type = 'raw' THEN rm.unit
+                    WHEN pcso.side_type = 'manufactured' THEN mp.unit
+                    WHEN pcso.side_type = 'product' THEN 'und'
+                END as item_unit,
+                CASE
+                    WHEN pcso.side_type = 'raw' THEN rm.cost_per_unit
+                    WHEN pcso.side_type = 'manufactured' THEN mp.unit_cost_average
+                    WHEN pcso.side_type = 'product' THEN p.price_usd
+                END as item_cost
+                FROM product_component_side_overrides pcso
+                LEFT JOIN raw_materials rm ON pcso.side_id = rm.id AND pcso.side_type = 'raw'
+                LEFT JOIN manufactured_products mp ON pcso.side_id = mp.id AND pcso.side_type = 'manufactured'
+                LEFT JOIN products p ON pcso.side_id = p.id AND pcso.side_type = 'product'
+                WHERE pcso.component_row_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$componentRowId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Guardar contornos personalizados para un componente de combo
+     */
+    public function updateComponentSideOverrides($componentRowId, $sides)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Borrar configuración anterior
+            $stmtDel = $this->db->prepare("DELETE FROM product_component_side_overrides WHERE component_row_id = ?");
+            $stmtDel->execute([$componentRowId]);
+
+            // 2. Insertar nuevos contornos
+            if (!empty($sides)) {
+                $stmtIns = $this->db->prepare("INSERT INTO product_component_side_overrides (component_row_id, side_type, side_id, quantity, is_default) VALUES (?, ?, ?, ?, ?)");
+                foreach ($sides as $s) {
+                    $stmtIns->execute([
+                        $componentRowId,
+                        $s['type'],
+                        $s['id'],
+                        $s['qty'],
+                        isset($s['is_default']) ? $s['is_default'] : 0
+                    ]);
+                }
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            error_log("Error en updateComponentSideOverrides: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Calcula el costo de producción real de un producto sumando recursivamente
      * los costos de sus componentes (evita usar precio de venta)
      */
-    public function calculateProductCost($productId, $depth = 0, $returnBreakdown = false)
+    public function calculateProductCost($productId, $depth = 0, $returnBreakdown = false, $overrideRowId = null)
     {
         if ($depth > 10)
             return 0; // Prevent Infinite loop
@@ -253,16 +406,33 @@ class ProductManager
         $hasRecipe = !empty($components);
 
         // A. COSTO DE COMPONENTES BASE
-        if ($hasRecipe) {
-            foreach ($components as $comp) {
-                $itemCost = floatval($comp['item_cost'] ?? 0);
-                $totalCost += ($comp['quantity'] * $itemCost);
+        if ($overrideRowId) {
+            // USAR RECETA PERSONALIZADA SI EXISTE
+            $overrides = $this->getComponentOverrides($overrideRowId);
+            if (!empty($overrides)) {
+                foreach ($overrides as $ov) {
+                    $ovCost = floatval($ov['item_cost'] ?? 0);
+                    $totalCost += ($ov['quantity'] * $ovCost);
+                }
+                $hasRecipe = true;
             }
-        } else {
-            // Producto de REVENTA (ej: refrescos, snacks)
-            $price = floatval($product['price_usd'] ?? 0);
-            $margin = floatval($product['profit_margin'] ?? 20);
-            $totalCost = $price * (1 - ($margin / 100));
+        }
+
+        if ($totalCost == 0) { // Si no hubo overrides o no devolvieron costo
+            if ($hasRecipe) {
+                foreach ($components as $comp) {
+                    $itemCost = floatval($comp['item_cost'] ?? 0);
+                    $totalCost += ($comp['quantity'] * $itemCost);
+                }
+            } elseif ($product['product_type'] === 'simple') {
+                // SOLO Para producto de REVENTA (ej: refrescos, snacks) calculamos costo virtual basado en margen
+                $price = floatval($product['price_usd'] ?? 0);
+                $margin = floatval($product['profit_margin'] ?? 20);
+                $totalCost = $price * (1 - ($margin / 100));
+            } else {
+                // SI ES PREPARED O COMPOUND Y NO TIENE RECETA, COSTO BASE ES 0
+                $totalCost = 0;
+            }
         }
         $breakdown['recipe'] = $totalCost;
 
@@ -273,7 +443,16 @@ class ProductManager
 
         $sidesCost = 0;
         if ($maxSides > 0) {
-            $validSides = $this->getValidSides($productId);
+            // AJUSTE: Usar contornos personalizados si existe override context
+            $validSides = [];
+            if ($overrideRowId) {
+                $validSides = $this->getComponentSideOverrides($overrideRowId);
+            }
+            
+            if (empty($validSides)) {
+                $validSides = $this->getValidSides($productId);
+            }
+
             if (!empty($validSides)) {
                 $sumSideCosts = 0;
                 foreach ($validSides as $side) {
@@ -286,6 +465,9 @@ class ProductManager
                         $s = $this->db->prepare("SELECT unit_cost_average FROM manufactured_products WHERE id = ?");
                         $s->execute([$side['component_id']]);
                         $sideCost = floatval($s->fetchColumn());
+                    } elseif ($side['component_type'] == 'product') {
+                        // RECURSIVIDAD: Si el contorno es otro producto, calculamos su costo real
+                        $sideCost = $this->calculateProductCost($side['component_id'], $depth + 1);
                     }
                     $sumSideCosts += ($sideCost * floatval($side['quantity']));
                 }
@@ -387,6 +569,11 @@ class ProductManager
         if (!$productData)
             return ['max_produceable' => 0, 'limiting_component' => null];
 
+        // SI ES SIMPLE, SU STOCK VIRTUAL ES SU STOCK FÍSICO (Para que los combos lo vean)
+        if ($productData['product_type'] === 'simple') {
+            return ['max_produceable' => floatval($productData['stock']), 'limiting_component' => null];
+        }
+
         $isPrepared = ($productData['product_type'] === 'prepared' || $productData['product_type'] === 'compound');
         $maxSides = intval($productData['max_sides'] ?? 0);
         $logic = $productData['contour_logic_type'] ?? 'standard';
@@ -422,16 +609,9 @@ class ProductManager
                     $itemName = $data['name'] ?? 'Manufacturado';
                     $itemUnit = $data['unit'] ?? 'Und';
                 } elseif ($comp['component_type'] == 'product') {
-                    $subProduct = $this->getProductById($comp['component_id']);
-                    if ($subProduct) {
-                        $itemName = $subProduct['name'];
-                        if ($subProduct['product_type'] === 'simple') {
-                            $currentStock = floatval($subProduct['stock']);
-                        } else {
-                            $subAnalysis = $this->getVirtualStockAnalysis($comp['component_id'], $depth + 1);
-                            $currentStock = $subAnalysis['max_produceable'];
-                        }
-                    }
+                    $subAnalysis = $this->getVirtualStockAnalysis($comp['component_id'], $depth + 1);
+                    $currentStock = $subAnalysis['max_produceable'];
+                    $itemName = $comp['item_name'] ?? 'Producto';
                 }
 
                 $possibleWithThisItem = floor($currentStock / $qtyNeeded);
@@ -476,7 +656,8 @@ class ProductManager
                         $s->execute([$side['component_id']]);
                         $stock = floatval($s->fetchColumn());
                     } elseif ($side['component_type'] == 'product') {
-                        $stock = $this->getVirtualStock($side['component_id'], $depth + 1);
+                        $subAnalysis = $this->getVirtualStockAnalysis($side['component_id'], $depth + 1);
+                        $stock = $subAnalysis['max_produceable'];
                     }
 
                     $totalSidesAvailability += floor($stock / $effectiveQty);
@@ -497,6 +678,31 @@ class ProductManager
                             'required_per_unit' => $maxSides
                         ];
                     }
+                }
+            }
+        }
+
+        // 4. ANÁLISIS DE ACOMPAÑANTES (COMPANIONS) - NUEVO
+        // Los acompañantes son obligatorios y siempre se agregan 1:1 o según su qty
+        $companions = $this->getCompanions($productId);
+        if (!empty($companions)) {
+            foreach ($companions as $comp) {
+                $compQty = floatval($comp['quantity']);
+                if ($compQty <= 0) continue;
+
+                $subAnalysis = $this->getVirtualStockAnalysis($comp['companion_id'], $depth + 1);
+                $compStock = $subAnalysis['max_produceable'];
+
+                $possibleWithCompanion = floor($compStock / $compQty);
+
+                if ($minProduceable === null || $possibleWithCompanion < $minProduceable) {
+                    $minProduceable = $possibleWithCompanion;
+                    $limitingComponent = [
+                        'name' => 'Acompañante: ' . ($comp['name'] ?? 'Ref.'),
+                        'available' => $compStock,
+                        'unit' => 'und',
+                        'required_per_unit' => $compQty
+                    ];
                 }
             }
         }
@@ -588,6 +794,77 @@ class ProductManager
         $sql = "UPDATE product_companions SET quantity = ?, price_override = ? WHERE product_id = ? AND companion_id = ?";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([$qty, $price, $productId, $companionId]);
+    }
+
+    // NUEVO: Obtener receta personalizada de un acompañante
+    public function getCompanionRecipe($companionRowId)
+    {
+        // 1. Buscar si tiene receta personalizada
+        $sql = "SELECT pcc.*, 
+                CASE
+                    WHEN pcc.component_type = 'raw' THEN rm.name
+                    WHEN pcc.component_type = 'manufactured' THEN mp.name
+                    WHEN pcc.component_type = 'product' THEN p.name
+                END as item_name,
+                CASE
+                    WHEN pcc.component_type = 'raw' THEN rm.unit
+                    WHEN pcc.component_type = 'manufactured' THEN mp.unit
+                    WHEN pcc.component_type = 'product' THEN 'und'
+                END as item_unit
+                FROM product_companion_components pcc
+                LEFT JOIN raw_materials rm ON pcc.component_id = rm.id AND pcc.component_type = 'raw'
+                LEFT JOIN manufactured_products mp ON pcc.component_id = mp.id AND pcc.component_type = 'manufactured'
+                LEFT JOIN products p ON pcc.component_id = p.id AND pcc.component_type = 'product'
+                WHERE pcc.product_companion_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$companionRowId]);
+        $customRecipe = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($customRecipe)) {
+             return ['type' => 'custom', 'components' => $customRecipe];
+        }
+
+        // 2. Si no, obtener la receta original del producto acompañante
+        // Primero necesitamos saber el ID del producto real
+        $stmtInfo = $this->db->prepare("SELECT companion_id FROM product_companions WHERE id = ?");
+        $stmtInfo->execute([$companionRowId]);
+        $companionId = $stmtInfo->fetchColumn();
+
+        if (!$companionId) return ['type' => 'original', 'components' => []];
+
+        $originalComponents = $this->getProductComponents($companionId);
+        return ['type' => 'original', 'components' => $originalComponents];
+    }
+
+    // NUEVO: Guardar receta personalizada
+    public function updateCompanionRecipe($companionRowId, $components)
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // 1. Borrar configuración anterior
+            $stmtDel = $this->db->prepare("DELETE FROM product_companion_components WHERE product_companion_id = ?");
+            $stmtDel->execute([$companionRowId]);
+
+            // 2. Insertar nuevos componentes (si hay)
+            if (!empty($components)) {
+                $stmtIns = $this->db->prepare("INSERT INTO product_companion_components (product_companion_id, component_type, component_id, quantity) VALUES (?, ?, ?, ?)");
+                foreach ($components as $comp) {
+                    $stmtIns->execute([
+                        $companionRowId,
+                        $comp['type'],
+                        $comp['id'],
+                        $comp['qty']
+                    ]);
+                }
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return false;
+        }
     }
 
     public function updateValidExtraQuantity($rowId, $priceOverride, $qtyRequired)
@@ -835,6 +1112,57 @@ class ProductManager
 
         foreach ($items as $item) {
             $this->addProductPackaging($toId, $item['raw_material_id'], $item['quantity']);
+        }
+        return true;
+    }
+
+    public function copyCompanions($fromId, $toId)
+    {
+        $stmt = $this->db->prepare("SELECT * FROM product_companions WHERE product_id = ?");
+        $stmt->execute([$fromId]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($items as $item) {
+            // 1. Insert or Update companion link
+            // Nota: addCompanion verifica si existe y hace update, pero no retorna el ID si hace update.
+            // Para garantizar copia de receta custom, es mejor manejarlo manualmente aquí o asegurar que addCompanion retorne ID.
+            
+            // Verificamos si ya existe en destino
+            $check = $this->db->prepare("SELECT id FROM product_companions WHERE product_id = ? AND companion_id = ?");
+            $check->execute([$toId, $item['companion_id']]);
+            $existingId = $check->fetchColumn();
+
+            if ($existingId) {
+                // Actualizamos
+                $this->updateCompanion($toId, $item['companion_id'], $item['quantity'], $item['price_override']);
+                $newCompanionRowId = $existingId;
+            } else {
+                // Insertamos
+                $stmtIns = $this->db->prepare("INSERT INTO product_companions (product_id, companion_id, quantity, price_override, is_default) VALUES (?, ?, ?, ?, ?)");
+                $stmtIns->execute([$toId, $item['companion_id'], $item['quantity'], $item['price_override'], $item['is_default']]);
+                $newCompanionRowId = $this->db->lastInsertId();
+            }
+
+            // 2. Copiar receta personalizada si existe en el origen
+            $stmtRecipe = $this->db->prepare("SELECT * FROM product_companion_components WHERE product_companion_id = ?");
+            $stmtRecipe->execute([$item['id']]); // ID original
+            $customComponents = $stmtRecipe->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($customComponents)) {
+                // A. Limpiar receta previa en destino (si estamos sobreescribiendo)
+                $this->db->prepare("DELETE FROM product_companion_components WHERE product_companion_id = ?")->execute([$newCompanionRowId]);
+
+                // B. Insertar receta copiada
+                $stmtInsRecipe = $this->db->prepare("INSERT INTO product_companion_components (product_companion_id, component_type, component_id, quantity) VALUES (?, ?, ?, ?)");
+                foreach ($customComponents as $cc) {
+                    $stmtInsRecipe->execute([
+                        $newCompanionRowId,
+                        $cc['component_type'],
+                        $cc['component_id'],
+                        $cc['quantity']
+                    ]);
+                }
+            }
         }
         return true;
     }

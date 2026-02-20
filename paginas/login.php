@@ -73,8 +73,6 @@ if (!empty($error)) {
 
 require_once '../templates/header.php';
 
-require_once '../templates/menu.php';
-
 
 
 

@@ -97,7 +97,10 @@ class CartManager
 
             // --- LÓGICA DE ACOMPAÑANTES v2 (Independientes) ---
             // Solo buscamos acompañantes si nosotros NO somos ya un acompañante (evitar bucles infinitos)
+            // --- LÓGICA DE ACOMPAÑANTES v2 (Independientes) ---
+            // Solo buscamos acompañantes si nosotros NO somos ya un acompañante (evitar bucles infinitos)
             if ($parentCartId === null) {
+                // Modificado para pasar false (no calcular precio recursivo) o verificar firma
                 $companions = $productManager->getCompanions($product_id);
                 foreach ($companions as $comp) {
                     // Calculamos cantidad proporcional (ej: si pido 2 hamburguesas, van 2 cocas)
@@ -105,7 +108,17 @@ class CartManager
                     $compPrice = $comp['price_override']; // Puede ser numérico o NULL
 
                     // Llamada RECURSIVA para insertar el acompañante como item independiente
+                    // IMPORTANTE: Ahora pasamos $comp['id'] (el ID de la fila product_companions) como origin
                     $this->addToCart($user_id, $comp['companion_id'], $compQty, [], $consumptionType, $cartId, $compPrice);
+
+                    // Hack para vincular el cart_item recien creado con su origin_companion_id
+                    // Como addToCart retorna true/error y no el ID, necesitamos obtener el último ID insertado en esta conexión
+                    // Esto es seguro porque estamos dentro de una transacción.
+                    $newCompanionCartId = $this->db->lastInsertId();
+
+                    // Insertamos el modificador oculto 'companion_origin'
+                    $stmtLink = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type, note) VALUES (?, 'companion_origin', -1, ?, 'setup', 'Linked to ProductCompanion #')");
+                    $stmtLink->execute([$newCompanionCartId, $comp['id']]);
                 }
             }
             // --------------------------------------------------
@@ -236,7 +249,7 @@ class CartManager
         $stmt = $this->db->prepare("
             SELECT c.*, p.name, 
                    COALESCE(c.price_override, p.price_usd) as price_usd, 
-                   p.price_ves, p.image_url, p.product_type
+                   p.price_ves, p.image_url, p.product_type, p.max_sides, p.contour_logic_type
             FROM {$this->table_name} c
             JOIN products p ON c.product_id = p.id
             WHERE c.user_id = ?
@@ -304,6 +317,87 @@ class CartManager
                     $groupedMods[$idx]['desc'][] = "SIN " . $mod['item_name'];
                 }
             }
+
+            // --- LÓGICA DE COMPLETITUD (is_complete) ---
+            $itemIsComplete = true; // Por defecto
+            $incompleteIndices = [];
+
+            if ($item['product_type'] == 'compound') {
+                $pMan = new ProductManager($this->db);
+                // NOTA: Incluimos todos los tipos de componentes, no solo 'product'
+                $components = $this->db->prepare("SELECT pc.id as row_id, pc.quantity, pc.component_type, 
+                                                         COALESCE(p.max_sides, 0) as max_sides, 
+                                                         COALESCE(p.contour_logic_type, 'standard') as contour_logic_type, 
+                                                         p.id as sub_pid 
+                                                  FROM product_components pc 
+                                                  LEFT JOIN products p ON pc.component_id = p.id AND pc.component_type = 'product'
+                                                  WHERE pc.product_id = ?");
+                $components->execute([$item['product_id']]);
+                $cList = $components->fetchAll(PDO::FETCH_ASSOC);
+
+                $currentSubIdx = 0;
+                foreach ($cList as $c) {
+                    $q = intval($c['quantity']);
+                    $max = intval($c['max_sides']);
+                    $logic = $c['contour_logic_type'] ?? 'standard';
+                    
+                    $ovSides = $pMan->getComponentSideOverrides($c['row_id']);
+                    $hasSidesAvailable = ($max > 0 || !empty($ovSides));
+                    
+                    for ($i = 0; $i < $q; $i++) {
+                        if ($hasSidesAvailable) {
+                            $sidesCount = 0;
+                            if (isset($groupedMods[$currentSubIdx])) {
+                                $sidesCount = count(array_filter($rawModifiers, function ($m) use ($currentSubIdx) {
+                                    return $m['sub_item_index'] == $currentSubIdx && $m['modifier_type'] == 'side';
+                                }));
+                            }
+
+                            // VALIDACIÓN SEGÚN LÓGICA
+                            if ($logic === 'standard') {
+                                // En standard, el max manda
+                                $effectiveMax = (!empty($ovSides)) ? min($max, count($ovSides)) : $max;
+                                if ($sidesCount < $effectiveMax) {
+                                    $itemIsComplete = false;
+                                    $incompleteIndices[] = $currentSubIdx;
+                                }
+                            } else {
+                                // En proporcional (proportional), debe haber al menos 1 seleccionado si hay opciones
+                                if ($sidesCount < 1) {
+                                    $itemIsComplete = false;
+                                    $incompleteIndices[] = $currentSubIdx;
+                                }
+                            }
+                        }
+                        $currentSubIdx++;
+                    }
+                }
+            }
+            else {
+                // Producto Simple
+                $max = intval($item['max_sides']);
+                $logic = $item['contour_logic_type'] ?? 'standard';
+                $sidesCount = count(array_filter($rawModifiers, function ($m) {
+                    return $m['sub_item_index'] == 0 && $m['modifier_type'] == 'side';
+                }));
+
+                if ($max > 0) {
+                    if ($logic === 'standard') {
+                        if ($sidesCount < $max) {
+                            $itemIsComplete = false;
+                            $incompleteIndices[] = 0;
+                        }
+                    } else {
+                        // Proportional
+                        if ($sidesCount < 1) {
+                            $itemIsComplete = false;
+                            $incompleteIndices[] = 0;
+                        }
+                    }
+                }
+            }
+            $item['is_complete'] = $itemIsComplete;
+            $item['incomplete_indices'] = $incompleteIndices;
 
             // Generar HTML descriptivo para la tabla
             $visualDesc = [];

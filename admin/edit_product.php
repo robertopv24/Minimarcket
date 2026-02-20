@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $min_stock = $_POST['min_stock'];
     $profit_margin = $_POST['profit_margin'];
     $category_id = $_POST['category_id'] ?: null;
+    $is_visible = isset($_POST['is_visible']) ? 1 : 0;
 
     // Procesar imagen
     // Procesar imagen
@@ -47,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Actualizar usando ProductManager
-    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id)) {
+    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id, $is_visible)) {
         $mensaje = '<div class="alert alert-success">Producto actualizado con éxito.</div>';
         $producto = $productManager->getProductById($id); // Refrescar datos
     } else {
@@ -145,6 +146,18 @@ require_once '../templates/menu.php';
                             </div>
                             <label class="form-label">Cambiar Imagen</label>
                             <input type="file" class="form-control" name="imagen" accept="image/*">
+                        </div>
+
+                        <div class="card bg-info bg-opacity-10 border-info">
+                            <div class="card-body py-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="is_visible" name="is_visible" <?= ($producto['is_visible'] == 1) ? 'checked' : '' ?>>
+                                    <label class="form-check-label fw-bold" for="is_visible">
+                                        <i class="fa fa-eye me-1"></i> Visible en Tienda
+                                    </label>
+                                    <div class="form-text small">Si se desactiva, el producto no aparecerá en el catálogo para los clientes.</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

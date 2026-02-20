@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $min_stock = $_POST['min_stock'] ?? 5;
     $profit_margin = $_POST['profit_margin'] ?? 20.00;
     $category_id = $_POST['category_id'] ?: null;
+    $is_visible = isset($_POST['is_visible']) ? 1 : 0;
 
     // Procesar imagen (RCE FIX)
     $rutaImagen = 'default.jpg';
@@ -39,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Usar ProductManager para crear (Limpio y Seguro)
-    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id)) {
+    if ($productManager->createProduct($nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id, $is_visible)) {
         $mensaje = '<div class="alert alert-success">Producto creado con éxito.</div>';
     } else {
         $mensaje = '<div class="alert alert-danger">Error al crear el producto en base de datos.</div>';
@@ -125,6 +126,18 @@ require_once '../templates/menu.php';
                         <div class="mb-3">
                             <label for="imagen" class="form-label">Imagen del Producto</label>
                             <input type="file" class="form-control" id="imagen" name="imagen" accept="image/*">
+                        </div>
+
+                        <div class="card bg-info bg-opacity-10 border-info">
+                            <div class="card-body py-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="is_visible" name="is_visible" checked>
+                                    <label class="form-check-label fw-bold" for="is_visible">
+                                        <i class="fa fa-eye me-1"></i> Visible en Tienda
+                                    </label>
+                                    <div class="form-text small">Si se desactiva, el producto no aparecerá en el catálogo para los clientes.</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

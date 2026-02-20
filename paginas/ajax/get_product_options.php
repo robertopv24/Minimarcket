@@ -20,5 +20,6 @@ $sides = $productManager->getValidSides($productId);
 echo json_encode([
     'product_name' => $product['name'],
     'max_sides' => $product['max_sides'],
+    'contour_logic_type' => $product['contour_logic_type'] ?? 'standard',
     'sides' => $sides
 ]);

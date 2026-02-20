@@ -21,8 +21,6 @@ require_once '../templates/autoload.php';
 
 require_once '../templates/header.php';
 
-require_once '../templates/menu.php';
-
 
 
 

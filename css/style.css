@@ -349,23 +349,23 @@ canvas {
 /* Desktop View */
 @media (min-width: 992px) {
     .sidebar {
-        margin-left: 0;
-        /* Always visible on Desktop */
+        margin-left: -250px;
+        /* Hidden by default on Desktop */
     }
 
     .sidebar.open {
-        margin-left: -250px;
-        /* Hide on toggle */
+        margin-left: 0;
+        /* Show on toggle */
     }
 
     .content {
-        margin-left: 250px;
-        width: calc(100% - 250px);
+        margin-left: 0;
+        width: 100%;
     }
 
     .content.open {
-        width: 100%;
-        margin-left: 0;
+        margin-left: 250px;
+        width: calc(100% - 250px);
     }
 }
 

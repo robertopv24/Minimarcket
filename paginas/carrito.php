@@ -103,8 +103,87 @@ if (!empty($cartItems)) {
 // 2. VISTA
 // -------------------------------------------------------------------------
 require_once '../templates/header.php';
-require_once '../templates/menu.php';
 ?>
+
+<style>
+    /* Modal XL con ajuste dinámico de ancho */
+    @media (min-width: 1200px) {
+        .modal-xl {
+            max-width: 95vw;
+            width: fit-content;
+            min-width: 1140px; /* Asegura un mínimo decente */
+        }
+    }
+
+    /* Estilo para barras de desplazamiento modernas */
+    .custom-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 10px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+    /* Botones de contornos más visibles */
+    .btn-side-option {
+        border-color: rgba(255,255,255,0.2) !important;
+        color: #dee2e6 !important;
+        background-color: rgba(255,255,255,0.05) !important;
+        transition: all 0.2s;
+        min-height: 45px;
+    }
+    .btn-side-option:hover {
+        background-color: var(--bs-primary) !important;
+        border-color: var(--bs-primary) !important;
+        color: white !important;
+        transform: scale(1.02);
+    }
+
+    /* Efectos de opacidad */
+    .hover-opacity-100 { transition: opacity 0.2s; }
+    .hover-opacity-100:hover { opacity: 1 !important; }
+
+    /* Mejorar visibilidad de selectores (Radios) en modo oscuro */
+    .form-check-input:checked {
+        background-color: #ff4d4d;
+        border-color: #ff4d4d;
+    }
+    .form-check-label {
+        color: #eee;
+    }
+
+    /* Espaciador de grupos de productos */
+    .cart-group-separator td {
+        padding: 0.5rem 0 !important;
+        background-color: transparent !important;
+        border: none !important;
+        height: 15px;
+    }
+    .cart-group-separator td::after {
+        content: "";
+        display: block;
+        height: 2px;
+        background: repeating-linear-gradient(90deg, #dee2e6, #dee2e6 10px, transparent 10px, transparent 20px);
+        margin: 5px 15px;
+        opacity: 0.5;
+    }
+
+    /* Divisor para el panel izquierdo (Grid) */
+    .group-divider {
+        height: 1px;
+        border-top: 2px dashed #dee2e6;
+        margin: 1rem 0;
+        opacity: 0.5;
+        width: 100%;
+    }
+</style>
 
 <div class="container mt-5 mb-5">
     <h2 class="text-center mb-4"><i class="fa fa-shopping-cart text-primary"></i> Tu Pedido</h2>
@@ -127,25 +206,34 @@ require_once '../templates/menu.php';
                     <div class="row g-2">
                         <?php
                         // Bucle EXPLOTADO para el Panel Izquierdo
+                        $firstGroupLeft = true;
                         foreach ($cartItems as $item) {
                             $cId = $item['id'];
+
+                            // Si es un item raíz, ponemos el divisor
+                            if ($item['parent_cart_id'] === null) {
+                                if (!$firstGroupLeft) {
+                                    echo '<div class="col-12"><div class="group-divider"></div></div>';
+                                }
+                                $firstGroupLeft = false;
+                            }
 
                             if ($item['product_type'] == 'compound') {
                                 $components = $productManager->getProductComponents($item['product_id']);
                                 $idx = 0;
                                 foreach ($components as $comp) {
                                     $qty = intval($comp['quantity']);
-                                    // Determinar datos del sub-producto
-                                    // OJO: Si es 'manufactured', deberíamos buscar en su tabla,
-                                    // pero por ahora asumimos que el PM lo maneja o usaremos un placeholder si falta.
-                    
+                                    $rowId = $comp['id'];
+
+                                    // LÓGICA DE OVERRIDE: Si el admin definió una receta para este componente en el combo
+                                    $overrideRecipe = $productManager->getComponentOverrides($rowId);
+                                    $hasOverride = !empty($overrideRecipe);
+
                                     if ($comp['component_type'] == 'product') {
                                         $subP = $productManager->getProductById($comp['component_id']);
                                         $name = $subP['name'];
                                         $img = !empty($subP['image_url']) ? $subP['image_url'] : 'img/no-image.png';
                                     } elseif ($comp['component_type'] == 'manufactured') {
-                                        // Hack rápido para obtener nombre/img de manufacturados
-                                        // (Idealmente PM debería tener getManufacturedById)
                                         $stmtMan = $db->prepare("SELECT name, image_url FROM manufactured_products WHERE id = ?");
                                         $stmtMan->execute([$comp['component_id']]);
                                         $manP = $stmtMan->fetch(PDO::FETCH_ASSOC);
@@ -165,7 +253,13 @@ require_once '../templates/menu.php';
                                         <div class="col-12 col-xl-6">
                                             <div class="card p-2 shadow-sm clickable-row border h-100" style="cursor: pointer;"
                                                 onclick="openModifierModal(<?= $item['id'] ?>, <?= $idx ?>)">
-                                                <div class="d-flex align-items-center h-100">
+                                                <div class="d-flex align-items-center h-100 position-relative">
+                                                    <?php if ($hasOverride): ?>
+                                                        <span class="position-absolute top-0 end-0 p-1" title="Personalizado por Admin">
+                                                            <i class="fa fa-flask text-primary" style="font-size: 0.6rem;"></i>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    
                                                     <!-- COL 1: IMAGEN + NOMBRE -->
                                                     <div class="text-center me-2" style="min-width: 80px; max-width: 80px;">
                                                         <img src="../<?= htmlspecialchars($img) ?>" class="rounded border mb-1"
@@ -177,6 +271,9 @@ require_once '../templates/menu.php';
 
                                                     <!-- COL 2: LEYENDA MODIFICACIONES -->
                                                     <div class="flex-grow-1 small border-start ps-2" style="font-size: 0.7rem;">
+                                                        <?php if (in_array($idx, $item['incomplete_indices'] ?? [])): ?>
+                                                            <div class="mb-1"><span class="badge bg-danger w-100"><i class="fa fa-exclamation-triangle"></i> INCOMPLETO</span></div>
+                                                        <?php endif; ?>
                                                         <?php if (empty($myMods)): ?>
                                                             <span class="text-muted fst-italic">Sin cambios</span>
                                                         <?php else: ?>
@@ -223,6 +320,9 @@ require_once '../templates/menu.php';
 
                                             <!-- COL 2 -->
                                             <div class="flex-grow-1 small border-start ps-2" style="font-size: 0.7rem;">
+                                                <?php if (in_array(0, $item['incomplete_indices'] ?? [])): ?>
+                                                    <div class="mb-1"><span class="badge bg-danger w-100"><i class="fa fa-exclamation-triangle"></i> INCOMPLETO</span></div>
+                                                <?php endif; ?>
                                                 <?php if (empty($myMods)): ?>
                                                     <span class="text-muted fst-italic">Sin cambios</span>
                                                 <?php else: ?>
@@ -234,6 +334,8 @@ require_once '../templates/menu.php';
                                                             echo '<div class="mb-1"><span class="badge text-bg-danger text-wrap text-start"><i class="fa fa-times me-1"></i>Sin ' . htmlspecialchars($m['resolved_name']) . '</span></div>';
                                                         } elseif ($m['modifier_type'] == 'add') {
                                                             echo '<div class="mb-1"><span class="badge text-bg-success text-wrap text-start"><i class="fa fa-plus me-1"></i>' . htmlspecialchars($m['resolved_name']) . '</span></div>';
+                                                        } elseif ($m['modifier_type'] == 'side') {
+                                                            echo '<div class="mb-1"><span class="badge text-bg-info text-wrap text-start"><i class="fa fa-check me-1"></i>' . htmlspecialchars($m['resolved_name']) . '</span></div>';
                                                         }
                                                         ?>
                                                     <?php endforeach; ?>
@@ -282,7 +384,17 @@ require_once '../templates/menu.php';
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($cartItems as $item): ?>
+                                        <?php 
+                                        $firstItem = true;
+                                        foreach ($cartItems as $item): 
+                                            // Si es un item raíz (no es un acompañante vinculado) y no es el primero, ponemos un separador
+                                            if ($item['parent_cart_id'] === null && !$firstItem) {
+                                                echo '<tr class="cart-group-separator"><td colspan="4"></td></tr>';
+                                            }
+                                            if ($item['parent_cart_id'] === null) {
+                                                $firstItem = false;
+                                            }
+                                        ?>
                                             <tr onclick="openModifierModal(<?= $item['id'] ?>)" style="cursor: pointer;">
                                                 <!-- Producto -->
                                                 <td>
@@ -295,6 +407,9 @@ require_once '../templates/menu.php';
                                                         <div class="text-muted small text-truncate" style="max-width: 150px;">
                                                             <?= count($item['modifiers_desc']) ?> cambios
                                                         </div>
+                                                    <?php endif; ?>
+                                                    <?php if (!$item['is_complete']): ?>
+                                                        <div class="text-danger small fw-bold"><i class="fa fa-warning"></i> Configuración pendiente</div>
                                                     <?php endif; ?>
                                                 </td>
 
@@ -353,9 +468,9 @@ require_once '../templates/menu.php';
                                 <span
                                     class="h4 fw-bold text-success mb-0">$<?= number_format($total['total_usd'], 2) ?></span>
                             </div>
-                            <a href="checkout.php" class="btn btn-success px-4 fw-bold shadow">
+                             <button type="button" class="btn btn-success px-4 fw-bold shadow" onclick="validateCheckout()">
                                 Pagar <i class="fa fa-arrow-right ms-2"></i>
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -366,7 +481,7 @@ require_once '../templates/menu.php';
 </div>
 
 <div class="modal fade" id="modifierModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <form method="post" class="modal-content" id="modalForm">
             <input type="hidden" name="action" value="save_modifiers">
             <input type="hidden" name="cart_id" id="modalCartId">
@@ -399,6 +514,16 @@ require_once '../templates/menu.php';
 </div>
 
 <script>
+    const cartIsComplete = <?= json_encode(array_reduce($cartItems, function($acc, $i){ return $acc && $i['is_complete']; }, true)) ?>;
+
+    function validateCheckout() {
+        if (!cartIsComplete) {
+            alert("⚠️ Algunos productos no están completamente configurados (Contornos obligatorios pendientes). Por favor, presiona sobre los productos en rojo para personalizarlos antes de pagar.");
+            return;
+        }
+        window.location.href = 'checkout.php';
+    }
+
     // Función global para abrir el modal desde cualquier lugar
     // Si se pasa targetIndex != null, se expande SOLO ese ítem en el acordeón
     function openModifierModal(cartId, targetIndex = null) {
@@ -437,9 +562,16 @@ require_once '../templates/menu.php';
             });
     }
 
+    // Estado Global para la selección de contornos en el modal
+    // Indexed by SubItem Index: currentCartSides[0] = [{id:1, type:'raw'}, ...]
+    let currentCartSides = {};
+    let currentCartLogics = {}; // Almacena el tipo de lógica (standard/proportional)
+
     function renderComboItems(data, targetIndex = null) {
         const container = document.getElementById('modalItemsContainer');
         container.innerHTML = '';
+        currentCartSides = {}; // Reset global state
+        currentCartLogics = {};
 
         // Esta es la clave: Usamos los datos guardados que vienen del AJAX
         const savedMods = data.saved_mods || [];
@@ -467,19 +599,28 @@ require_once '../templates/menu.php';
             const checkTak = isTakeaway ? 'checked' : '';
             const checkDin = !isTakeaway ? 'checked' : '';
 
-            // CALCULAR LAYOUT DINÁMICO
-            // Si una columna no tiene datos, la ocultamos y las demás crecen.
+            // 2. Determinar Columnas Activas (Quitar, Extras, Contornos)
             const hasRemovables = item.removables.length > 0;
-            const hasExtras = item.available_extras && item.available_extras.length > 0;
-            const hasSides = true; // Siempre mostramos, aunque diga "Sin opciones"
+            const hasExtras = item.available_extras.length > 0;
+            const hasSides = item.available_sides.length > 0;
 
-            let activeCols = 1; // Sides siempre está
-            if (hasRemovables) activeCols++;
-            if (hasExtras) activeCols++;
+            // En modal-xl (12 cols), distribuimos así: 
+            // Quitar: 2, Extras: 2, Contornos: 8 (Si están todos)
+            let qClass = 'col-md-2 border-end';
+            let eClass = 'col-md-2 border-end';
+            let sClass = 'col-md-8';
 
-            let colClass = 'col-md-4'; // Default (3 cols)
-            if (activeCols === 2) colClass = 'col-md-6';
-            if (activeCols === 1) colClass = 'col-md-12';
+            if (!hasRemovables) {
+                eClass = 'col-md-3 border-end';
+                sClass = 'col-md-9';
+            }
+            if (!hasExtras) {
+                qClass = 'col-md-3 border-end';
+                sClass = 'col-md-9';
+            }
+            if (!hasRemovables && !hasExtras) {
+                sClass = 'col-md-12';
+            }
 
             // Displays
             const displayRem = hasRemovables ? '' : 'd-none';
@@ -508,7 +649,7 @@ require_once '../templates/menu.php';
                             </div>
 
                             <div class="row">
-                                <div class="${colClass} border-end ${displayRem}">
+                                <div class="${qClass} ${displayRem}">
                                     <h6 class="text-danger small fw-bold border-bottom pb-1">❌ QUITAR</h6>
                                     <div class="mt-2">
                                         ${item.removables.map(ing => {
@@ -526,7 +667,7 @@ require_once '../templates/menu.php';
                                     </div>
                                 </div>
 
-                                <div class="${colClass} border-end ${displayExt}">
+                                <div class="${eClass} ${displayExt}">
                                     <h6 class="text-success small fw-bold border-bottom pb-1">➕ EXTRAS</h6>
                                     <div class="mt-2">
                                         ${(hasExtras)
@@ -550,39 +691,76 @@ require_once '../templates/menu.php';
                                     </div>
                                 </div>
 
-                                <div class="${colClass}">
+                                <div class="${sClass}">
                                     <h6 class="text-primary small fw-bold border-bottom pb-1">🍱 CONTORNOS</h6>
-                                    <div class="mt-2">
+                                    <div class="mt-2" id="sides-area-${idx}">
                                         ${(item.available_sides && item.available_sides.length > 0)
-                    ? `
-                                            <div class="alert alert-light border small py-1 mb-2 d-flex justify-content-between align-items-center">
-                                                <span>Máximo Permitido:</span>
-                                                <span class="badge bg-primary fs-6">${item.max_sides}</span>
-                                            </div>
-                                            ` + item.available_sides.map(side => {
-                        const isChecked = savedMods.some(m =>
-                            m.sub_item_index == idx &&
-                            m.modifier_type == 'side' &&
-                            m.component_id == side.component_id &&
-                            m.component_type == side.component_type
-                        );
+                    ? (() => {
+                        // 1. Inicializar Estado
+                        currentCartSides[idx] = [];
+                        
+                        // Cargar seleccionados desde savedMods
+                        const mySides = savedMods.filter(m => m.sub_item_index == idx && m.modifier_type == 'side');
+                        mySides.forEach(ms => {
+                            const original = item.available_sides.find(s => s.component_id == ms.component_id && s.component_type == ms.component_type);
+                            if (original) {
+                                currentCartSides[idx].push({...original});
+                            }
+                        });
+
+                        // 2. Renderizar UI
+                        const logic = item.contour_logic_type || 'standard';
+                        currentCartLogics[idx] = { logic: logic, max: item.max_sides, name: item.name };
+
+                        const labelText = (logic === 'standard') ? 'Obligatorios:' : 'Máximo:';
+                        const labelClass = (logic === 'standard') ? 'text-danger fw-bold' : '';
+
                         return `
-                                                <div class="form-check mb-1">
-                                                    <input class="form-check-input side-chk border-info" type="checkbox" 
-                                                        value="${side.component_id}" 
-                                                        data-type="${side.component_type}" 
-                                                        data-qty="${side.quantity}" 
-                                                        data-price="${side.price_override}" 
-                                                        data-idx="${idx}" 
-                                                        data-max="${item.max_sides}"
-                                                        onchange="validateSideLimit(${idx})"
-                                                        ${isChecked ? 'checked' : ''}>
-                                                    <label class="form-check-label small d-flex justify-content-between pe-2">
-                                                        <span>${side.item_name}</span>
-                                                        ${parseFloat(side.price_override) > 0 ? `<span class="text-info fw-bold">+$${side.price_override}</span>` : ''}
-                                                    </label>
-                                                </div>`;
-                    }).join('')
+                            <div class="alert alert-light border small py-1 mb-2 d-flex justify-content-between align-items-center">
+                                <span class="${labelClass}">${labelText} <strong id="max-label-${idx}">${item.max_sides}</strong></span>
+                                <span class="badge bg-primary fs-6" id="count-badge-${idx}">${currentCartSides[idx].length}</span>
+                            </div>
+
+                            <div class="row g-2">
+                                <!-- IZQUIERDA: DISPONIBLES (2 Columnas) -->
+                                <div class="col-8 border-end pe-2">
+                                    <div class="row row-cols-2 g-1 custom-scroll" style="max-height: 250px; overflow-y: auto; padding-right: 4px;">
+                                        ${item.available_sides.map(side => {
+                                            const priceLabel = parseFloat(side.price_override) > 0 ? ` +$${parseFloat(side.price_override)}` : '';
+                                            const isOutOfStock = (side.stock <= 0);
+                                            const disabledAttr = isOutOfStock ? 'disabled' : '';
+                                            const opacityClass = isOutOfStock ? 'opacity-50' : '';
+                                            const outOfStockLabel = isOutOfStock ? ' <span class="badge bg-danger p-1" style="font-size: 0.5rem;">AGOTADO</span>' : '';
+                                            
+                                            return `
+                                            <div class="col">
+                                                <button type="button" class="btn btn-side-option btn-sm w-100 text-start text-truncate py-2 px-1 ${opacityClass}" 
+                                                    title="${side.item_name} ${isOutOfStock ? '(Sin existencias)' : ''}"
+                                                    ${disabledAttr}
+                                                    onclick='addSideToCartModal(${JSON.stringify(side)}, ${idx}, ${item.max_sides})'>
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="fa ${isOutOfStock ? 'fa-times-circle' : 'fa-plus-circle'} small me-1 opacity-75"></i>
+                                                        <div class="flex-grow-1 text-wrap lh-1" style="font-size: 0.65rem;">
+                                                            ${side.item_name}${outOfStockLabel}
+                                                            <div class="text-info" style="font-size: 0.6rem;">${priceLabel}</div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            </div>`;
+                                        }).join('')}
+
+                                    </div>
+                                </div>
+
+                                <!-- DERECHA: SELECCIONADOS -->
+                                <div class="col-4 ps-2">
+                                    <div id="selected-list-${idx}" class="list-group list-group-flush small custom-scroll" style="max-height: 250px; overflow-y: auto; padding-right: 2px;">
+                                        <!-- Se llenará via JS al cargar -->
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    })()
                     : '<div class="alert alert-secondary p-1 small text-center">Sin opciones</div>'
                 }
                                     </div>
@@ -594,8 +772,88 @@ require_once '../templates/menu.php';
                 </div>`;
             container.innerHTML += html;
 
-            // VALIDACIÓN INICIAL: Correr validación para deshabilitar si ya se cumplió el máximo
-            setTimeout(() => validateSideLimit(idx), 100);
+            // Renderizar lista inicial de seleccionados
+            setTimeout(() => renderSelectedList(idx), 0);
+        });
+    }
+
+    // --- FUNCIONES NUEVAS PARA SHOPPING LIST EN MODAL ---
+
+    function addSideToCartModal(side, idx, max) {
+        if (!currentCartSides[idx]) currentCartSides[idx] = [];
+        
+        // Bloqueo por Stock
+        if (side.stock <= 0) {
+            alert("Este sabor se ha agotado y no puede ser seleccionado.");
+            return;
+        }
+        
+        if (currentCartSides[idx].length >= max) {
+
+             // Feedback visual rápido
+             const badge = document.getElementById(`count-badge-${idx}`);
+             if(badge) {
+                 badge.classList.remove('bg-primary');
+                 badge.classList.add('bg-danger');
+                 setTimeout(() => {
+                     badge.classList.remove('bg-danger');
+                     badge.classList.add('bg-primary');
+                 }, 300);
+             }
+             return;
+        }
+
+        currentCartSides[idx].push(side);
+        renderSelectedList(idx);
+    }
+
+    function removeSideFromCartModal(idx, arrayIndex) {
+        if (!currentCartSides[idx]) return;
+        currentCartSides[idx].splice(arrayIndex, 1);
+        renderSelectedList(idx);
+    }
+
+    function renderSelectedList(idx) {
+        const list = document.getElementById(`selected-list-${idx}`);
+        const badge = document.getElementById(`count-badge-${idx}`);
+        
+        if (!list) return;
+
+        const sides = currentCartSides[idx] || [];
+        if (badge && currentCartLogics[idx]) {
+            const l = currentCartLogics[idx];
+            badge.textContent = sides.length;
+
+            if (l.logic === 'standard') {
+                if (sides.length === l.max) {
+                    badge.classList.remove('bg-primary', 'bg-danger');
+                    badge.classList.add('bg-success');
+                } else {
+                    badge.classList.remove('bg-primary', 'bg-success');
+                    badge.classList.add('bg-danger');
+                }
+            } else {
+                badge.classList.remove('bg-danger', 'bg-success');
+                badge.classList.add('bg-primary');
+            }
+        }
+
+        if (sides.length === 0) {
+            list.innerHTML = '<div class="text-center text-muted fst-italic" style="font-size:0.75rem;">Vacio</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        sides.forEach((s, i) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item p-1 d-flex justify-content-between align-items-center bg-light mb-1 border rounded';
+            item.innerHTML = `
+                <span class="text-truncate" style="max-width: 80%; font-size:0.75rem;" title="${s.item_name}">${s.item_name}</span>
+                <button type="button" class="btn btn-link text-danger p-0 opacity-50 hover-opacity-100" onclick="removeSideFromCartModal(${idx}, ${i})">
+                    <i class="fa fa-times small"></i>
+                </button>
+            `;
+            list.appendChild(item);
         });
     }
 
@@ -635,12 +893,30 @@ require_once '../templates/menu.php';
                 qty: parseFloat(el.dataset.qty),
                 price: parseFloat(el.dataset.price)
             }));
-            document.querySelectorAll(`.side-chk[data-idx="${i}"]:checked`).forEach(el => sides.push({
-                id: parseInt(el.value),
-                type: el.dataset.type,
-                qty: parseFloat(el.dataset.qty),
-                price: parseFloat(el.dataset.price)
-            }));
+            
+            // NUEVA LÓGICA: Recoger contornos desde currentCartSides
+            if (currentCartSides[i]) {
+                const logicData = currentCartLogics[i];
+                
+                // VALIDACIÓN: Solo alertar si el ítem está VISIBLE (no tiene d-none)
+                // Esto evita que configurar un refresco sea bloqueado por la falta de contornos en la hamburguesa.
+                const itemContainer = document.querySelector(`.accordion-item:has(#c${i})`);
+                const isVisible = itemContainer && !itemContainer.classList.contains('d-none');
+
+                if (isVisible && logicData && logicData.logic === 'standard' && currentCartSides[i].length < logicData.max) {
+                    alert(`Debes seleccionar exactamente ${logicData.max} contornos para: ${logicData.name}`);
+                    return; // Bloquear envío
+                }
+
+                currentCartSides[i].forEach(s => {
+                    sides.push({
+                        id: parseInt(s.component_id),
+                        type: s.component_type,
+                        qty: parseFloat(s.quantity),
+                        price: parseFloat(s.price_override)
+                    });
+                });
+            }
 
             items.push({ index: i, consumption: consumption, remove: remove, add: add, sides: sides });
         }

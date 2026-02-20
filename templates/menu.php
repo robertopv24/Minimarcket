@@ -92,6 +92,10 @@
                     <div class="dropdown-menu bg-transparent border-0">
                         <a href="mis_pagos.php" class="nav-item nav-link"><i class="fa fa-money-bill-wave me-2"></i>Mis
                             Recibos</a>
+                        <a href="../paginas/kds_cocina_tv.php" class="nav-item nav-link text-warning fw-bold"><i
+                                class="fa fa-tasks me-2"></i>KDS / Cocina</a>
+                        <a href="../paginas/kds_pizza_tv.php" class="nav-item nav-link text-warning fw-bold"><i
+                                class="fa fa-tasks me-2"></i>KDS / Pizza</a>
                         <!-- <a href="perfil.php" class="nav-item nav-link">Mis Datos</a> -->
                     </div>
                 </div>

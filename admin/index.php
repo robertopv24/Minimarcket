@@ -60,7 +60,6 @@ $stmt = $db->query("SELECT * FROM vault_movements ORDER BY created_at DESC LIMIT
 $ultimosMovimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 require_once '../templates/header.php';
-require_once '../templates/menu.php';
 ?>
 
 <div class="container-fluid mt-4 px-4">

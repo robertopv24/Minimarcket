@@ -166,9 +166,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     throw new Exception("Error al registrar el pago en caja.");
                 }
-
             } catch (Exception $e) {
                 die("Error al procesar pago de deuda: " . $e->getMessage());
+            }
+            break;
+
+        case 'revert_receipt':
+            try {
+                $purchaseId = $_POST['purchase_id'] ?? 0;
+                if ($purchaseReceiptManager->revertPurchaseReceipt($purchaseId)) {
+                    header("Location: edit_purchase_order.php?id=$purchaseId&msg=reverted");
+                    exit;
+                } else {
+                    throw new Exception("No se pudo revertir la recepción.");
+                }
+            } catch (Exception $e) {
+                die("Error al revertir recepción: " . $e->getMessage());
             }
             break;
 
