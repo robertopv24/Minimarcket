@@ -38,6 +38,7 @@
                         <a href="../admin/ventas.php" class="nav-item nav-link">Ventas</a>
                         <a href="../admin/compras.php" class="nav-item nav-link">Compras</a>
                         <a href="../admin/productos.php" class="nav-item nav-link">Inventario</a>
+                        <a href="../admin/planillas.php" class="nav-item nav-link text-info"><i class="fa fa-print me-2"></i>Planillas Soporte</a>
                         <a href="../admin/categories.php" class="nav-item nav-link">Categorías</a>
                         <div class="nav-item nav-link text-warning small fw-bold mt-2">ANÁLISIS</div>
                         <a href="../admin/reportes.php" class="nav-item nav-link"><i class="fa fa-chart-pie me-2"></i>

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 14-02-2026 a las 04:41:51
+-- Tiempo de generación: 23-02-2026 a las 03:51:10
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -62,7 +62,9 @@ CREATE TABLE `cart` (
 
 INSERT INTO `cart` (`id`, `user_id`, `product_id`, `quantity`, `consumption_type`, `parent_cart_id`, `price_override`) VALUES
 (190, 33, 216, 1, 'dine_in', NULL, NULL),
-(191, 33, 206, 1, 'dine_in', NULL, NULL);
+(191, 33, 206, 1, 'dine_in', NULL, NULL),
+(199, 36, 206, 1, 'dine_in', NULL, NULL),
+(200, 36, 216, 1, 'dine_in', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -102,7 +104,14 @@ INSERT INTO `cart_item_modifiers` (`id`, `cart_id`, `modifier_type`, `component_
 (1819, 190, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
 (1820, 191, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
 (1821, 191, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
-(1822, 191, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw');
+(1822, 191, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1825, 1824, '', 31, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1828, 1827, '', 23, 0.0000, 0.000000, 'Linked to ProductCompanion #', -1, 0, ''),
+(1862, 200, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(1863, 200, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1864, 199, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(1865, 199, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1866, 199, 'side', 28, 0.1000, 0.000000, NULL, 0, 0, 'raw');
 
 -- --------------------------------------------------------
 
@@ -134,7 +143,9 @@ INSERT INTO `cash_sessions` (`id`, `user_id`, `opening_balance_usd`, `opening_ba
 (3, 4, 0.00, 0.00, 79.00, -245.00, 79.00, -245.00, 'closed', '2026-01-21 03:43:22', '2026-01-21 06:29:02'),
 (4, 4, 0.00, 0.00, 416.50, 0.00, 416.50, 0.00, 'closed', '2026-01-21 20:12:25', '2026-02-09 20:10:40'),
 (5, 33, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2026-02-09 20:11:51', NULL),
-(6, 4, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'open', '2026-02-12 20:33:12', NULL);
+(6, 4, 0.00, 0.00, 0.00, 0.00, -44.00, 56000.00, 'closed', '2026-02-12 20:33:12', '2026-02-16 01:36:43'),
+(7, 36, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 'closed', '2026-02-16 01:34:07', '2026-02-16 01:34:44'),
+(8, 36, 1000.00, 1000.00, 0.00, 0.00, 0.00, 0.00, 'open', '2026-02-16 01:39:14', NULL);
 
 -- --------------------------------------------------------
 
@@ -188,7 +199,7 @@ CREATE TABLE `clients` (
 
 INSERT INTO `clients` (`id`, `name`, `document_id`, `phone`, `email`, `address`, `credit_limit`, `current_debt`, `created_at`) VALUES
 (1, 'juan perez', '12345678', '04245555555', 'cliente_12345678@local.com', '', 0.000000, 0.000000, '2026-01-19 06:39:00'),
-(8, 'juan gonsalez', '12345677', '04245555556', 'cliente_12345677@local.com', '', 0.000000, 0.000000, '2026-01-19 07:08:57'),
+(8, 'juan gonsalez', '12345677', '04245555556', 'cliente_12345677@local.com', '', 33333.000000, 0.000000, '2026-01-19 07:08:57'),
 (10, 'roberto perozo', '19451788', '04246746570', 'cliente_19451788@local.com', '', 0.000000, 0.000000, '2026-02-07 01:13:02'),
 (12, 'robero gonsalez', '19451789', '04246746571', 'cliente_19451789@local.com', '', 0.000000, 0.000000, '2026-02-07 01:35:56'),
 (13, 'robero perez', '19451787', '', 'cliente_19451787@local.com', '', 0.000000, 0.000000, '2026-02-12 21:22:34'),
@@ -212,7 +223,7 @@ CREATE TABLE `company_vault` (
 --
 
 INSERT INTO `company_vault` (`id`, `balance_usd`, `balance_ves`, `last_updated`) VALUES
-(1, 406.80, 0.00, '2026-02-13 21:47:52');
+(1, 256.80, 50010.00, '2026-02-16 01:15:31');
 
 -- --------------------------------------------------------
 
@@ -356,16 +367,16 @@ CREATE TABLE `manufactured_products` (
 --
 
 INSERT INTO `manufactured_products` (`id`, `name`, `unit`, `stock`, `unit_cost_average`, `last_production_date`, `min_stock`, `short_code`) VALUES
-(1, 'Masa Pizza', 'kg', 9.950000, 1.391400, '2026-02-13 17:49:22', 0.000000, NULL),
-(2, 'Salsa Napoles', 'lt', 6.790000, 0.121250, '2026-02-06 15:42:59', 0.000000, NULL),
+(1, 'Masa Pizza', 'kg', 9.400000, 1.391400, '2026-02-13 17:49:22', 0.000000, NULL),
+(2, 'Salsa Napoles', 'lt', 6.680000, 0.121250, '2026-02-06 15:42:59', 0.000000, NULL),
 (3, 'Carne de hamburguesa', 'kg', 7.880000, 7.810815, '2026-02-06 15:39:55', 0.000000, NULL),
 (4, 'Carne de hamburguesa Americana', 'kg', 3.280000, 11.100300, '2026-02-06 15:40:07', 0.000000, NULL),
 (5, 'Carne Mechada', 'kg', 4.000000, 17.202000, '2026-02-06 15:40:21', 0.000000, NULL),
-(6, 'File de Pollo', 'kg', 3.280000, 6.710810, '2026-02-06 15:40:36', 0.000000, NULL),
+(6, 'File de Pollo', 'kg', 3.190000, 6.710810, '2026-02-06 15:40:36', 0.000000, NULL),
 (7, 'Pernil Preparado', 'kg', 4.000000, 31.862000, '2026-02-06 15:42:12', 0.000000, NULL),
 (8, 'Lomito preparado', 'kg', 4.000000, 15.081591, '2026-02-06 15:40:48', 0.000000, NULL),
 (9, 'Mezcla para Rebozar (Tumbarrancho)', 'kg', 4.000000, 1.457750, '2026-02-06 15:42:24', 0.000000, NULL),
-(10, 'Viuda (Tumbarrancho)', 'und', 49.000000, 0.050600, '2026-02-06 15:43:10', 0.000000, NULL),
+(10, 'Viuda (Tumbarrancho)', 'und', 48.000000, 0.050600, '2026-02-06 15:43:10', 0.000000, NULL),
 (11, 'Wasakaka', 'kg', 4.000000, 6.803000, '2026-02-06 15:43:22', 0.000000, NULL),
 (12, 'salsa americana', 'kg', 1.700000, 4.923600, '2026-02-06 15:42:35', 0.000000, NULL),
 (13, 'Mezcla para Rebozar (crispy)', 'kg', 3.620000, 4.398062, '2026-02-06 15:41:59', 0.000000, NULL);
@@ -488,13 +499,14 @@ INSERT INTO `orders` (`id`, `user_id`, `total_price`, `exchange_rate`, `status`,
 (33, 4, 8.50, 490.0000, 'delivered', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-09 19:35:20', '2026-02-13 20:47:55', 1, 0),
 (34, 33, 11.00, 490.0000, 'delivered', 'dine_in', 'juan perez', NULL, NULL, '2026-02-09 20:18:38', '2026-02-13 20:47:55', 0, 1),
 (35, 4, 18.00, 500.0000, 'delivered', 'dine_in', 'robero fermin', NULL, NULL, '2026-02-12 22:29:32', '2026-02-13 20:47:55', 1, 0),
-(36, 4, 16.00, 500.0000, 'ready', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-12 22:37:38', '2026-02-13 20:47:55', 1, 1),
+(36, 4, 16.00, 500.0000, 'delivered', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-12 22:37:38', '2026-02-16 02:17:53', 1, 1),
 (42, 4, 2.00, 500.0000, 'preparing', 'dine_in', 'robero perez', NULL, NULL, '2026-02-13 03:04:23', '2026-02-13 20:47:55', 0, 0),
 (43, 4, 4.00, 500.0000, 'preparing', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-13 03:15:32', '2026-02-13 20:47:55', 0, 0),
-(44, 4, 16.00, 500.0000, 'ready', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-13 18:57:18', '2026-02-13 20:47:55', 0, 1),
+(44, 4, 16.00, 500.0000, 'delivered', 'dine_in', 'roberto perozo', NULL, NULL, '2026-02-13 18:57:18', '2026-02-16 02:19:40', 0, 1),
 (45, 4, 15.00, 500.0000, 'ready', 'dine_in', 'robero gonsalez', NULL, NULL, '2026-02-13 18:59:05', '2026-02-13 20:47:55', 0, 1),
 (46, 4, 12.00, 500.0000, 'ready', 'dine_in', 'robero perez', NULL, NULL, '2026-02-13 18:59:51', '2026-02-13 20:47:55', 1, 1),
-(47, 4, 4.00, 500.0000, 'ready', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-13 19:02:18', '2026-02-13 20:47:55', 1, 0);
+(47, 4, 4.00, 500.0000, 'ready', 'dine_in', 'juan gonsalez', NULL, NULL, '2026-02-13 19:02:18', '2026-02-13 20:47:55', 1, 0),
+(48, 36, 34.00, 500.0000, 'ready', 'dine_in', 'juan perez', NULL, NULL, '2026-02-16 01:44:30', '2026-02-16 02:04:01', 1, 1);
 
 -- --------------------------------------------------------
 
@@ -583,7 +595,12 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (81, 44, 206, 1, 14.00, 5.57, 'dine_in', NULL, NULL),
 (82, 45, 140, 1, 15.00, 11.53, 'dine_in', NULL, NULL),
 (83, 46, 145, 1, 12.00, 9.63, 'dine_in', NULL, NULL),
-(84, 47, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL);
+(84, 47, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL),
+(85, 48, 205, 1, 25.00, 10.18, 'dine_in', NULL, NULL),
+(86, 48, 216, 1, 0.00, 1.42, 'dine_in', NULL, NULL),
+(87, 48, 180, 1, 4.00, 2.11, 'dine_in', NULL, NULL),
+(88, 48, 174, 1, 3.00, 1.11, 'dine_in', NULL, NULL),
+(89, 48, 216, 1, 2.00, 1.42, 'dine_in', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -927,7 +944,23 @@ INSERT INTO `order_item_modifiers` (`id`, `order_item_id`, `modifier_type`, `com
 (511, 83, 'info', NULL, 0.0000, 0.000000, NULL, 4, 0, 'raw'),
 (512, 83, 'side', 3, 0.0400, 0.000000, NULL, 4, 0, 'manufactured'),
 (517, 84, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
-(518, 84, 'side', 6, 0.0900, 0.000000, NULL, 0, 0, 'manufactured');
+(518, 84, 'side', 6, 0.0900, 0.000000, NULL, 0, 0, 'manufactured'),
+(520, 85, 'info', NULL, 0.0000, 0.000000, 'sin lechuga', -1, 0, 'raw'),
+(521, 85, 'info', NULL, 0.0000, 0.000000, NULL, 0, 1, 'raw'),
+(522, 85, 'remove', 33, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(523, 85, 'add', 28, 0.1000, 2.000000, NULL, 0, 0, 'raw'),
+(524, 85, 'add', 95, 0.1000, 4.000000, NULL, 0, 0, 'raw'),
+(525, 85, 'add', 37, 100.0000, 3.000000, NULL, 0, 0, 'raw'),
+(526, 85, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(527, 85, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(528, 85, 'side', 53, 100.0000, 0.000000, NULL, 0, 0, 'raw'),
+(529, 85, 'side', 95, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(535, 86, 'info', NULL, 0.0000, 0.000000, NULL, 0, 1, 'raw'),
+(536, 86, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(538, 87, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(539, 87, 'side', 6, 0.0900, 0.000000, NULL, 0, 0, 'manufactured'),
+(541, 89, 'info', NULL, 0.0000, 0.000000, NULL, 0, 0, 'raw'),
+(542, 89, 'side', 208, 1.0000, 0.000000, NULL, 0, 0, 'product');
 
 -- --------------------------------------------------------
 
@@ -975,6 +1008,14 @@ CREATE TABLE `payroll_payments` (
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish_ci;
+
+--
+-- Volcado de datos para la tabla `payroll_payments`
+--
+
+INSERT INTO `payroll_payments` (`id`, `user_id`, `amount`, `deductions_amount`, `payment_date`, `period_start`, `period_end`, `payment_method_id`, `transaction_id`, `notes`, `created_by`, `created_at`) VALUES
+(4, 4, 30.000000, 0.000000, '2026-02-16', NULL, NULL, 5, 66, '', 36, '2026-02-16 01:06:23'),
+(5, 35, 20.000000, 0.000000, '2026-02-16', NULL, NULL, 1, 67, '', 36, '2026-02-16 01:15:31');
 
 -- --------------------------------------------------------
 
@@ -1202,7 +1243,7 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (205, 'MEDIO KILO DE QUESO CON BORDE DE QUESO', '', 16.00, 8000.00, 0, 'prepared', 'kitchen', 'uploads/product_images/ad084b9f9e529a3041651dac58d26397.png', '2026-01-21 21:35:49', 20.00, '2026-02-10 03:44:40', NULL, 4, 'proportional', 5, 7, NULL, 1),
 (206, 'FAMILIAR', '', 11.00, 5500.00, 0, 'prepared', 'kitchen', 'uploads/product_images/9e683131a5de1c4cddb92a339df592bc.png', '2026-01-25 03:57:02', 20.00, '2026-02-10 03:44:40', NULL, 2, 'proportional', 5, 2, 'F', 1),
 (207, 'AMERICANA', '', 8.50, 4250.00, 0, 'prepared', 'kitchen', 'uploads/product_images/21834e9ed9cb0dfa3e9f34db69f5ad78.png', '2026-02-08 01:17:47', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 1, NULL, 0),
-(208, 'COCA-COLA', '', 1.20, 600.00, 24, 'simple', 'kitchen', 'default.jpg', '2026-02-08 02:08:15', 20.00, '2026-02-13 21:47:31', NULL, 0, 'standard', 5, 3, NULL, 0),
+(208, 'COCA-COLA', '', 1.20, 600.00, 22, 'simple', 'kitchen', 'default.jpg', '2026-02-08 02:08:15', 20.00, '2026-02-13 21:47:31', NULL, 0, 'standard', 5, 3, NULL, 0),
 (209, 'CHINOTTO', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 02:20:23', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
 (211, 'NARANJA', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:23:50', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
 (212, 'MANZANITA', '', 2.00, 1000.00, 20, 'simple', 'kitchen', 'default.jpg', '2026-02-08 03:25:04', 20.00, '2026-02-10 03:44:40', NULL, 0, 'standard', 5, 3, NULL, 0),
@@ -1232,18 +1273,18 @@ CREATE TABLE `product_companions` (
 
 INSERT INTO `product_companions` (`id`, `product_id`, `companion_id`, `quantity`, `price_override`, `is_default`) VALUES
 (4, 97, 174, 1.0000, 0.00, 1),
-(10, 202, 134, 1.0000, 0.00, 1),
-(11, 201, 134, 1.0000, 0.00, 1),
-(12, 200, 134, 1.0000, 0.00, 1),
-(13, 199, 134, 1.0000, 0.00, 1),
-(14, 198, 134, 1.0000, 0.00, 1),
-(15, 197, 134, 1.0000, 0.00, 1),
-(16, 196, 134, 1.0000, 0.00, 1),
-(17, 195, 134, 1.0000, 0.00, 1),
-(18, 194, 134, 1.0000, 0.00, 1),
-(19, 193, 134, 1.0000, 0.00, 1),
-(20, 192, 134, 1.0000, 0.00, 1),
-(23, 205, 216, 1.0000, 0.00, 1);
+(23, 205, 216, 1.0000, 0.00, 1),
+(24, 202, 216, 1.0000, 0.00, 1),
+(25, 201, 216, 1.0000, 0.00, 1),
+(26, 200, 216, 1.0000, 0.00, 1),
+(27, 199, 216, 1.0000, 0.00, 1),
+(28, 198, 216, 1.0000, 0.00, 1),
+(29, 197, 216, 1.0000, 0.00, 1),
+(30, 196, 216, 1.0000, 0.00, 1),
+(31, 195, 216, 1.0000, 0.00, 1),
+(32, 194, 216, 1.0000, 0.00, 1),
+(33, 193, 216, 1.0000, 0.00, 1),
+(34, 192, 216, 1.0000, 0.00, 1);
 
 -- --------------------------------------------------------
 
@@ -2092,8 +2133,6 @@ INSERT INTO `product_default_modifiers` (`id`, `product_id`, `modifier_type`, `s
 (129, 194, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-07 19:50:56'),
 (130, 194, 'side', 0, 54, 'raw', 80.000, 0.00, NULL, 0, '2026-02-07 19:50:56'),
 (131, 194, 'side', 0, 53, 'raw', 100.000, 0.00, NULL, 0, '2026-02-07 19:50:56'),
-(132, 216, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:35:30'),
-(133, 216, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:35:30'),
 (142, 139, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
 (143, 139, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
 (144, 139, 'info', 1, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:39:42'),
@@ -2169,7 +2208,9 @@ INSERT INTO `product_default_modifiers` (`id`, `product_id`, `modifier_type`, `s
 (223, 138, 'side', 1, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
 (224, 138, 'info', 2, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
 (225, 138, 'info', 3, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
-(226, 138, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52');
+(226, 138, 'info', 4, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-12 20:45:52'),
+(227, 216, 'info', 0, NULL, NULL, 1.000, 0.00, NULL, 0, '2026-02-16 00:37:33'),
+(228, 216, 'side', 0, 208, 'product', 1.000, 0.00, NULL, 0, '2026-02-16 00:37:33');
 
 -- --------------------------------------------------------
 
@@ -3051,7 +3092,7 @@ CREATE TABLE `raw_materials` (
 
 INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_unit`, `min_stock`, `is_cooking_supply`, `category`, `updated_at`, `short_code`) VALUES
 (1, 'azucar', 'kg', 8.527200, 1.500000, 5.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
-(2, 'harina de trigo', 'kg', 103.384400, 1.200000, 25.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
+(2, 'harina de trigo', 'kg', 103.334400, 1.200000, 25.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
 (3, 'lomito', 'kg', 10.859000, 16.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:40:48', NULL),
 (4, 'salchicha', 'und', 60.000000, 0.370000, 50.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL),
 (5, 'carne mechada', 'kg', 8.000000, 16.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
@@ -3062,12 +3103,12 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (11, 'facilitas', 'und', 32.000000, 0.300000, 24.000000, 0, 'ingredient', '2026-02-09 19:35:20', NULL),
 (12, 'queso amarillo', 'kg', 1.000000, 11.000000, 0.500000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (13, 'papitas rayadas', 'kg', 17.290000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
-(14, 'papas fritas', 'kg', 18.250000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-12 22:37:38', NULL),
+(14, 'papas fritas', 'kg', 18.000000, 4.000000, 10.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
 (15, 'huevo', 'und', 339.253600, 0.240000, 60.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL),
-(16, 'salsa de tomate', 'kg', 11.305000, 3.750000, 8.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(16, 'salsa de tomate', 'kg', 11.260000, 3.750000, 8.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
 (17, 'salsa BBQ', 'kg', 3.688500, 3.000000, 3.500000, 0, 'ingredient', '2026-02-06 19:40:48', NULL),
-(18, 'salsa mostaza', 'kg', 4.360000, 5.770000, 3.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
-(19, 'salsa mayonesa', 'kg', 10.445000, 7.400000, 7.200000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(18, 'salsa mostaza', 'kg', 4.350000, 5.770000, 3.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
+(19, 'salsa mayonesa', 'kg', 10.420000, 7.400000, 7.200000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
 (20, 'aceite vegetal', 'lt', 29.159700, 3.000000, 17.000000, 1, 'ingredient', '2026-02-06 19:40:36', NULL),
 (21, 'platano amarillo (patacon)', 'und', 20.000000, 0.500000, 10.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (22, 'platano verde (patacon)', 'und', 20.000000, 0.500000, 10.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
@@ -3076,28 +3117,28 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (25, 'pan mini', 'und', 70.000000, 0.200000, 48.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
 (26, 'pan de americana', 'und', 52.000000, 0.360000, 30.000000, 0, 'ingredient', '2026-02-09 19:35:20', NULL),
 (27, 'vinagre', 'lt', 4.000000, 1.500000, 2.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(28, 'peperoni', 'kg', 1.650000, 11.000000, 1.000000, 0, 'ingredient', '2026-02-09 19:34:44', 'P'),
-(29, 'jamon de pierna', 'kg', 7.350000, 7.000000, 5.000000, 0, 'ingredient', '2026-02-13 18:59:52', 'J'),
-(30, 'maiz', 'kg', 6.475000, 5.500000, 5.000000, 0, 'ingredient', '2026-02-13 18:59:52', 'M'),
-(31, 'queso mozzarella', 'kg', 36.800000, 8.500000, 24.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
-(32, 'queso pasteurizado', 'kg', 11.560000, 7.500000, 6.000000, 0, 'ingredient', '2026-01-25 04:27:56', NULL),
-(33, 'mantequilla', 'kg', 1.840000, 4.700000, 2.000000, 0, 'ingredient', '2026-02-13 18:59:52', NULL),
+(28, 'peperoni', 'kg', 1.550000, 11.000000, 1.000000, 0, 'ingredient', '2026-02-16 01:44:30', 'P'),
+(29, 'jamon de pierna', 'kg', 7.325000, 7.000000, 5.000000, 0, 'ingredient', '2026-02-16 01:44:30', 'J'),
+(30, 'maiz', 'kg', 6.437500, 5.500000, 5.000000, 0, 'ingredient', '2026-02-16 01:44:30', 'M'),
+(31, 'queso mozzarella', 'kg', 36.300000, 8.500000, 24.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
+(32, 'queso pasteurizado', 'kg', 11.360000, 7.500000, 6.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
+(33, 'mantequilla', 'kg', 1.780000, 4.700000, 2.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
 (34, 'manteca', 'kg', 8.572000, 1.700000, 5.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
 (35, 'levadura', 'kg', 0.332000, 9.000000, 0.200000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
 (36, 'champiñones', 'kg', 5.600000, 5.900000, 3.000000, 0, 'ingredient', '2026-02-06 22:40:01', 'CH'),
-(37, 'aceitunas negras', 'gr', 860.000000, 0.020000, 480.000000, 0, 'ingredient', '2026-02-06 22:40:01', 'AC'),
+(37, 'aceitunas negras', 'gr', 760.000000, 0.020000, 480.000000, 0, 'ingredient', '2026-02-16 01:44:30', 'AC'),
 (38, 'caja de pizza normal', 'und', 50.000000, 0.600000, 25.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
-(39, 'caja de pizza personalizada', 'und', 88.000000, 0.750000, 50.000000, 1, 'packaging', '2026-02-13 18:57:18', NULL),
+(39, 'caja de pizza personalizada', 'und', 87.000000, 0.750000, 50.000000, 1, 'packaging', '2026-02-16 01:44:30', NULL),
 (40, 'sal', 'kg', 6.773000, 0.300000, 5.000000, 0, 'ingredient', '2026-02-13 21:49:22', NULL),
 (41, 'vasos 77', 'und', 1000.000000, 0.020000, 500.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (44, 'guantes caja', 'und', 100.000000, 0.090000, 50.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (45, 'axion 850gr', 'gr', 3400.000000, 0.010000, 1700.000000, 1, 'ingredient', '2026-01-17 01:31:28', NULL),
-(46, 'bolsa de 5kg', 'und', 990.000000, 0.012000, 500.000000, 1, 'packaging', '2026-02-13 19:02:18', NULL),
-(48, 'papel de envolver', 'gr', 7960.000000, 0.010000, 4000.000000, 1, 'packaging', '2026-02-13 19:02:18', NULL),
+(46, 'bolsa de 5kg', 'und', 989.000000, 0.012000, 500.000000, 1, 'packaging', '2026-02-16 01:44:30', NULL),
+(48, 'papel de envolver', 'gr', 7956.000000, 0.010000, 4000.000000, 1, 'packaging', '2026-02-16 01:44:30', NULL),
 (49, 'botellon de agua ', 'lt', 19.000000, 0.030000, 18.000000, 1, 'ingredient', '2026-02-13 21:49:22', NULL),
 (50, 'toallin ', 'und', 4.000000, 0.700000, 2.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(52, 'lechuga', 'kg', 8.640000, 1.000000, 5.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
-(53, 'pimenton', 'gr', 3150.000000, 0.000182, 500.000000, 0, 'ingredient', '2026-02-13 18:59:05', 'PIME'),
+(52, 'lechuga', 'kg', 8.630000, 1.000000, 5.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
+(53, 'pimenton', 'gr', 3125.000000, 0.000182, 500.000000, 0, 'ingredient', '2026-02-16 01:44:30', 'PIME'),
 (54, 'cebolla redonda', 'gr', 2186.000000, 0.001000, 500.000000, 0, 'ingredient', '2026-02-06 22:40:01', 'C'),
 (55, 'pepinillo', 'gr', 1808.000000, 0.006300, 1000.000000, 0, 'ingredient', '2026-02-09 19:35:20', NULL),
 (56, 'tomate', 'kg', 18.575000, 1.000000, 10.000000, 0, 'ingredient', '2026-02-12 22:29:32', NULL),
@@ -3112,7 +3153,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (65, 'pimienta', 'gr', 492.440000, 0.028000, 250.000000, 0, 'ingredient', '2026-02-06 19:42:59', NULL),
 (66, 'oregano', 'gr', 926.351200, 0.007000, 500.000000, 0, 'ingredient', '2026-02-06 19:42:59', NULL),
 (67, 'aliño ', 'gr', 813.930500, 0.005000, 500.000000, 0, 'ingredient', '2026-02-06 19:40:21', NULL),
-(68, 'adobo', 'gr', 2100.541900, 0.010000, 500.000000, 0, 'ingredient', '2026-02-06 19:42:12', NULL),
+(68, 'adobo', 'gr', 2100.541900, 0.010000, 500.000000, 0, 'ingredient', '2026-02-16 00:13:10', NULL),
 (69, 'curry ', 'gr', 813.930500, 0.008000, 500.000000, 0, 'ingredient', '2026-02-06 19:40:21', NULL),
 (70, 'comino', 'gr', 636.735900, 0.007000, 500.000000, 0, 'ingredient', '2026-02-06 19:42:12', NULL),
 (71, 'cebolla en polvo', 'gr', 200.000000, 0.020000, 100.000000, 0, 'ingredient', '2026-01-17 01:31:28', NULL),
@@ -3122,7 +3163,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (75, 'cucharillas', 'und', 100.000000, 0.022000, 50.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (76, 'cuchillos', 'und', 100.000000, 0.019000, 50.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (77, 'tenedor', 'und', 100.000000, 0.025000, 50.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
-(78, 'vasos de 1 oz con tapa', 'und', 392.000000, 0.034000, 200.000000, 1, 'packaging', '2026-02-12 22:37:38', NULL),
+(78, 'vasos de 1 oz con tapa', 'und', 391.000000, 0.034000, 200.000000, 1, 'packaging', '2026-02-16 01:44:30', NULL),
 (79, 'envase de aluminio 788', 'und', 24.000000, 0.200000, 12.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (80, 'servilleta z 160h', 'und', 1600.000000, 0.006250, 800.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (81, 'bolsa de 30kg', 'und', 200.000000, 0.100000, 100.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
@@ -3138,7 +3179,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (92, 'harina de maiz', 'kg', 20.750000, 1.000000, 5.000000, 0, 'ingredient', '2026-02-06 19:43:10', NULL),
 (93, 'cilantro', 'gr', 1960.000000, 0.001000, 100.000000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
 (94, 'ajo en polvo', 'gr', 2200.000000, 0.001000, 250.000000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
-(95, 'salami', 'kg', 4.100000, 30.000000, 0.100000, 0, 'ingredient', '2026-02-06 22:40:01', 'S'),
+(95, 'salami', 'kg', 3.975000, 30.000000, 0.100000, 0, 'ingredient', '2026-02-16 01:44:30', 'S'),
 (96, 'humo liquido', 'ml', 400.000000, 0.020000, 200.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
 (97, 'hielo cubos ', 'und', 1.000000, 2.000000, 0.500000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (98, 'queso parmesano', 'gr', 500.000000, 0.020000, 250.000000, 0, 'ingredient', '2026-01-17 01:31:29', NULL),
@@ -3151,7 +3192,7 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (105, 'envase ct2', 'und', 100.000000, 0.110000, 50.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (106, 'envase ct3', 'und', 100.000000, 0.160000, 50.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
 (107, 'bolsa de papel', 'und', 40.000000, 0.150000, 20.000000, 1, 'packaging', '2026-01-17 02:52:11', NULL),
-(108, 'queso cebu', 'und', 69.500000, 0.670000, 60.000000, 0, 'ingredient', '2026-02-13 19:02:18', NULL),
+(108, 'queso cebu', 'und', 69.000000, 0.670000, 60.000000, 0, 'ingredient', '2026-02-16 01:44:30', NULL),
 (109, 'pan whopper', 'und', 112.000000, 0.461026, 30.000000, 0, 'ingredient', '2026-02-12 22:29:32', NULL),
 (110, 'queso de año', 'gr', 236.000000, 0.010000, 200.000000, 0, 'ingredient', '2026-02-08 00:44:49', NULL);
 
@@ -3260,7 +3301,17 @@ INSERT INTO `transactions` (`id`, `cash_session_id`, `type`, `amount`, `currency
 (59, 6, 'income', 7500.00, 'VES', 500.00, 15.00, 4, 'order', 45, 'Cobro Venta #45', 4, '2026-02-13 18:59:05'),
 (60, 6, 'income', 6000.00, 'VES', 500.00, 12.00, 2, 'order', 46, 'Cobro Venta #46', 4, '2026-02-13 18:59:51'),
 (61, 6, 'income', 2000.00, 'VES', 500.00, 4.00, 5, 'order', 47, 'Cobro Venta #47', 4, '2026-02-13 19:02:18'),
-(62, 0, 'expense', 36.00, 'USD', 500.00, 36.00, 1, 'purchase', 10, 'Pago de Compra #10 (Efectivo USD)', 4, '2026-02-13 21:47:52');
+(62, 0, 'expense', 36.00, 'USD', 500.00, 36.00, 1, 'purchase', 10, 'Pago de Compra #10 (Efectivo USD)', 4, '2026-02-13 21:47:52'),
+(63, 6, 'expense', 100.00, 'USD', 500.00, 100.00, 1, 'manual', NULL, 'Transferencia: Efectivo USD → Efectivo VES', 36, '2026-02-15 23:55:05'),
+(64, 6, 'income', 50000.00, 'VES', 500.00, 100.00, 2, 'manual', NULL, 'Transferencia: Efectivo USD → Efectivo VES', 36, '2026-02-15 23:55:05'),
+(65, 0, 'expense', 60.00, 'USD', 500.00, 60.00, 1, 'purchase', 11, 'Pago de Compra #11 (Efectivo USD)', 36, '2026-02-16 00:11:47'),
+(66, 6, 'expense', 15000.00, 'VES', 500.00, 30.00, 5, 'adjustment', 4, 'Pago Nómina: roberto (Monthly)', 36, '2026-02-16 01:06:23'),
+(67, 6, 'expense', 20.00, 'USD', 500.00, 20.00, 1, 'adjustment', 5, 'Pago Nómina: cocina (Weekly)', 36, '2026-02-16 01:15:31'),
+(68, 8, 'income', 1000.00, 'USD', 500.00, 1000.00, 1, 'adjustment', NULL, 'Fondo Inicial de Caja', 36, '2026-02-16 01:39:14'),
+(69, 8, 'income', 1000.00, 'VES', 500.00, 2.00, 2, 'adjustment', NULL, 'Fondo Inicial de Caja', 36, '2026-02-16 01:39:14'),
+(70, 8, 'income', 5.00, 'USD', 500.00, 5.00, 1, 'order', 48, 'Cobro Venta #48', 36, '2026-02-16 01:44:30'),
+(71, 8, 'income', 30.00, 'USD', 500.00, 30.00, 3, 'order', 48, 'Cobro Venta #48', 36, '2026-02-16 01:44:30'),
+(72, 8, 'expense', 1.00, 'USD', 500.00, 1.00, 1, 'order', 48, 'Vuelto Venta #48', 36, '2026-02-16 01:44:30');
 
 -- --------------------------------------------------------
 
@@ -3336,10 +3387,10 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `phone`, `document_id`, `address`, `role`, `profile_pic`, `balance`, `salary_amount`, `salary_frequency`, `job_role`, `reset_token`, `token_expiry`, `created_at`, `updated_at`) VALUES
 (4, 'roberto', 'robertopv100@gmail.com', '$2y$10$7GPIEd7LC.leGjt7EgKNvOQ/J7Ht.J2gjOC8njG51PAefmEGWa4bq', '04246746570', 'v-19451788', 'asdasdasd12', 'admin', 'default.jpg', 0.00, 30.000000, 'monthly', 'manager', NULL, NULL, '2025-02-23 23:37:13', '2025-12-10 12:29:45'),
-(31, 'Test Client', 'cliente_123456@local.com', '$2y$12$6v3nSh4iXCUqc8iS9Z/o4.dm.LgLRbMRne85Rn3AwXZPAwmCGVpaK', '555555', '123456', '', 'user', 'default.jpg', 0.00, 10.000000, 'monthly', 'cashier', NULL, NULL, '2026-01-19 06:01:55', '2026-01-19 06:53:37'),
 (33, 'cajero', 'cajero@gmail.com', '$2y$10$hBQ8LMcjb4eugZ2z3WS90OaiPWsyJeyW2vVt0RCckg1qORbYIc/C.', '', '12345173', '', 'user', 'default.jpg', 0.00, 0.000000, 'weekly', 'cashier', NULL, NULL, '2026-02-09 19:46:03', '2026-02-09 20:08:52'),
 (34, 'pizza', 'pizza@gmail.com', '$2y$10$BPgpWsxu7a7dnluw0cRAWe9Vlt8.FWM2b06O0r1SDQdjCGtICJ.Jq', '', '12837918273', '', 'user', 'default.jpg', 0.00, 0.000000, 'weekly', 'kitchen', NULL, NULL, '2026-02-09 19:46:35', '2026-02-13 18:44:36'),
-(35, 'cocina', 'cocina@gmail.com', '$2y$10$nyGoatApX1HW55nfegtUcuV3xi2lL4oWmN98RGr9g86QGR0bdAtfu', '', '1827391827', '', 'user', 'default.jpg', 0.00, 0.000000, 'monthly', 'kitchen', NULL, NULL, '2026-02-09 19:47:03', '2026-02-13 18:45:11');
+(35, 'cocina', 'cocina@gmail.com', '$2y$10$nyGoatApX1HW55nfegtUcuV3xi2lL4oWmN98RGr9g86QGR0bdAtfu', '', '1827391827', '', 'user', 'default.jpg', 0.00, 20.000000, 'weekly', 'kitchen', NULL, NULL, '2026-02-09 19:47:03', '2026-02-16 01:14:34'),
+(36, 'gerente', 'gerente@gmail.com', '$2y$10$y7olz/yPgMKaKYFiQS5xw.itjQZiZIjrEQmhyWL5DkYRWb44tWJ5i', '345435436', '435365354', 'to do', 'admin', 'default.jpg', 0.00, 30.000000, 'monthly', 'manager', NULL, NULL, '2026-02-15 23:36:58', '2026-02-16 01:08:12');
 
 -- --------------------------------------------------------
 
@@ -3378,7 +3429,14 @@ INSERT INTO `vault_movements` (`id`, `type`, `origin`, `amount`, `currency`, `de
 (12, 'withdrawal', 'owner_withdrawal', 10.00, 'USD', 'Pago Nómina: Test Client (ID: 2)', 2, 4, '2026-01-21 18:22:57'),
 (13, 'withdrawal', 'supplier_payment', 11.70, 'USD', 'Pago a Proveedor - Compra #7', 7, 4, '2026-01-21 19:04:15'),
 (15, 'deposit', 'session_close', 416.50, 'USD', 'Cierre de Caja #4', 4, 4, '2026-02-09 20:10:40'),
-(16, 'withdrawal', 'supplier_payment', 36.00, 'USD', 'Pago a Proveedor - Compra #10', 10, 4, '2026-02-13 21:47:52');
+(16, 'withdrawal', 'supplier_payment', 36.00, 'USD', 'Pago a Proveedor - Compra #10', 10, 4, '2026-02-13 21:47:52'),
+(17, 'deposit', 'manual_deposit', 10.00, 'VES', 'creto', NULL, 36, '2026-02-15 23:53:21'),
+(18, 'withdrawal', 'owner_withdrawal', 30.00, 'USD', 'k', NULL, 36, '2026-02-15 23:53:49'),
+(19, 'withdrawal', 'owner_withdrawal', 100.00, 'USD', 'Transferencia a Efectivo VES', NULL, 36, '2026-02-15 23:55:05'),
+(20, 'deposit', 'manual_deposit', 50000.00, 'VES', 'Transferencia desde Efectivo USD', NULL, 36, '2026-02-15 23:55:05'),
+(21, 'withdrawal', 'supplier_payment', 60.00, 'USD', 'Pago a Proveedor - Compra #11', 11, 36, '2026-02-16 00:11:47'),
+(22, 'deposit', 'manual_deposit', 60.00, 'USD', 'vcfgc', NULL, 36, '2026-02-16 00:14:37'),
+(23, 'withdrawal', 'owner_withdrawal', 20.00, 'USD', 'Pago Nómina: cocina (ID: 5)', 5, 36, '2026-02-16 01:15:31');
 
 --
 -- Índices para tablas volcadas
@@ -3680,19 +3738,19 @@ ALTER TABLE `accounts_receivable`
 -- AUTO_INCREMENT de la tabla `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=192;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=201;
 
 --
 -- AUTO_INCREMENT de la tabla `cart_item_modifiers`
 --
 ALTER TABLE `cart_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1823;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1867;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
 --
 ALTER TABLE `cash_sessions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT de la tabla `categories`
@@ -3746,19 +3804,19 @@ ALTER TABLE `menu_roles`
 -- AUTO_INCREMENT de la tabla `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT de la tabla `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=85;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=90;
 
 --
 -- AUTO_INCREMENT de la tabla `order_item_modifiers`
 --
 ALTER TABLE `order_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=520;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=544;
 
 --
 -- AUTO_INCREMENT de la tabla `payment_methods`
@@ -3770,7 +3828,7 @@ ALTER TABLE `payment_methods`
 -- AUTO_INCREMENT de la tabla `payroll_payments`
 --
 ALTER TABLE `payroll_payments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT de la tabla `production_orders`
@@ -3794,7 +3852,7 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT de la tabla `product_companions`
 --
 ALTER TABLE `product_companions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT de la tabla `product_companion_components`
@@ -3824,7 +3882,7 @@ ALTER TABLE `product_component_side_overrides`
 -- AUTO_INCREMENT de la tabla `product_default_modifiers`
 --
 ALTER TABLE `product_default_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=227;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=229;
 
 --
 -- AUTO_INCREMENT de la tabla `product_packaging`
@@ -3848,19 +3906,19 @@ ALTER TABLE `product_valid_sides`
 -- AUTO_INCREMENT de la tabla `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_order_items`
 --
 ALTER TABLE `purchase_order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT de la tabla `purchase_receipts`
 --
 ALTER TABLE `purchase_receipts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT de la tabla `raw_materials`
@@ -3878,7 +3936,7 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT de la tabla `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=73;
 
 --
 -- AUTO_INCREMENT de la tabla `tv_playlist_items`
@@ -3890,13 +3948,13 @@ ALTER TABLE `tv_playlist_items`
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT de la tabla `vault_movements`
 --
 ALTER TABLE `vault_movements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- Restricciones para tablas volcadas
