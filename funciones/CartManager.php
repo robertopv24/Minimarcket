@@ -168,13 +168,14 @@ class CartManager
                 foreach ($data['items'] as $subItem) {
                     $idx = $subItem['index'];
 
-                    // 1. GUARDAR ESTADO BOOLEANO (La clave de la simplificación)
+                    // 1. GUARDAR ESTADO BOOLEANO Y NOTA (La clave de la simplificación)
                     // is_takeaway: 1 = Llevar, 0 = Mesa
                     $isTakeaway = ($subItem['consumption'] === 'takeaway') ? 1 : 0;
+                    $itemNote = $subItem['note'] ?? null;
 
-                    // Guardamos una fila 'info' que contiene el estado booleano
-                    $stmtState = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, is_takeaway) VALUES (?, 'info', ?, ?)");
-                    $stmtState->execute([$cartId, $idx, $isTakeaway]);
+                    // Guardamos una fila 'info' que contiene el estado booleano y la nota
+                    $stmtState = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, is_takeaway, note) VALUES (?, 'info', ?, ?, ?)");
+                    $stmtState->execute([$cartId, $idx, $isTakeaway, $itemNote]);
 
                     // 2. Guardar Remociones
                     if (!empty($subItem['remove'])) {
@@ -247,15 +248,117 @@ class CartManager
     public function getCart($user_id)
     {
         $stmt = $this->db->prepare("
-            SELECT c.*, p.name, 
-                   COALESCE(c.price_override, p.price_usd) as price_usd, 
-                   p.price_ves, p.image_url, p.product_type, p.max_sides, p.contour_logic_type
+            SELECT c.*, COALESCE(p.name, '[PRODUCTO NO ENCONTRADO]') as name, 
+                   COALESCE(c.price_override, p.price_usd, 0) as price_usd, 
+                   COALESCE(p.price_ves, 0) as price_ves, p.image_url, p.product_type, p.max_sides, p.contour_logic_type
             FROM {$this->table_name} c
-            JOIN products p ON c.product_id = p.id
+            LEFT JOIN products p ON c.product_id = p.id
             WHERE c.user_id = ?
         ");
         $stmt->execute([$user_id]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // --- SISTEMA DE VALIDACIÓN DE STOCK ACUMULADO ---
+        $inventoryDemand = []; // [type_id => qty_needed]
+        $stockStatus = [];     // [type_id => ['has_stock' => bool, 'available' => float, 'name' => string]]
+
+        // PASO 1: Recolectar Demanda Total del Carrito
+        foreach ($items as $item) {
+            $qty = floatval($item['quantity']);
+            $pid = $item['product_id'];
+
+            // A. Demanda del Producto Base
+            if (!isset($inventoryDemand['product_' . $pid]))
+                $inventoryDemand['product_' . $pid] = 0;
+            $inventoryDemand['product_' . $pid] += $qty;
+
+            // B. Demanda de Modificadores
+            $stmtM = $this->db->prepare("SELECT component_type, component_id, quantity_adjustment FROM cart_item_modifiers WHERE cart_id = ? AND modifier_type IN ('add', 'side')");
+            $stmtM->execute([$item['id']]);
+            foreach ($stmtM->fetchAll(PDO::FETCH_ASSOC) as $m) {
+                $mType = $m['component_type'] ?: 'raw';
+                $key = $mType . '_' . $m['component_id'];
+                if (!isset($inventoryDemand[$key]))
+                    $inventoryDemand[$key] = 0;
+                // Los modificadores se multiplican por la cantidad del item principal
+                $inventoryDemand[$key] += (floatval($m['quantity_adjustment'] ?: 1) * $qty);
+            }
+        }
+
+        // PASO 2: Verificar Disponibilidad (Física o Virtual)
+        $pMan = new ProductManager($this->db);
+        foreach ($inventoryDemand as $key => $needed) {
+            list($type, $id) = explode('_', $key);
+            $available = 0;
+            $name = "Item";
+
+            if ($type === 'product') {
+                $pData = $pMan->getProductById($id);
+                $name = $pData['name'] ?? 'Producto';
+                if ($pData['product_type'] === 'simple') {
+                    $available = floatval($pData['stock']);
+                } else {
+                    $analysis = $pMan->getVirtualStockAnalysis($id);
+                    $available = $analysis['max_produceable'];
+                }
+            } elseif ($type === 'raw') {
+                $s = $this->db->prepare("SELECT name, stock_quantity FROM raw_materials WHERE id = ?");
+                $s->execute([$id]);
+                $r = $s->fetch(PDO::FETCH_ASSOC);
+                $available = floatval($r['stock_quantity'] ?? 0);
+                $name = $r['name'] ?? 'Insumo';
+            } elseif ($type === 'manufactured') {
+                $s = $this->db->prepare("SELECT name, stock FROM manufactured_products WHERE id = ?");
+                $s->execute([$id]);
+                $r = $s->fetch(PDO::FETCH_ASSOC);
+                $available = floatval($r['stock'] ?? 0);
+                $name = $r['name'] ?? 'Preparado';
+            }
+
+            $stockStatus[$key] = [
+                'has_stock' => ($available >= $needed),
+                'available' => $available,
+                'needed' => $needed,
+                'name' => $name
+            ];
+        }
+
+        // PASO 3: Asignar Diagnóstico a cada Item
+        foreach ($items as &$item) {
+            $item['has_stock'] = true;
+            $item['stock_error'] = "";
+            $pid = $item['product_id'];
+
+            // Check base product
+            if (!$stockStatus['product_' . $pid]['has_stock']) {
+                $item['has_stock'] = false;
+                $item['stock_error'] = "Stock insuficiente de " . $stockStatus['product_' . $pid]['name'];
+            }
+
+            // Check its modifiers (Re-fetching just for naming/error reporting)
+            $stmtM = $this->db->prepare("SELECT cim.*, 
+                CASE 
+                    WHEN cim.component_type = 'raw' OR cim.component_type IS NULL THEN rm.name
+                    WHEN cim.component_type = 'manufactured' THEN mp.name
+                    WHEN cim.component_type = 'product' THEN p2.name
+                END as item_name
+                FROM cart_item_modifiers cim
+                LEFT JOIN raw_materials rm ON cim.component_id = rm.id AND (cim.component_type = 'raw' OR cim.component_type IS NULL)
+                LEFT JOIN manufactured_products mp ON cim.component_id = mp.id AND cim.component_type = 'manufactured'
+                LEFT JOIN products p2 ON cim.component_id = p2.id AND cim.component_type = 'product'
+                WHERE cim.cart_id = ? AND cim.modifier_type IN ('add', 'side')");
+            $stmtM->execute([$item['id']]);
+            $itemMods = $stmtM->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($itemMods as $m) {
+                $mType = $m['component_type'] ?: 'raw';
+                $key = $mType . '_' . $m['component_id'];
+                if (!$stockStatus[$key]['has_stock']) {
+                    $item['has_stock'] = false;
+                    $item['stock_error'] = ($item['stock_error'] ? $item['stock_error'] . ", " : "") . "Agotado: " . $m['item_name'];
+                }
+            }
+        } // DIAGNOSTIC LOOP END
 
         foreach ($items as &$item) {
             $basePrice = floatval($item['price_usd']);
@@ -340,10 +443,10 @@ class CartManager
                     $q = intval($c['quantity']);
                     $max = intval($c['max_sides']);
                     $logic = $c['contour_logic_type'] ?? 'standard';
-                    
+
                     $ovSides = $pMan->getComponentSideOverrides($c['row_id']);
                     $hasSidesAvailable = ($max > 0 || !empty($ovSides));
-                    
+
                     for ($i = 0; $i < $q; $i++) {
                         if ($hasSidesAvailable) {
                             $sidesCount = 0;
@@ -372,8 +475,7 @@ class CartManager
                         $currentSubIdx++;
                     }
                 }
-            }
-            else {
+            } else {
                 // Producto Simple
                 $max = intval($item['max_sides']);
                 $logic = $item['contour_logic_type'] ?? 'standard';

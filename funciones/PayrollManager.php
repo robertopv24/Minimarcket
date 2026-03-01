@@ -103,8 +103,11 @@ class PayrollManager
      */
     public function registerPayment($userId, $amount, $paymentDate, $periodStart, $periodEnd, $methodId, $notes, $adminId)
     {
+        $inTransaction = $this->db->inTransaction();
         try {
-            $this->db->beginTransaction();
+            if (!$inTransaction) {
+                $this->db->beginTransaction();
+            }
 
             // 1. Detectar Deudas y Calcular Neto
             $debts = $this->creditManager->getPendingEmployeeDebts($userId);
@@ -266,11 +269,15 @@ class PayrollManager
                 }
             }
 
-            $this->db->commit();
+            if (!$inTransaction) {
+                $this->db->commit();
+            }
             return $payrollId;
 
         } catch (Exception $e) {
-            $this->db->rollBack();
+            if (!$inTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             return "Error: " . $e->getMessage();
         }
     }

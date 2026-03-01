@@ -1,0 +1,22 @@
+Array
+(
+    [id] => 208
+    [name] => COCA-COLA
+    [description] => 
+    [price_usd] => 1.20
+    [price_ves] => 660.00
+    [stock] => 0
+    [product_type] => simple
+    [kitchen_station] => kitchen
+    [image_url] => default.jpg
+    [created_at] => 2026-02-07 22:08:15
+    [profit_margin] => 20.00
+    [updated_at] => 2026-02-27 18:04:15
+    [linked_manufactured_id] => 
+    [max_sides] => 0
+    [contour_logic_type] => standard
+    [min_stock] => 5
+    [category_id] => 3
+    [short_code] => 
+    [is_visible] => 0
+)

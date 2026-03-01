@@ -111,34 +111,72 @@ require_once '../templates/header.php';
         .modal-xl {
             max-width: 95vw;
             width: fit-content;
-            min-width: 1140px; /* Asegura un mínimo decente */
+            min-width: 1140px;
         }
+    }
+
+    /* FIX SWEETALERT2 DARK MODE */
+    .swal2-popup {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .swal2-title,
+    .swal2-html-container {
+        color: #f8fafc !important;
+    }
+
+    .swal2-radio {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #f8fafc !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        padding: 15px !important;
+        border-radius: 8px !important;
+    }
+
+    .swal2-radio label {
+        color: #f8fafc !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 10px !important;
+        cursor: pointer !important;
+    }
+
+    .swal2-radio input {
+        margin-right: 15px !important;
+        transform: scale(1.2) !important;
     }
 
     /* Estilo para barras de desplazamiento modernas */
     .custom-scroll::-webkit-scrollbar {
         width: 6px;
     }
+
     .custom-scroll::-webkit-scrollbar-track {
-        background: rgba(255,255,255,0.05);
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 10px;
     }
+
     .custom-scroll::-webkit-scrollbar-thumb {
-        background: rgba(255,255,255,0.2);
+        background: rgba(255, 255, 255, 0.2);
         border-radius: 10px;
     }
+
     .custom-scroll::-webkit-scrollbar-thumb:hover {
-        background: rgba(255,255,255,0.3);
+        background: rgba(255, 255, 255, 0.3);
     }
 
     /* Botones de contornos más visibles */
     .btn-side-option {
-        border-color: rgba(255,255,255,0.2) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
         color: #dee2e6 !important;
-        background-color: rgba(255,255,255,0.05) !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
         transition: all 0.2s;
         min-height: 45px;
     }
+
     .btn-side-option:hover {
         background-color: var(--bs-primary) !important;
         border-color: var(--bs-primary) !important;
@@ -147,14 +185,20 @@ require_once '../templates/header.php';
     }
 
     /* Efectos de opacidad */
-    .hover-opacity-100 { transition: opacity 0.2s; }
-    .hover-opacity-100:hover { opacity: 1 !important; }
+    .hover-opacity-100 {
+        transition: opacity 0.2s;
+    }
+
+    .hover-opacity-100:hover {
+        opacity: 1 !important;
+    }
 
     /* Mejorar visibilidad de selectores (Radios) en modo oscuro */
     .form-check-input:checked {
         background-color: #ff4d4d;
         border-color: #ff4d4d;
     }
+
     .form-check-label {
         color: #eee;
     }
@@ -166,6 +210,7 @@ require_once '../templates/header.php';
         border: none !important;
         height: 15px;
     }
+
     .cart-group-separator td::after {
         content: "";
         display: block;
@@ -210,11 +255,17 @@ require_once '../templates/header.php';
                         foreach ($cartItems as $item) {
                             $cId = $item['id'];
 
-                            // Si es un item raíz, ponemos el divisor
+                            // Si es un item raíz, ponemos el divisor y el nombre del producto
                             if ($item['parent_cart_id'] === null) {
                                 if (!$firstGroupLeft) {
                                     echo '<div class="col-12"><div class="group-divider"></div></div>';
                                 }
+                                echo '<div class="col-12 mt-2 mb-1">
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-primary me-2" style="padding: 0.4rem 0.6rem;"><i class="fa fa-shopping-bag"></i></span>
+                                            <h6 class="mb-0 fw-bold text-dark text-uppercase" style="letter-spacing: 0.5px; font-size: 0.85rem;">' . htmlspecialchars($item['name']) . '</h6>
+                                        </div>
+                                      </div>';
                                 $firstGroupLeft = false;
                             }
 
@@ -259,7 +310,7 @@ require_once '../templates/header.php';
                                                             <i class="fa fa-flask text-primary" style="font-size: 0.6rem;"></i>
                                                         </span>
                                                     <?php endif; ?>
-                                                    
+
                                                     <!-- COL 1: IMAGEN + NOMBRE -->
                                                     <div class="text-center me-2" style="min-width: 80px; max-width: 80px;">
                                                         <img src="../<?= htmlspecialchars($img) ?>" class="rounded border mb-1"
@@ -272,7 +323,8 @@ require_once '../templates/header.php';
                                                     <!-- COL 2: LEYENDA MODIFICACIONES -->
                                                     <div class="flex-grow-1 small border-start ps-2" style="font-size: 0.7rem;">
                                                         <?php if (in_array($idx, $item['incomplete_indices'] ?? [])): ?>
-                                                            <div class="mb-1"><span class="badge bg-danger w-100"><i class="fa fa-exclamation-triangle"></i> INCOMPLETO</span></div>
+                                                            <div class="mb-1"><span class="badge bg-danger w-100"><i
+                                                                        class="fa fa-exclamation-triangle"></i> INCOMPLETO</span></div>
                                                         <?php endif; ?>
                                                         <?php if (empty($myMods)): ?>
                                                             <span class="text-muted fst-italic">Sin cambios</span>
@@ -321,7 +373,8 @@ require_once '../templates/header.php';
                                             <!-- COL 2 -->
                                             <div class="flex-grow-1 small border-start ps-2" style="font-size: 0.7rem;">
                                                 <?php if (in_array(0, $item['incomplete_indices'] ?? [])): ?>
-                                                    <div class="mb-1"><span class="badge bg-danger w-100"><i class="fa fa-exclamation-triangle"></i> INCOMPLETO</span></div>
+                                                    <div class="mb-1"><span class="badge bg-danger w-100"><i
+                                                                class="fa fa-exclamation-triangle"></i> INCOMPLETO</span></div>
                                                 <?php endif; ?>
                                                 <?php if (empty($myMods)): ?>
                                                     <span class="text-muted fst-italic">Sin cambios</span>
@@ -384,9 +437,9 @@ require_once '../templates/header.php';
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php 
+                                        <?php
                                         $firstItem = true;
-                                        foreach ($cartItems as $item): 
+                                        foreach ($cartItems as $item):
                                             // Si es un item raíz (no es un acompañante vinculado) y no es el primero, ponemos un separador
                                             if ($item['parent_cart_id'] === null && !$firstItem) {
                                                 echo '<tr class="cart-group-separator"><td colspan="4"></td></tr>';
@@ -394,7 +447,7 @@ require_once '../templates/header.php';
                                             if ($item['parent_cart_id'] === null) {
                                                 $firstItem = false;
                                             }
-                                        ?>
+                                            ?>
                                             <tr onclick="openModifierModal(<?= $item['id'] ?>)" style="cursor: pointer;">
                                                 <!-- Producto -->
                                                 <td>
@@ -409,7 +462,15 @@ require_once '../templates/header.php';
                                                         </div>
                                                     <?php endif; ?>
                                                     <?php if (!$item['is_complete']): ?>
-                                                        <div class="text-danger small fw-bold"><i class="fa fa-warning"></i> Configuración pendiente</div>
+                                                        <div class="text-danger small fw-bold"><i class="fa fa-warning"></i>
+                                                            Configuración pendiente</div>
+                                                    <?php endif; ?>
+                                                    <?php if (isset($item['has_stock']) && !$item['has_stock']): ?>
+                                                        <div class="badge bg-danger text-white mt-1 border-0 shadow-sm"
+                                                            style="font-size: 0.75rem;">
+                                                            <i class="fa fa-times-circle me-1"></i>
+                                                            <?= htmlspecialchars($item['stock_error']) ?>
+                                                        </div>
                                                     <?php endif; ?>
                                                 </td>
 
@@ -468,9 +529,21 @@ require_once '../templates/header.php';
                                 <span
                                     class="h4 fw-bold text-success mb-0">$<?= number_format($total['total_usd'], 2) ?></span>
                             </div>
-                             <button type="button" class="btn btn-success px-4 fw-bold shadow" onclick="validateCheckout()">
-                                Pagar <i class="fa fa-arrow-right ms-2"></i>
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-info px-3 fw-bold shadow-sm text-dark transition-all"
+                                    onclick="processPending('delivery')">
+                                    <i class="fa fa-motorcycle me-2"></i> Delivery
+                                </button>
+                                <button type="button"
+                                    class="btn btn-warning px-3 fw-bold shadow-sm text-dark transition-all"
+                                    onclick="processPending('dine_in')">
+                                    <i class="fa fa-utensils me-2"></i> Comer Ahora
+                                </button>
+                                <button type="button" class="btn btn-success px-4 fw-bold shadow"
+                                    onclick="validateCheckout()">
+                                    Pagar <i class="fa fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -514,14 +587,124 @@ require_once '../templates/header.php';
 </div>
 
 <script>
-    const cartIsComplete = <?= json_encode(array_reduce($cartItems, function($acc, $i){ return $acc && $i['is_complete']; }, true)) ?>;
+    const cartIsComplete = <?= json_encode(array_reduce($cartItems, function ($acc, $i) {
+        return $acc && $i['is_complete'];
+    }, true)) ?>;
+
+    const cartHasStock = <?= json_encode(array_reduce($cartItems, function ($acc, $i) {
+        return $acc && ($i['has_stock'] ?? true);
+    }, true)) ?>;
 
     function validateCheckout() {
         if (!cartIsComplete) {
             alert("⚠️ Algunos productos no están completamente configurados (Contornos obligatorios pendientes). Por favor, presiona sobre los productos en rojo para personalizarlos antes de pagar.");
             return;
         }
+        if (!cartHasStock) {
+            alert("⚠️ Algunos productos o contornos están agotados. Por favor, elimínalos o cámbialos por opciones disponibles antes de proceder.");
+            return;
+        }
         window.location.href = 'checkout.php';
+    }
+
+    async function processPending(type) {
+        if (!cartIsComplete) {
+            alert("⚠️ Algunos productos no están completamente configurados. Por favor, personalízalos antes de continuar.");
+            return;
+        }
+        if (!cartHasStock) {
+            alert("⚠️ Hay productos agotados en tu pedido. Por favor, corrígelos antes de enviar a cocina.");
+            return;
+        }
+
+        let deliveryTier = 'A';
+
+        if (type === 'delivery') {
+            const { value: tier } = await Swal.fire({
+                title: 'Tipo de Delivery',
+                input: 'radio',
+                inputOptions: {
+                    'A': 'A - Retiro en Local ($0.00)',
+                    'B': 'B - Corto Alcance (Costo Base)',
+                    'C': 'C - Largo Alcance (Doble Costo)'
+                },
+                inputValue: 'A',
+                showCancelButton: true,
+                confirmButtonText: 'Continuar',
+                cancelButtonText: 'Cancelar',
+                background: '#1e293b',
+                color: '#f8fafc',
+                inputValidator: (value) => {
+                    if (!value) return 'Debes seleccionar una opción';
+                }
+            });
+
+            if (!tier) return;
+            deliveryTier = tier;
+        } else {
+            // Para Dine-in, confirmar envío a cocina
+            const confirm = await Swal.fire({
+                title: '¿Enviar a Cocina?',
+                text: 'Este pedido se enviará a preparación y se añadirá a la cuenta.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, Enviar',
+                background: '#1e293b',
+                color: '#f8fafc'
+            });
+            if (!confirm.isConfirmed) return;
+        }
+
+        Swal.fire({
+            title: 'Procesando...',
+            text: 'Enviando pedido a preparación.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            },
+            background: '#1e293b',
+            color: '#f8fafc'
+        });
+
+        fetch('process_pending_order.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ type, delivery_tier: deliveryTier })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false,
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    }).then(() => {
+                        window.location.href = 'tienda.php';
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message,
+                        background: '#1e293b',
+                        color: '#f8fafc'
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de Red',
+                    text: 'No se pudo conectar con el servidor.',
+                    background: '#1e293b',
+                    color: '#f8fafc'
+                });
+            });
     }
 
     // Función global para abrir el modal desde cualquier lugar
@@ -696,22 +879,15 @@ require_once '../templates/header.php';
                                     <div class="mt-2" id="sides-area-${idx}">
                                         ${(item.available_sides && item.available_sides.length > 0)
                     ? (() => {
-                        // 1. Inicializar Estado
+                        // ... (código previo sin cambios)
                         currentCartSides[idx] = [];
-                        
-                        // Cargar seleccionados desde savedMods
                         const mySides = savedMods.filter(m => m.sub_item_index == idx && m.modifier_type == 'side');
                         mySides.forEach(ms => {
                             const original = item.available_sides.find(s => s.component_id == ms.component_id && s.component_type == ms.component_type);
-                            if (original) {
-                                currentCartSides[idx].push({...original});
-                            }
+                            if (original) currentCartSides[idx].push({ ...original });
                         });
-
-                        // 2. Renderizar UI
                         const logic = item.contour_logic_type || 'standard';
                         currentCartLogics[idx] = { logic: logic, max: item.max_sides, name: item.name };
-
                         const labelText = (logic === 'standard') ? 'Obligatorios:' : 'Máximo:';
                         const labelClass = (logic === 'standard') ? 'text-danger fw-bold' : '';
 
@@ -722,47 +898,42 @@ require_once '../templates/header.php';
                             </div>
 
                             <div class="row g-2">
-                                <!-- IZQUIERDA: DISPONIBLES (2 Columnas) -->
                                 <div class="col-8 border-end pe-2">
-                                    <div class="row row-cols-2 g-1 custom-scroll" style="max-height: 250px; overflow-y: auto; padding-right: 4px;">
+                                    <div class="row row-cols-2 g-1 custom-scroll" style="max-height: 250px; overflow-y: auto;">
                                         ${item.available_sides.map(side => {
-                                            const priceLabel = parseFloat(side.price_override) > 0 ? ` +$${parseFloat(side.price_override)}` : '';
-                                            const isOutOfStock = (side.stock <= 0);
-                                            const disabledAttr = isOutOfStock ? 'disabled' : '';
-                                            const opacityClass = isOutOfStock ? 'opacity-50' : '';
-                                            const outOfStockLabel = isOutOfStock ? ' <span class="badge bg-danger p-1" style="font-size: 0.5rem;">AGOTADO</span>' : '';
-                                            
-                                            return `
+                            const priceLabel = parseFloat(side.price_override) > 0 ? ` +$${parseFloat(side.price_override)}` : '';
+                            const isOutOfStock = (side.stock <= 0);
+                            return `
                                             <div class="col">
-                                                <button type="button" class="btn btn-side-option btn-sm w-100 text-start text-truncate py-2 px-1 ${opacityClass}" 
-                                                    title="${side.item_name} ${isOutOfStock ? '(Sin existencias)' : ''}"
-                                                    ${disabledAttr}
+                                                <button type="button" class="btn btn-side-option btn-sm w-100 text-start text-truncate py-2 px-1 ${isOutOfStock ? 'opacity-50' : ''}" 
+                                                    ${isOutOfStock ? 'disabled' : ''}
                                                     onclick='addSideToCartModal(${JSON.stringify(side)}, ${idx}, ${item.max_sides})'>
                                                     <div class="d-flex align-items-center">
                                                         <i class="fa ${isOutOfStock ? 'fa-times-circle' : 'fa-plus-circle'} small me-1 opacity-75"></i>
                                                         <div class="flex-grow-1 text-wrap lh-1" style="font-size: 0.65rem;">
-                                                            ${side.item_name}${outOfStockLabel}
-                                                            <div class="text-info" style="font-size: 0.6rem;">${priceLabel}</div>
+                                                            ${side.item_name}${isOutOfStock ? ' <span class="badge bg-danger p-1" style="font-size:0.5rem">AGOTADO</span>' : ''}
+                                                            <div class="text-info" style="font-size:0.6rem">${priceLabel}</div>
                                                         </div>
                                                     </div>
                                                 </button>
                                             </div>`;
-                                        }).join('')}
-
+                        }).join('')}
                                     </div>
                                 </div>
-
-                                <!-- DERECHA: SELECCIONADOS -->
                                 <div class="col-4 ps-2">
-                                    <div id="selected-list-${idx}" class="list-group list-group-flush small custom-scroll" style="max-height: 250px; overflow-y: auto; padding-right: 2px;">
-                                        <!-- Se llenará via JS al cargar -->
-                                    </div>
+                                    <div id="selected-list-${idx}" class="list-group list-group-flush small custom-scroll" style="max-height: 250px; overflow-y: auto;"></div>
                                 </div>
                             </div>
                         `;
                     })()
                     : '<div class="alert alert-secondary p-1 small text-center">Sin opciones</div>'
                 }
+                                    </div>
+
+                                    <!-- NOTA INDEPENDIENTE POR ÍTEM -->
+                                    <div class="mt-3">
+                                        <h6 class="text-secondary small fw-bold border-bottom pb-1"><i class="fa fa-sticky-note me-1"></i>Nota para este ítem:</h6>
+                                        <textarea class="form-control form-control-sm item-note" data-idx="${idx}" rows="1" placeholder="Ej: Sin cebolla, término medio...">${infoMod && infoMod.note ? infoMod.note : ''}</textarea>
                                     </div>
                                 </div>
                             </div>
@@ -781,26 +952,26 @@ require_once '../templates/header.php';
 
     function addSideToCartModal(side, idx, max) {
         if (!currentCartSides[idx]) currentCartSides[idx] = [];
-        
+
         // Bloqueo por Stock
         if (side.stock <= 0) {
             alert("Este sabor se ha agotado y no puede ser seleccionado.");
             return;
         }
-        
+
         if (currentCartSides[idx].length >= max) {
 
-             // Feedback visual rápido
-             const badge = document.getElementById(`count-badge-${idx}`);
-             if(badge) {
-                 badge.classList.remove('bg-primary');
-                 badge.classList.add('bg-danger');
-                 setTimeout(() => {
-                     badge.classList.remove('bg-danger');
-                     badge.classList.add('bg-primary');
-                 }, 300);
-             }
-             return;
+            // Feedback visual rápido
+            const badge = document.getElementById(`count-badge-${idx}`);
+            if (badge) {
+                badge.classList.remove('bg-primary');
+                badge.classList.add('bg-danger');
+                setTimeout(() => {
+                    badge.classList.remove('bg-danger');
+                    badge.classList.add('bg-primary');
+                }, 300);
+            }
+            return;
         }
 
         currentCartSides[idx].push(side);
@@ -816,7 +987,7 @@ require_once '../templates/header.php';
     function renderSelectedList(idx) {
         const list = document.getElementById(`selected-list-${idx}`);
         const badge = document.getElementById(`count-badge-${idx}`);
-        
+
         if (!list) return;
 
         const sides = currentCartSides[idx] || [];
@@ -893,11 +1064,11 @@ require_once '../templates/header.php';
                 qty: parseFloat(el.dataset.qty),
                 price: parseFloat(el.dataset.price)
             }));
-            
+
             // NUEVA LÓGICA: Recoger contornos desde currentCartSides
             if (currentCartSides[i]) {
                 const logicData = currentCartLogics[i];
-                
+
                 // VALIDACIÓN: Solo alertar si el ítem está VISIBLE (no tiene d-none)
                 // Esto evita que configurar un refresco sea bloqueado por la falta de contornos en la hamburguesa.
                 const itemContainer = document.querySelector(`.accordion-item:has(#c${i})`);
@@ -918,7 +1089,10 @@ require_once '../templates/header.php';
                 });
             }
 
-            items.push({ index: i, consumption: consumption, remove: remove, add: add, sides: sides });
+            const noteEl = document.querySelector(`.item-note[data-idx="${i}"]`);
+            const note = noteEl ? noteEl.value : '';
+
+            items.push({ index: i, consumption: consumption, remove: remove, add: add, sides: sides, note: note });
         }
 
         document.getElementById('modalModifiersJson').value = JSON.stringify(items);

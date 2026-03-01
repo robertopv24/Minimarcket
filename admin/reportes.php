@@ -120,7 +120,7 @@ $debugCOGS = []; // Debug array
 foreach ($soldItems as $item) {
     $productId = $item['product_id'];
     $qtySold = $item['qty_sold'];
-    
+
     // PRIORIDAD: Usar el costo guardado al momento de la venta si existe
     if (floatval($item['cost_at_sale']) > 0) {
         $costPerUnit = floatval($item['cost_at_sale']);
@@ -128,7 +128,7 @@ foreach ($soldItems as $item) {
         // Fallback para ventas antiguas sin costo guardado
         $costPerUnit = $productManager->calculateProductCost($productId);
     }
-    
+
     $totalCostThisProduct = $costPerUnit * $qtySold;
     $totalCOGS += $totalCostThisProduct;
 
@@ -194,16 +194,24 @@ $dailyTrend = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // =========================================================
 // 6. ANÁLISIS POR CATEGORÍA
 // =========================================================
-$sqlByCategory = "SELECT p.kitchen_station, 
-                  SUM(oi.quantity * oi.price) as revenue,
-                  COUNT(DISTINCT oi.order_id) as orders
-                  FROM order_items oi
-                  JOIN orders o ON oi.order_id = o.id
-                  JOIN products p ON oi.product_id = p.id
-                  WHERE o.status IN ('paid', 'delivered')
-                  AND o.created_at BETWEEN ? AND ?
-                  GROUP BY p.kitchen_station
-                  ORDER BY revenue DESC";
+$sqlByCategory = "SELECT 
+                    CASE 
+                        WHEN COALESCE(NULLIF(p.kitchen_station,''), c.kitchen_station) IS NULL 
+                             OR COALESCE(NULLIF(p.kitchen_station,''), c.kitchen_station) = ''
+                             OR COALESCE(NULLIF(p.kitchen_station,''), c.kitchen_station) = 'none'
+                        THEN 'Otros'
+                        ELSE COALESCE(NULLIF(p.kitchen_station,''), c.kitchen_station) 
+                    END as station_name,
+                    SUM(oi.quantity * oi.price) as revenue,
+                    COUNT(DISTINCT oi.order_id) as orders
+                    FROM order_items oi
+                    JOIN orders o ON oi.order_id = o.id
+                    JOIN products p ON oi.product_id = p.id
+                    LEFT JOIN categories c ON p.category_id = c.id
+                    WHERE o.status IN ('paid', 'delivered')
+                    AND o.created_at BETWEEN ? AND ?
+                    GROUP BY station_name
+                    ORDER BY revenue DESC";
 $stmt = $db->prepare($sqlByCategory);
 $stmt->execute([$startSql, $endSql]);
 $categoryData = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -267,11 +275,173 @@ foreach ($rawHourly as $row) {
     ];
 }
 
+// =========================================================
+// 10. MÉTRICAS DE EFICIENCIA OPERATIVA
+// =========================================================
+
+// A. Tiempo Promedio de Preparación (Creación -> Listo en KDS)
+$sqlAvgPrep = "SELECT AVG(prep_seconds) FROM (
+                SELECT o.id, TIMESTAMPDIFF(SECOND, o.created_at, MAX(l.created_at)) as prep_seconds
+                FROM orders o
+                JOIN order_time_log l ON o.id = l.order_id
+                WHERE o.status IN ('paid', 'delivered')
+                AND l.event_type = 'ready'
+                AND o.created_at BETWEEN ? AND ?
+                GROUP BY o.id
+               ) as sub";
+$stmt = $db->prepare($sqlAvgPrep);
+$stmt->execute([$startSql, $endSql]);
+$avgPrepSeconds = (float) ($stmt->fetchColumn() ?: 0);
+
+// B. Tiempo Promedio de Entrega (Listo -> Entregado)
+$sqlAvgDelivery = "SELECT AVG(diff_seconds) FROM (
+                    SELECT o.id, TIMESTAMPDIFF(SECOND, MAX(l.created_at), o.delivered_at) as diff_seconds
+                    FROM orders o
+                    JOIN order_time_log l ON o.id = l.order_id
+                    WHERE o.status = 'delivered'
+                    AND l.event_type = 'ready'
+                    AND o.created_at BETWEEN ? AND ?
+                    GROUP BY o.id, o.delivered_at
+                  ) as sub";
+$stmt = $db->prepare($sqlAvgDelivery);
+$stmt->execute([$startSql, $endSql]);
+$avgDeliverySeconds = (float) ($stmt->fetchColumn() ?: 0);
+
+// C. Índice de Eficiencia (Órdenes listas en menos de 15 min)
+$threshold = 900; // 15 minutos en segundos
+$sqlEfficiency = "SELECT 
+                    COUNT(CASE WHEN prep_seconds <= $threshold THEN 1 END) as on_time,
+                    COUNT(*) as total
+                  FROM (
+                    SELECT o.id, TIMESTAMPDIFF(SECOND, o.created_at, MAX(l.created_at)) as prep_seconds
+                    FROM orders o
+                    JOIN order_time_log l ON o.id = l.order_id
+                    WHERE o.status IN ('paid', 'delivered')
+                    AND l.event_type = 'ready'
+                    AND o.created_at BETWEEN ? AND ?
+                    GROUP BY o.id
+                  ) as sub";
+$stmt = $db->prepare($sqlEfficiency);
+$stmt->execute([$startSql, $endSql]);
+$effData = $stmt->fetch(PDO::FETCH_ASSOC);
+$efficiencyIndex = ($effData['total'] > 0) ? ($effData['on_time'] / $effData['total']) * 100 : 0;
+
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
 ?>
 
-<div class="container-fluid mt-4 px-4">
+<style>
+    :root {
+        --glass-bg: rgba(30, 41, 59, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --glass-blur: blur(12px);
+        --accent-info: #0ea5e9;
+        --accent-success: #10b981;
+        --accent-warning: #f59e0b;
+        --accent-danger: #ef4444;
+    }
+
+    body {
+        background-color: #0f172a !important;
+        color: #f8fafc !important;
+    }
+
+    .main-content {
+        min-height: 100vh;
+        padding-top: 2rem;
+    }
+
+    .glass-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
+    }
+
+    .glass-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.5);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .metric-card {
+        position: relative;
+        padding: 1.5rem;
+    }
+
+    .metric-icon {
+        position: absolute;
+        top: 1rem;
+        right: 1.5rem;
+        font-size: 2.5rem;
+        opacity: 0.15;
+        transition: opacity 0.3s ease;
+    }
+
+    .glass-card:hover .metric-icon {
+        opacity: 0.3;
+    }
+
+    .filter-panel {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 1rem;
+        backdrop-filter: blur(8px);
+    }
+
+    .table-glass {
+        background: transparent !important;
+    }
+
+    .table-glass th {
+        background: rgba(255, 255, 255, 0.05);
+        border-bottom: 2px solid var(--glass-border);
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .table-glass td {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        vertical-align: middle;
+    }
+
+    .badge-soft {
+        background: rgba(255, 255, 255, 0.1);
+        color: #f8fafc;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    canvas {
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+    }
+
+    .animated-pulse {
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.6;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+</style>
+
+<div class="main-content container-fluid px-4">
 
     <?php if (isset($_GET['debug'])): ?>
         <div class="alert alert-info">
@@ -299,209 +469,229 @@ require_once '../templates/menu.php';
         </div>
     <?php endif; ?>
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 gap-3">
         <div>
-            <h2>📊 Reporte de Rentabilidad</h2>
-            <p class="text-muted">Análisis financiero del negocio</p>
+            <h1 class="text-white fw-bold mb-1">
+                <i class="fa-solid fa-chart-mixed text-info me-2"></i>Reporte de Rentabilidad
+            </h1>
+            <p class="text-muted mb-0">Análisis financiero y forense del rendimiento del negocio.</p>
         </div>
-        <form class="d-flex gap-2 bg-white p-2 rounded shadow-sm">
-            <div class="input-group">
-                <span class="input-group-text bg-light border-0"><i class="fa fa-calendar"></i></span>
-                <input type="date" name="start_date" class="form-control border-0 bg-light" value="<?= $startDate ?>">
+        <form class="filter-panel d-flex gap-3 align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fa fa-calendar text-muted"></i>
+                <input type="date" name="start_date"
+                    class="form-control form-control-sm bg-transparent border-0 text-white" value="<?= $startDate ?>">
+                <span class="text-muted">→</span>
+                <input type="date" name="end_date"
+                    class="form-control form-control-sm bg-transparent border-0 text-white" value="<?= $endDate ?>">
             </div>
-            <div class="input-group">
-                <span class="input-group-text bg-light border-0">a</span>
-                <input type="date" name="end_date" class="form-control border-0 bg-light" value="<?= $endDate ?>">
-            </div>
-            <button type="submit" class="btn btn-primary"><i class="fa fa-filter"></i> Filtrar</button>
+            <button type="submit" class="btn btn-info btn-sm px-4 rounded-pill">
+                <i class="fa fa-filter me-1"></i> Filtrar
+            </button>
         </form>
     </div>
 
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-5">
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-primary text-white h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-1 opacity-75">Ventas Netas (Ingresos)</h6>
-                            <h2 class="mb-0 fw-bold">$<?= number_format($ventasNetasUsd, 2) ?></h2>
-                            <small class="fw-bold"><?= number_format($ventasNetasVes, 2) ?> VES</small>
-                        </div>
-                        <i class="fa fa-cash-register fa-3x opacity-25"></i>
-                    </div>
-                    <div class="small mt-3 opacity-75">
-                        <i class="fa fa-history"></i> Basado en tasas históricas
-                    </div>
+            <div class="glass-card metric-card">
+                <i class="fa fa-cash-register metric-icon text-primary"></i>
+                <h6 class="text-uppercase text-muted mb-2 small fw-bold">Ventas Netas</h6>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h2 class="mb-0 fw-bold text-white">$<?= number_format($ventasNetasUsd, 2) ?></h2>
+                    <span class="text-muted small">USD</span>
+                </div>
+                <div class="mt-2 text-info small">
+                    <i class="fa fa-coins me-1"></i> <?= number_format($ventasNetasVes, 2) ?> VES
                 </div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-warning text-dark h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-1 opacity-75">Costo Producción (Directo)</h6>
-                            <h2 class="mb-0 fw-bold text-danger">$<?= number_format($costoProduccionTotal, 2) ?></h2>
-                        </div>
-                        <i class="fa fa-box-open fa-3x opacity-25"></i>
-                    </div>
-                    <div class="small mt-3">
-                        Insumos: $<?= number_format($costoMateriaPrima, 2) ?>
-                        <br>
-                        M. Obra: $<?= number_format($costoManoObraDirecta, 2) ?>
-                    </div>
+            <div class="glass-card metric-card">
+                <i class="fa fa-box-open metric-icon text-warning"></i>
+                <h6 class="text-uppercase text-muted mb-2 small fw-bold">Costo Insumos (Directo)</h6>
+                <div class="d-flex align-items-baseline gap-2">
+                    <h2 class="mb-0 fw-bold text-warning">$<?= number_format($totalCOGS, 2) ?></h2>
+                    <span class="text-muted small">USD</span>
+                </div>
+                <div class="mt-2 text-muted small">
+                    M. Obra: <span class="text-white">$<?= number_format($costoManoObraDirecta, 2) ?></span>
                 </div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-success text-white h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-1 opacity-75">Ganancia Bruta</h6>
-                            <h2 class="mb-0 fw-bold">$<?= number_format($utilidadBruta, 2) ?></h2>
-                        </div>
-                        <i class="fa fa-chart-line fa-3x opacity-25"></i>
-                    </div>
-                    <div class="small mt-3 opacity-75">
-                        <i class="fa fa-percentage"></i> Margen: <?= number_format($margenBruto, 1) ?>%
-                    </div>
+            <div class="glass-card metric-card" style="border-left: 3px solid var(--accent-success);">
+                <i class="fa fa-chart-line metric-icon text-success"></i>
+                <h6 class="text-uppercase text-muted mb-2 small fw-bold">Ganancia Bruta</h6>
+                <h2 class="mb-0 fw-bold text-success">$<?= number_format($utilidadBruta, 2) ?></h2>
+                <div class="mt-2">
+                    <span class="badge badge-soft">Margen: <?= number_format($margenBruto, 1) ?>%</span>
                 </div>
             </div>
         </div>
 
         <div class="col-xl-3 col-md-6">
-            <div class="card bg-info text-white h-100 shadow">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-1 opacity-75">Inversión Inventario</h6>
-                            <h2 class="mb-0 fw-bold">$<?= number_format($inversionInventario, 2) ?></h2>
-                        </div>
-                        <i class="fa fa-shuttle-van fa-3x opacity-25"></i>
+            <div class="glass-card metric-card" style="border-left: 3px solid var(--accent-info);">
+                <i class="fa fa-wallet metric-icon text-info"></i>
+                <h6 class="text-uppercase text-info mb-2 small fw-bold">Utilidad Neta</h6>
+                <h2 class="mb-0 fw-bold text-info">$<?= number_format($utilidadNeta, 2) ?></h2>
+                <div class="mt-2 text-muted small">
+                    Gastos Op: $<?= number_format($totalGastosOp, 2) ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- MÉTODOS DE EFICIENCIA -->
+        <div class="col-xl-12 mb-4">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="glass-card p-4 text-center border-bottom border-3 border-info">
+                        <i class="fa fa-fire-burner text-info mb-2 fs-3"></i>
+                        <h6 class="text-muted small text-uppercase fw-bold">T. Promedio Preparación</h6>
+                        <h3 class="text-white fw-bold mb-0">
+                            <?= (int) floor($avgPrepSeconds / 60) ?>m <?= ((int) $avgPrepSeconds % 60) ?>s
+                        </h3>
+                        <div class="small text-info mt-1">Creación → Listo KDS</div>
                     </div>
-                    <div class="small mt-3 opacity-75">
-                        <i class="fa fa-sync"></i> Capital en Mercancía
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-4 text-center border-bottom border-3 border-success">
+                        <i class="fa fa-moped text-success mb-2 fs-3"></i>
+                        <h6 class="text-muted small text-uppercase fw-bold">T. Promedio Entrega</h6>
+                        <h3 class="text-white fw-bold mb-0">
+                            <?= (int) floor($avgDeliverySeconds / 60) ?>m <?= ((int) $avgDeliverySeconds % 60) ?>s
+                        </h3>
+                        <div class="small text-success mt-1">Despacho → Cliente</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="glass-card p-4 text-center border-bottom border-3 border-warning">
+                        <i class="fa fa-bolt text-warning mb-2 fs-3"></i>
+                        <h6 class="text-muted small text-uppercase fw-bold">Índice de Eficiencia</h6>
+                        <h3 class="text-white fw-bold mb-0"><?= number_format($efficiencyIndex, 1) ?>%</h3>
+                        <div class="progress mt-2" style="height: 6px; background: rgba(255,255,255,0.1);">
+                            <div class="progress-bar bg-warning" style="width: <?= $efficiencyIndex ?>%"></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6">
-            <div class="card bg-dark text-white h-100 shadow border-2 border-info">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-uppercase mb-1 text-info">Utilidad Neta (Bolsillo)</h6>
-                            <h2 class="mb-0 fw-bold text-info">$<?= number_format($utilidadNeta, 2) ?></h2>
+        <!-- ACCESO A REPORTE DE PRODUCTIVIDAD -->
+        <div class="col-xl-12">
+            <a href="productivity_report.php" class="text-decoration-none">
+                <div class="glass-card p-3 d-flex justify-content-between align-items-center"
+                    style="background: rgba(14, 165, 233, 0.1);">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-info bg-opacity-20 p-3 rounded-circle">
+                            <i class="fa fa-stopwatch text-info fs-4"></i>
                         </div>
-                        <i class="fa fa-wallet fa-3x text-info opacity-50"></i>
+                        <div>
+                            <h5 class="mb-0 text-white fw-bold">Auditoría Detallada de Productividad</h5>
+                            <p class="text-muted small mb-0">Rastreo forense de tiempos por orden y estación.</p>
+                        </div>
                     </div>
-                    <div class="small mt-3 text-muted">
-                        Gastos Op: $<?= number_format($totalGastosOp, 2) ?>
-                        <br>
-                        Inv. Stock: $<?= number_format($inversionInventario, 2) ?>
-                    </div>
+                    <span class="btn btn-info btn-sm px-4 rounded-pill">Ver Métricas KDS <i
+                            class="fa fa-arrow-right ms-2"></i></span>
                 </div>
-            </div>
+            </a>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header bg-white fw-bold">
-                    <i class="fa fa-chart-pie me-2"></i> Distribución del Dinero
+    <div class="row g-4 mb-5">
+        <div class="col-lg-6">
+            <div class="glass-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="text-white fw-bold mb-0">
+                        <i class="fa fa-chart-pie text-info me-2"></i>Distribución Financiera
+                    </h5>
                 </div>
-                <div class="card-body">
+                <div style="height: 300px;">
                     <canvas id="financeChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header bg-white fw-bold d-flex justify-content-between">
-                    <span><i class="fa fa-trophy me-2"></i> Top Productos Vendidos</span>
-                    <span class="badge bg-primary">Por Volumen</span>
+        <div class="col-lg-6">
+            <div class="glass-card p-0 h-100">
+                <div class="p-4 border-bottom border-secondary border-opacity-25">
+                    <h5 class="text-white fw-bold mb-0">
+                        <i class="fa fa-trophy text-warning me-2"></i>Top Productos (Volumen)
+                    </h5>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-striped mb-0 small">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Producto</th>
-                                    <th class="text-center">Cant.</th>
-                                    <th class="text-end">Ingreso Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                // Ordenar items vendidos por cantidad (ya los tenemos en $soldItems)
-                                usort($soldItems, function ($a, $b) {
-                                    return $b['qty_sold'] - $a['qty_sold'];
-                                });
-                                $top5 = array_slice($soldItems, 0, 5);
+                <div class="table-responsive">
+                    <table class="table table-glass mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Producto</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end pe-4">Ingreso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            usort($soldItems, function ($a, $b) {
+                                return $b['qty_sold'] - $a['qty_sold'];
+                            });
+                            $top5 = array_slice($soldItems, 0, 5);
 
-                                foreach ($top5 as $item):
-                                    $p = $productManager->getProductById($item['product_id']);
-                                    $totalRow = $item['qty_sold'] * $p['price_usd'];
-                                    ?>
-                                    <tr>
-                                        <td class="fw-bold"><?= htmlspecialchars($p['name']) ?></td>
-                                        <td class="text-center"><span
-                                                class="badge bg-secondary rounded-pill"><?= $item['qty_sold'] ?></span></td>
-                                        <td class="text-end text-success fw-bold">$<?= number_format($totalRow, 2) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                                <?php if (empty($top5)): ?>
-                                    <tr>
-                                        <td colspan="3" class="text-center py-4">No hay datos en este periodo.</td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                            foreach ($top5 as $item):
+                                $p = $productManager->getProductById($item['product_id']);
+                                $totalRow = $item['qty_sold'] * ($p['price_usd'] ?? 0);
+                                ?>
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-bold text-white"><?= htmlspecialchars($p['name'] ?? 'N/A') ?></div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span
+                                            class="badge bg-info bg-opacity-10 text-info px-3"><?= $item['qty_sold'] ?></span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <span class="text-success fw-bold">$<?= number_format($totalRow, 2) ?></span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-4 mb-5">
         <div class="col-12">
-            <div class="card shadow mb-4">
-                <div class="card-header bg-white fw-bold">
-                    <i class="fa fa-credit-card me-2"></i> Entradas por Método de Pago
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <?php
-                        $sqlMethods = "SELECT pm.name, pm.currency, SUM(t.amount) as total_nominal, SUM(t.amount_usd_ref) as total_usd
-                                       FROM transactions t
-                                       JOIN payment_methods pm ON t.payment_method_id = pm.id
-                                       WHERE t.type = 'income' AND t.created_at BETWEEN ? AND ?
-                                       GROUP BY pm.name, pm.currency";
-                        $stmtM = $db->prepare($sqlMethods);
-                        $stmtM->execute([$startSql, $endSql]);
-                        $methods = $stmtM->fetchAll(PDO::FETCH_ASSOC);
+            <div class="glass-card p-4">
+                <h5 class="text-white fw-bold mb-4">
+                    <i class="fa fa-credit-card text-success me-2"></i>Flujo por Método de Pago
+                </h5>
+                <div class="row g-3">
+                    <?php
+                    $sqlMethods = "SELECT pm.name, pm.currency, SUM(t.amount) as total_nominal, SUM(t.amount_usd_ref) as total_usd
+                                   FROM transactions t
+                                   JOIN payment_methods pm ON t.payment_method_id = pm.id
+                                   WHERE t.type = 'income' AND t.created_at BETWEEN ? AND ?
+                                   GROUP BY pm.name, pm.currency";
+                    $stmtM = $db->prepare($sqlMethods);
+                    $stmtM->execute([$startSql, $endSql]);
+                    $methods = $stmtM->fetchAll(PDO::FETCH_ASSOC);
 
-                        foreach ($methods as $m):
-                            ?>
-                            <div class="col-md-3 mb-3">
-                                <div class="border rounded p-3 text-center bg-light h-100">
-                                    <div class="text-muted small text-uppercase"><?= $m['name'] ?></div>
-                                    <div class="fs-5 fw-bold text-dark">
-                                        <?= number_format($m['total_nominal'], 2) ?> <small><?= $m['currency'] ?></small>
-                                    </div>
-                                    <div class="small text-success">
-                                        ≈ $<?= number_format($m['total_usd'], 2) ?> USD
-                                    </div>
+                    foreach ($methods as $m):
+                        ?>
+                        <div class="col-md-3">
+                            <div class="p-3 border border-secondary border-opacity-25 rounded-3 bg-white bg-opacity-5">
+                                <div class="text-muted small text-uppercase mb-1"><?= $m['name'] ?></div>
+                                <div class="fs-5 fw-bold text-white">
+                                    <?= number_format($m['total_nominal'], 2) ?> <span
+                                        class="small opacity-50"><?= $m['currency'] ?></span>
+                                </div>
+                                <div class="text-info small mt-1">
+                                    ≈ $<?= number_format($m['total_usd'], 2) ?> USD
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
@@ -509,229 +699,182 @@ require_once '../templates/menu.php';
 
     <!-- NUEVAS SECCIONES PROFESIONALES -->
 
-    <!-- Estadísticas Rápidas -->
-    <div class="row g-4 mb-4">
+    <!-- Estadísticas Rápidas Glassmorphic -->
+    <div class="row g-4 mb-5">
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center">
-                    <i class="fa fa-shopping-cart fa-2x text-primary mb-2"></i>
-                    <h3 class="fw-bold mb-0"><?= number_format($stats['total_orders'] ?? 0) ?></h3>
-                    <p class="text-muted small mb-0">Total Órdenes</p>
-                </div>
+            <div class="glass-card p-4 text-center">
+                <i class="fa fa-shopping-cart fa-2x text-primary mb-3"></i>
+                <h2 class="fw-bold mb-0 text-white"><?= number_format($stats['total_orders'] ?? 0) ?></h2>
+                <p class="text-muted small mb-0">Total Órdenes</p>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center">
-                    <i class="fa fa-dollar-sign fa-2x text-success mb-2"></i>
-                    <h3 class="fw-bold mb-0">$<?= number_format($stats['avg_order_value'] ?? 0, 2) ?></h3>
-                    <p class="text-muted small mb-0">Ticket Promedio</p>
-                </div>
+            <div class="glass-card p-4 text-center">
+                <i class="fa fa-dollar-sign fa-2x text-success mb-3"></i>
+                <h2 class="fw-bold mb-0 text-white">$<?= number_format($stats['avg_order_value'] ?? 0, 2) ?></h2>
+                <p class="text-muted small mb-0">Ticket Promedio</p>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center">
-                    <i class="fa fa-arrow-up fa-2x text-info mb-2"></i>
-                    <h3 class="fw-bold mb-0">$<?= number_format($stats['max_order_value'] ?? 0, 2) ?></h3>
-                    <p class="text-muted small mb-0">Venta Máxima</p>
-                </div>
+            <div class="glass-card p-4 text-center">
+                <i class="fa fa-arrow-up fa-2x text-info mb-3"></i>
+                <h2 class="fw-bold mb-0 text-white">$<?= number_format($stats['max_order_value'] ?? 0, 2) ?></h2>
+                <p class="text-muted small mb-0">Venta Máxima</p>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body text-center">
-                    <i class="fa fa-percentage fa-2x text-warning mb-2"></i>
-                    <h3 class="fw-bold mb-0"><?= number_format($margenNeto, 1) ?>%</h3>
-                    <p class="text-muted small mb-0">Margen Neto</p>
-                </div>
+            <div class="glass-card p-4 text-center">
+                <i class="fa fa-percentage fa-2x text-warning mb-3"></i>
+                <h2 class="fw-bold mb-0 text-white"><?= number_format($margenNeto, 1) ?>%</h2>
+                <p class="text-muted small mb-0">Margen Neto</p>
             </div>
         </div>
     </div>
 
-    <!-- Gráficas Principales -->
-    <div class="row g-4 mb-4">
-        <!-- Tendencia Diaria -->
+    <!-- Gráficas Principales Glass -->
+    <div class="row g-4 mb-5">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fa fa-chart-line text-primary"></i> Tendencia de Ventas Diarias</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="dailyTrendChart" height="150"></canvas>
+            <div class="glass-card p-4 h-100">
+                <h5 class="text-white fw-bold mb-4">
+                    <i class="fa fa-chart-line text-primary me-2"></i>Tendencia de Ventas (30 Días)
+                </h5>
+                <div style="height: 350px;">
+                    <canvas id="dailyTrendChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Categorías -->
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fa fa-chart-pie text-success"></i> Ventas por Categoría</h5>
-                </div>
-                <div class="card-body">
+            <div class="glass-card p-4 h-100">
+                <h5 class="text-white fw-bold mb-4">
+                    <i class="fa fa-chart-pie text-success me-2"></i>Por Estación
+                </h5>
+                <div style="height: 350px;">
                     <canvas id="categoryChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Productos Más Vendidos y Métodos de Pago -->
-    <div class="row g-4 mb-4">
-        <!-- Top Productos -->
+    <!-- Productos y Métodos de Pago -->
+    <div class="row g-4 mb-5">
         <div class="col-lg-7">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fa fa-trophy text-warning"></i> Top 10 Productos Más Vendidos</h5>
+            <div class="glass-card p-0">
+                <div class="p-4 border-bottom border-secondary border-opacity-25">
+                    <h5 class="text-white fw-bold mb-0">
+                        <i class="fa fa-trophy text-warning me-2"></i>Top 10 Productos Más Vendidos
+                    </h5>
                 </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
+                <div class="table-responsive">
+                    <table class="table table-glass mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">Rank</th>
+                                <th>Producto</th>
+                                <th>Estación</th>
+                                <th class="text-end">Cant.</th>
+                                <th class="text-end pe-4">Ingresos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $rank = 1;
+                            foreach ($topProducts as $prod): ?>
                                 <tr>
-                                    <th>#</th>
-                                    <th>Producto</th>
-                                    <th>Categoría</th>
-                                    <th class="text-end">Cantidad</th>
-                                    <th class="text-end">Ingresos</th>
+                                    <td class="ps-4 text-center">
+                                        <span class="badge border border-info border-opacity-25 text-info rounded-circle"
+                                            style="width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center;">
+                                            <?= $rank ?>
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold text-white"><?= htmlspecialchars($prod['name']) ?></td>
+                                    <td><span
+                                            class="badge badge-soft opacity-75"><?= ucfirst($prod['kitchen_station'] ?? '') ?></span>
+                                    </td>
+                                    <td class="text-end"><?= number_format($prod['qty_sold']) ?></td>
+                                    <td class="text-end text-success fw-bold pe-4">
+                                        $<?= number_format($prod['revenue_usd'], 2) ?></td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                <?php $rank = 1;
-                                foreach ($topProducts as $prod): ?>
-                                    <tr>
-                                        <td>
-                                            <span class="badge <?= $rank <= 3 ? 'bg-warning' : 'bg-secondary' ?>">
-                                                <?= $rank ?>
-                                            </span>
-                                        </td>
-                                        <td class="fw-bold"><?= htmlspecialchars($prod['name']) ?></td>
-                                        <td><span
-                                                class="badge bg-info"><?= ucfirst($prod['kitchen_station'] ?? '') ?></span>
-                                        </td>
-                                        <td class="text-end"><?= number_format($prod['qty_sold']) ?></td>
-                                        <td class="text-end text-success fw-bold">
-                                            $<?= number_format($prod['revenue_usd'], 2) ?></td>
-                                    </tr>
-                                    <?php $rank++; endforeach; ?>
-                                <?php if (empty($topProducts)): ?>
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted py-4">No hay datos en este período
-                                        </td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                                <?php $rank++; endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- Métodos de Pago -->
         <div class="col-lg-5">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fa fa-credit-card text-info"></i> Métodos de Pago</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="paymentMethodChart" height="200"></canvas>
-                </div>
-                <div class="card-footer bg-white border-0">
-                    <div class="row g-2">
-                        <?php foreach ($paymentMethods as $pm): ?>
-                            <div class="col-6">
-                                <div class="border rounded p-2 text-center">
-                                    <div class="small text-muted"><?= htmlspecialchars($pm['name']) ?></div>
-                                    <div class="fw-bold text-primary">$<?= number_format($pm['total_usd'], 2) ?></div>
-                                    <div class="small text-muted"><?= $pm['transaction_count'] ?> trans.</div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+            <div class="glass-card p-4">
+                <h5 class="text-white fw-bold mb-4">
+                    <i class="fa fa-clock text-danger me-2"></i>Análisis Horario
+                </h5>
+                <div style="height: 350px;">
+                    <canvas id="hourlyChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Análisis Horario -->
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-0 py-3">
-                    <h5 class="mb-0"><i class="fa fa-clock text-danger"></i> Patrón de Ventas por Hora (Horas Pico)</h5>
-                </div>
-                <div class="card-body">
-                    <canvas id="hourlyChart" height="120"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Configuración global de Chart.js
+    // Configuración global de Chart.js Premium
     Chart.defaults.font.family = "'Inter', sans-serif";
-    Chart.defaults.color = '#6c757d';
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
 
-    // 1. Gráfica de Distribución de Gastos (Doughnut - Original mejorada)
-    const ctx = document.getElementById('financeChart').getContext('2d');
-    const financeChart = new Chart(ctx, {
+    // 1. Gráfica de Distribución Financiera (Doughnut)
+    new Chart(document.getElementById('financeChart'), {
         type: 'doughnut',
         data: {
-            labels: ['Ganancia Neta', 'Costo Producción', 'Inv. Inventario', 'Nómina Admin', 'Gastos Op'],
+            labels: ['Ganancia Neta', 'Costo Insumos', 'Inversión Stock', 'Nómina Admin', 'Gastos Op'],
             datasets: [{
-                data: [<?= max(0, $utilidadNeta) ?>, <?= $totalCOGS ?>, <?= $inversionInventario ?>, <?= $gastosNominaAdmin ?>, <?= $gastosOperativosGenerales ?>],
-                backgroundColor: [
-                    '#198754', // Verde - Ganancia
-                    '#ffc107', // Amarillo - MP
-                    '#fd7e14', // Naranja - MO Directa
-                    '#6610f2', // Púrpura - Nomina Admin
-                    '#dc3545'  // Rojo - Otros
+                data: [
+                    <?= max(0, $utilidadNeta) ?>,
+                    <?= $totalCOGS ?>,
+                    <?= $inversionInventario ?>,
+                    <?= $gastosNominaAdmin ?>,
+                    <?= $gastosOperativosGenerales ?>
                 ],
-                borderWidth: 2,
-                borderColor: '#fff'
+                backgroundColor: [
+                    '#10b981', // Ganancia
+                    '#f59e0b', // COGS
+                    '#0ea5e9', // Inventario
+                    '#8b5cf6', // Nomina
+                    '#ef4444'  // Gastos
+                ],
+                borderWidth: 0,
+                hoverOffset: 20
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '75%',
             plugins: {
                 legend: {
-                    position: 'right',
-                    labels: { padding: 15, font: { size: 12 } }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            let label = context.label || '';
-                            let value = context.parsed || 0;
-                            let total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            let percentage = ((value / total) * 100).toFixed(1);
-                            return label + ': $' + value.toFixed(2) + ' (' + percentage + '%)';
-                        }
-                    }
+                    position: 'bottom',
+                    labels: { color: '#f8fafc', padding: 20, font: { size: 11, weight: '500' } }
                 }
             }
         }
     });
 
-    // 2. Tendencia Diaria (Line Chart)
-    const dailyCtx = document.getElementById('dailyTrendChart').getContext('2d');
-    const dailyTrendChart = new Chart(dailyCtx, {
+    // 2. Tendencia Diaria (Line)
+    new Chart(document.getElementById('dailyTrendChart'), {
         type: 'line',
         data: {
             labels: [<?php foreach ($dailyTrend as $d)
                 echo "'" . date('d/m', strtotime($d['date'])) . "',"; ?>],
             datasets: [{
-                label: 'Ventas Diarias ($)',
+                label: 'Ventas ($)',
                 data: [<?php foreach ($dailyTrend as $d)
                     echo $d['daily_revenue'] . ','; ?>],
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                tension: 0.4,
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.1)',
                 fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#0ea5e9',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
                 pointRadius: 4,
                 pointHoverRadius: 6
             }]
@@ -739,86 +882,33 @@ require_once '../templates/menu.php';
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return 'Ventas: $' + context.parsed.y.toFixed(2);
-                        }
-                    }
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
                 y: {
                     beginAtZero: true,
-                    max: 300,
-                    ticks: {
-                        stepSize: 25,
-                        autoSkip: false,
-                        callback: function (value) {
-                            return '$' + value;
-                        }
-                    }
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: '#64748b', font: { size: 10 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { size: 10 } }
                 }
             }
         }
     });
 
-    // 3. Ventas por Categoría (Pie Chart)
-    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-    const categoryChart = new Chart(categoryCtx, {
+    // 3. Ventas por Categoría (Pie)
+    new Chart(document.getElementById('categoryChart'), {
         type: 'pie',
         data: {
             labels: [<?php foreach ($categoryData as $c)
-                echo "'" . ucfirst($c['kitchen_station'] ?? '') . "',"; ?>],
+                echo "'" . (strtoupper($c['station_name']) === 'OTROS' ? 'Otros' : ucfirst($c['station_name'])) . "',"; ?>],
             datasets: [{
                 data: [<?php foreach ($categoryData as $c)
                     echo $c['revenue'] . ','; ?>],
-                backgroundColor: [
-                    '#0dcaf0', '#198754', '#ffc107', '#dc3545',
-                    '#6610f2', '#fd7e14', '#20c997', '#d63384'
-                ],
+                backgroundColor: ['#ef4444', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'],
                 borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { padding: 10, font: { size: 11 } }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            let value = context.parsed || 0;
-                            return context.label + ': $' + value.toFixed(2);
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // 4. Métodos de Pago (Doughnut Chart)
-    const paymentCtx = document.getElementById('paymentMethodChart').getContext('2d');
-    const paymentMethodChart = new Chart(paymentCtx, {
-        type: 'doughnut',
-        data: {
-            labels: [<?php foreach ($paymentMethods as $pm)
-                echo "'" . $pm['name'] . "',"; ?>],
-            datasets: [{
-                data: [<?php foreach ($paymentMethods as $pm)
-                    echo $pm['total_usd'] . ','; ?>],
-                backgroundColor: [
-                    '#0d6efd', '#198754', '#ffc107', '#dc3545',
-                    '#0dcaf0', '#6610f2', '#fd7e14', '#d63384'
-                ],
-                borderWidth: 2,
-                borderColor: '#fff'
+                borderColor: '#1e293b'
             }]
         },
         options: {
@@ -827,65 +917,36 @@ require_once '../templates/menu.php';
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { padding: 8, font: { size: 10 } }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            let value = context.parsed || 0;
-                            return context.label + ': $' + value.toFixed(2);
-                        }
-                    }
+                    labels: { color: '#f8fafc', font: { size: 10 } }
                 }
             }
         }
     });
 
-    // 5. Análisis Horario (Line Chart - Igual a Tendencia Diaria)
-    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-    const hourlyChart = new Chart(hourlyCtx, {
-        type: 'line',
+    // 4. Análisis Horario (Bar)
+    new Chart(document.getElementById('hourlyChart'), {
+        type: 'bar',
         data: {
             labels: [<?php foreach ($hourlyData as $h)
-                echo "'" . sprintf('%02d:00', $h['hour']) . "',"; ?>],
+                echo "'" . str_pad($h['hour'], 2, '0', STR_PAD_LEFT) . ":00',"; ?>],
             datasets: [{
-                label: 'Ingresos ($)',
+                label: 'Órdenes',
                 data: [<?php foreach ($hourlyData as $h)
-                    echo $h['revenue'] . ','; ?>],
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                borderWidth: 3,
-                tension: 0.4,
-                fill: true,
-                pointRadius: 4,
-                pointHoverRadius: 6
+                    echo $h['order_count'] . ','; ?>],
+                backgroundColor: '#ef4444',
+                borderRadius: 4
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }, // Igual a tendencia diaria
-                tooltip: {
-                    callbacks: {
-                        label: function (context) {
-                            return 'Ingresos: $' + context.parsed.y.toFixed(2);
-                        }
-                    }
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
                 y: {
                     beginAtZero: true,
-                    max: 300,
-                    ticks: {
-                        stepSize: 25,
-                        autoSkip: false,
-                        callback: function (value) {
-                            return '$' + value;
-                        }
-                    }
-                }
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                },
+                x: { grid: { display: false } }
             }
         }
     });

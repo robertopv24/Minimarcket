@@ -60,3 +60,25 @@
 [2025-12-11 12:25:57] payDebt: Conversion logic | {"input_usd":10,"rate":"300","currency":"VES","nominal_calculated":3000}
 [2025-12-11 12:25:57] payDebt: INSERT transactions result=true
 [2025-12-11 12:25:57] payDebt: Transaction committed successfully
+[2026-02-28 14:32:10] payDebt called | {"arId":1,"amount":6,"method":"payroll_deduction","paymentMethodId":null,"sessionId":null}
+[2026-02-28 14:32:10] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2026-02-28 14:32:10] payDebt: Calculated | {"newPaidAmount":6,"status":"deducted"}
+[2026-02-28 14:32:10] payDebt ERROR: There is already an active transaction
+[2026-02-28 14:32:10] payDebt ERROR trace: #0 C:\xampp\htdocs\Minimarcket\funciones\CreditManager.php(160): PDO->beginTransaction()
+#1 C:\xampp\htdocs\Minimarcket\funciones\PayrollManager.php(156): CreditManager->payDebt(1, 6.0, 'payroll_deducti...', '4')
+#2 C:\xampp\htdocs\Minimarcket\admin\nomina.php(25): PayrollManager->registerPayment('4', '24.000000', '2026-02-28', NULL, NULL, '1', '', 4)
+#3 {main}
+[2026-02-28 14:41:53] payDebt called | {"arId":1,"amount":6,"method":"payroll_deduction","paymentMethodId":null,"sessionId":null}
+[2026-02-28 14:41:53] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2026-02-28 14:41:53] payDebt: Calculated | {"newPaidAmount":6,"status":"deducted"}
+[2026-02-28 14:41:53] payDebt ERROR: There is already an active transaction
+[2026-02-28 14:41:53] payDebt ERROR trace: #0 C:\xampp\htdocs\Minimarcket\funciones\CreditManager.php(160): PDO->beginTransaction()
+#1 C:\xampp\htdocs\Minimarcket\funciones\PayrollManager.php(156): CreditManager->payDebt(1, 6.0, 'payroll_deducti...', '5')
+#2 C:\xampp\htdocs\Minimarcket\admin\nomina.php(25): PayrollManager->registerPayment('4', '24.000000', '2026-02-28', NULL, NULL, '1', '', 4)
+#3 {main}
+[2026-02-28 16:11:41] payDebt called | {"arId":1,"amount":6,"method":"payroll_deduction","paymentMethodId":null,"sessionId":null}
+[2026-02-28 16:11:41] payDebt: Found debt | {"paid_amount":"0.000000","status":"pending"}
+[2026-02-28 16:11:41] payDebt: Calculated | {"newPaidAmount":6,"status":"deducted"}
+[2026-02-28 16:11:41] payDebt: Transaction status | {"inTransaction":true}
+[2026-02-28 16:11:41] payDebt: UPDATE accounts_receivable | {"result":"true","rowCount":1}
+[2026-02-28 16:11:41] payDebt: Transaction committed successfully

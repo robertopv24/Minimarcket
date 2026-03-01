@@ -37,7 +37,7 @@ class UserManager
     // Obtener lista de usuarios con búsqueda opcional
     public function searchUsers($query = '')
     {
-        $sql = "SELECT id, name, email, phone, role, created_at FROM users";
+        $sql = "SELECT id, name, email, phone, role, document_id, job_role, created_at FROM users";
         $params = [];
 
         if (!empty($query)) {
@@ -180,8 +180,7 @@ class UserManager
             return true; // Éxito
 
         } catch (Exception $e) {
-            error_log("Error en updateUserProfile: " . $e->getMessage());
-            return $e->getMessage(); // Devolver el mensaje de error
+            return $e->getMessage();
         }
     }
 

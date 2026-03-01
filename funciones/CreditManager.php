@@ -157,8 +157,11 @@ class CreditManager
         ]);
 
         try {
-            $this->db->beginTransaction();
-            debugLog("payDebt: Transaction started");
+            $inTransaction = $this->db->inTransaction();
+            if (!$inTransaction) {
+                $this->db->beginTransaction();
+            }
+            debugLog("payDebt: Transaction status", ['inTransaction' => $inTransaction]);
 
             // Actualizar cuenta por cobrar
             $stmt = $this->db->prepare("UPDATE accounts_receivable SET paid_amount = ?, status = ? WHERE id = ?");

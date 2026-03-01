@@ -10,17 +10,46 @@ if (!$userId || !$cashRegisterManager->hasOpenSession($userId)) {
     exit;
 }
 
-// 2. Obtener carrito
-$cartItems = $cartManager->getCart($userId);
-if (empty($cartItems)) {
-    header("Location: tienda.php");
-    exit;
+// 2. Obtener datos de la compra (del carrito o de una orden pendiente)
+$orderId = $_GET['order_id'] ?? null;
+$cartItems = [];
+
+if ($orderId) {
+    // Si viene un order_id, cargamos los ítems de esa orden
+    $cartItems = $orderManager->getOrderItems($orderId);
+    $orderData = $orderManager->getOrderById($orderId);
+    $totalUsd = $orderData['total_price'];
+
+    // Simular estructura de carrito para compatibilidad con el resto de la página
+    foreach ($cartItems as &$item) {
+        $item['total_price'] = $item['price'] * $item['quantity'];
+    }
+} else {
+    // Si no hay order_id, usamos el carrito normal
+    $cartItems = $cartManager->getCart($userId);
+    if (empty($cartItems)) {
+        header("Location: tienda.php");
+        exit;
+    }
+    $totals = $cartManager->calculateTotal($cartItems);
+    $totalUsd = $totals['total_usd'];
 }
 
-$totals = $cartManager->calculateTotal($cartItems);
-$totalUsd = $totals['total_usd'];
 $rate = $config->get('exchange_rate');
 $methods = $transactionManager->getPaymentMethods();
+
+// Obtener datos del cliente/empleado de la sesión para el modal de crédito
+$sessionClientId = $_SESSION['pos_client_id'] ?? null;
+$sessionClientData = null;
+if ($sessionClientId) {
+    $sessionClientData = $creditManager->getClientById($sessionClientId);
+}
+
+$sessionEmployeeId = $_SESSION['pos_employee_id'] ?? null;
+$sessionEmployeeData = null;
+if ($sessionEmployeeId) {
+    $sessionEmployeeData = $userManager->getUserById($sessionEmployeeId);
+}
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -142,6 +171,8 @@ require_once '../templates/menu.php';
                 <div class="card-body">
                     <form id="checkoutForm" action="process_checkout.php" method="POST">
 
+                        <input type="hidden" name="order_id" value="<?= $orderId ?>">
+
                         <div class="row g-2 mb-3">
                             <div class="col-md-6">
                                 <input type="text" class="form-control" name="customer_name"
@@ -149,8 +180,8 @@ require_once '../templates/menu.php';
                             </div>
                             <div class="col-md-6">
                                 <input type="text" class="form-control" name="shipping_address"
-                                    value="<?= htmlspecialchars($_SESSION['pos_client_name'] ?? '') ?>"
-                                    placeholder="Nombre Del Cliente">
+                                    value="<?= htmlspecialchars($orderId ? ($orderData['shipping_address'] ?? '') : ($_SESSION['pos_client_name'] ?? '')) ?>"
+                                    placeholder="Nombre Del Cliente" <?= $orderId ? 'readonly' : '' ?>>
                             </div>
                         </div>
 
@@ -158,16 +189,41 @@ require_once '../templates/menu.php';
 
                         <h6 class="text-primary mb-3">Ingrese Montos Recibidos:</h6>
                         <div class="row g-3">
-                            <?php foreach ($methods as $method): ?>
+                            <?php foreach ($methods as $method):
+                                $isPagoMovil = (strpos(strtolower($method['name']), 'pago móvil') !== false || strpos(strtolower($method['name']), 'pagomovil') !== false);
+                                $isZelle = (strpos(strtolower($method['name']), 'zelle') !== false);
+                                ?>
                                 <div class="col-md-6">
-                                    <div class="input-group">
-                                        <span class="input-group-text w-50 small" style="font-size: 0.85rem;">
-                                            <?= $method['name'] ?>
-                                        </span>
-                                        <input type="number" step="0.01" class="form-control payment-input fw-bold text-end"
-                                            name="payments[<?= $method['id'] ?>]" data-currency="<?= $method['currency'] ?>"
-                                            placeholder="0.00">
-                                        <span class="input-group-text"><?= $method['currency'] ?></span>
+                                    <div class="card p-2 border-0 bg-light-subtle shadow-sm mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text w-50 small" style="font-size: 0.85rem;">
+                                                <?= $method['name'] ?>
+                                            </span>
+                                            <input type="number" step="0.01"
+                                                class="form-control payment-input fw-bold text-end"
+                                                name="payments[<?= $method['id'] ?>]"
+                                                data-currency="<?= $method['currency'] ?>"
+                                                data-method-name="<?= htmlspecialchars($method['name']) ?>"
+                                                placeholder="0.00">
+                                            <span class="input-group-text"><?= $method['currency'] ?></span>
+                                        </div>
+
+                                        <!-- Detalles adicionales para Pago Móvil o Zelle -->
+                                        <div class="mt-2 extra-details" id="details-<?= $method['id'] ?>"
+                                            style="display:none;">
+                                            <?php if ($isPagoMovil): ?>
+                                                <input type="text" class="form-control form-control-sm"
+                                                    name="payment_details[<?= $method['id'] ?>][reference]"
+                                                    placeholder="Número de Movimiento (# Referencia)" data-required="true">
+                                            <?php elseif ($isZelle): ?>
+                                                <input type="text" class="form-control form-control-sm mb-1"
+                                                    name="payment_details[<?= $method['id'] ?>][reference]"
+                                                    placeholder="Código de Confirmación">
+                                                <input type="text" class="form-control form-control-sm"
+                                                    name="payment_details[<?= $method['id'] ?>][sender]"
+                                                    placeholder="Nombre del Remitente" data-required="true">
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -282,10 +338,13 @@ require_once '../templates/menu.php';
                                 style="position: absolute; z-index: 1050; max-height: 200px; overflow-y: auto; display: none; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                             </div>
                         </div>
-                        <div id="selectedClientInfo" class="alert alert-info d-none">
-                            <strong>Cliente:</strong> <span id="selClientName"></span><br>
-                            <small>Límite: $<span id="selClientLimit"></span> | Deuda: $<span
-                                    id="selClientDebt"></span></small>
+                        <div id="selectedClientInfo" class="alert alert-info <?= $sessionClientData ? '' : 'd-none' ?>">
+                            <strong>Cliente:</strong> <span
+                                id="selClientName"><?= $sessionClientData ? htmlspecialchars($sessionClientData['name']) : '' ?></span><br>
+                            <small>Límite: $<span
+                                    id="selClientLimit"><?= $sessionClientData ? number_format($sessionClientData['credit_limit'], 2, '.', '') : '0.00' ?></span>
+                                | Deuda: $<span
+                                    id="selClientDebt"><?= $sessionClientData ? number_format($sessionClientData['current_debt'], 2, '.', '') : '0.00' ?></span></small>
                         </div>
                     </div>
 
@@ -299,17 +358,26 @@ require_once '../templates/menu.php';
                                 style="position: absolute; z-index: 1050; max-height: 200px; overflow-y: auto; display: none; width: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
                             </div>
                         </div>
-                        <div id="selectedEmpInfo" class="alert alert-warning d-none">
-                            <strong>Empleado:</strong> <span id="selEmpName"></span><br>
-                            <small class="text-muted">Rol: <span id="selEmpRole"></span></small>
+                        <div id="selectedEmpInfo"
+                            class="alert alert-warning border-3 <?= $sessionEmployeeData ? '' : 'd-none' ?>">
+                            <strong>Empleado:</strong> <span
+                                id="selEmpName"><?= $sessionEmployeeData ? htmlspecialchars($sessionEmployeeData['name']) : '' ?></span><br>
+                            <small class="text-muted"><i class="fa fa-briefcase"></i> Rol: <span
+                                    id="selEmpRole"><?= $sessionEmployeeData ? htmlspecialchars($sessionEmployeeData['job_role']) : '' ?></span></small>
                         </div>
 
-                        <div class="mb-3 form-check form-switch mt-3">
-                            <input class="form-check-input" type="checkbox" id="chkBenefit"
-                                onchange="toggleBenefit(this)">
-                            <label class="form-check-label fw-bold" for="chkBenefit">Es Beneficio de Empresa (Sin
-                                cobro)</label>
-                            <div class="form-text">Si se activa, la cuenta la paga la empresa como Gasto Operativo.
+                        <div class="mb-3 p-3 rounded-3 border-2 border shadow-sm transition-all" id="benefitContainer"
+                            style="background-color: #fff; border: 1px solid #dee2e6;">
+                            <div class="form-check form-switch d-flex justify-content-between align-items-center p-0">
+                                <div>
+                                    <label class="form-check-label fw-bold h5 mb-0" for="chkBenefit">
+                                        <i class="fa fa-gift text-primary"></i> Es Beneficio de Empresa
+                                    </label>
+                                    <div class="form-text mt-1 text-muted">La cuenta se registrará como Gasto Operativo
+                                        (Sin cobro al empleado).</div>
+                                </div>
+                                <input class="form-check-input ms-3" type="checkbox" id="chkBenefit"
+                                    style="width: 3.5em; height: 1.75em;" onchange="toggleBenefit(this)">
                             </div>
                         </div>
                     </div>
@@ -342,9 +410,9 @@ require_once '../templates/menu.php';
     const selectChangeMethod = document.querySelector('select[name="change_method_id"]');
 
     // Credit Logic Vars
-    let selectedClientId = null;
-    let selectedEmpId = null;
-    let currentCreditType = 'client_credit';
+    let selectedClientId = <?= $sessionClientId ?: 'null' ?>;
+    let selectedEmpId = <?= $sessionEmployeeId ?: 'null' ?>;
+    let currentCreditType = selectedEmpId ? 'employee_credit' : 'client_credit';
 
     function calculate() {
         let paidUsd = 0;
@@ -434,7 +502,21 @@ require_once '../templates/menu.php';
     }
 
     inputs.forEach(input => {
-        input.addEventListener('input', calculate);
+        input.addEventListener('input', () => {
+            calculate();
+            // Mostrar/ocultar campos de referencia según si hay monto
+            const methodId = input.name.match(/payments\[(\d+)\]/)?.[1];
+            if (!methodId) return;
+            const detailsDiv = document.getElementById('details-' + methodId);
+            if (!detailsDiv) return;
+            const val = parseFloat(input.value) || 0;
+            if (val > 0) {
+                detailsDiv.style.display = 'block';
+            } else {
+                detailsDiv.style.display = 'none';
+                detailsDiv.querySelectorAll('input').forEach(i => i.value = '');
+            }
+        });
         input.addEventListener('keyup', calculate);
     });
 
@@ -446,10 +528,17 @@ require_once '../templates/menu.php';
     }
 
     function toggleBenefit(chk) {
+        const container = document.getElementById('benefitContainer');
         if (chk.checked) {
             currentCreditType = 'benefit';
+            container.style.backgroundColor = '#e7f1ff';
+            container.style.borderColor = '#0d6efd';
+            container.classList.add('animated-pulse');
         } else {
             currentCreditType = 'employee_credit';
+            container.style.backgroundColor = '#fff';
+            container.style.borderColor = '#dee2e6';
+            container.classList.remove('animated-pulse');
         }
     }
 
@@ -505,7 +594,7 @@ require_once '../templates/menu.php';
             });
     });
 
-    function selectClient(id, name, limit, debt) {
+    window.selectClient = function (id, name, limit, debt) {
         selectedClientId = id;
         document.getElementById('selClientName').innerText = name;
         document.getElementById('selClientLimit').innerText = limit;
@@ -516,7 +605,7 @@ require_once '../templates/menu.php';
         searchClientInput.value = name;
         searchClientInput.classList.add('is-valid');
         searchClientInput.classList.remove('is-invalid');
-    }
+    };
 
     // Employee Search
     const searchEmpInput = document.getElementById('searchEmpInput');
@@ -562,7 +651,7 @@ require_once '../templates/menu.php';
             });
     });
 
-    function selectEmp(id, name, role) {
+    window.selectEmp = function (id, name, role) {
         selectedEmpId = id;
         document.getElementById('selEmpName').innerText = name;
         document.getElementById('selEmpRole').innerText = role;
@@ -572,7 +661,7 @@ require_once '../templates/menu.php';
         searchEmpInput.value = name;
         searchEmpInput.classList.add('is-valid');
         searchEmpInput.classList.remove('is-invalid');
-    }
+    };
 
     function applyCredit() {
         const pass = document.getElementById('modalAdminPass').value;
@@ -581,11 +670,23 @@ require_once '../templates/menu.php';
             return;
         }
 
-        if (currentCreditType === 'client_credit' && !selectedClientId) {
-            alert("Debe seleccionar un cliente de la lista de resultados.");
-            searchClientInput.classList.add('is-invalid');
-            searchClientInput.focus();
-            return;
+        if (currentCreditType === 'client_credit') {
+            if (!selectedClientId) {
+                alert("Debe seleccionar un cliente de la lista de resultados.");
+                searchClientInput.classList.add('is-invalid');
+                searchClientInput.focus();
+                return;
+            }
+
+            // VALIDACIÓN DE LÍMITE
+            const limit = parseFloat(document.getElementById('selClientLimit').innerText) || 0;
+            const debt = parseFloat(document.getElementById('selClientDebt').innerText) || 0;
+            const available = limit - debt;
+
+            if (limit > 0 && totalOrderUsd > (available + 0.01)) {
+                alert(`⛔ CRÉDITO DENEGADO: El total del pedido ($${totalOrderUsd.toFixed(2)}) excede el crédito disponible ($${available.toFixed(2)}).`);
+                return;
+            }
         }
         if ((currentCreditType === 'employee_credit' || currentCreditType === 'benefit') && !selectedEmpId) {
             alert("Debe seleccionar un empleado de la lista de resultados.");
@@ -615,6 +716,44 @@ require_once '../templates/menu.php';
         // Auto-scroll to button
         btnSubmit.scrollIntoView();
         alert("Modo Crédito activado. Presione CONFIRMAR para finalizar.");
+    }
+
+    // Validación antes de enviar
+    document.getElementById('checkoutForm').addEventListener('submit', function (e) {
+        if (btnSubmit.disabled) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Validar campos obligatorios de Pago Móvil y Zelle
+        let isValid = true;
+        document.querySelectorAll('.extra-details:visible input[data-required="true"]').forEach(field => {
+            if (!field.value.trim()) {
+                isValid = false;
+                field.classList.add('is-invalid');
+                $(field).effect('shake');
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!isValid) {
+            alert("⚠️ Por favor, complete la información de referencia o remitente para los pagos correspondientes.");
+            e.preventDefault();
+            return false;
+        }
+
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i> Procesando...';
+    });
+    // Si ya hay empleado en sesión, activar el tab de empleado y asignar tipo
+    if (selectedEmpId) {
+        try {
+            var empTabEl = document.querySelector('#creditTabs a[href="#tabEmployee"]');
+            var empTab = new bootstrap.Tab(empTabEl);
+            empTab.show();
+            currentCreditType = 'employee_credit';
+        } catch (e) { console.error("Error activating emp tab:", e); }
     }
 </script>
 

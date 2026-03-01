@@ -30,16 +30,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stock = $_POST['stock'];
     $min_stock = $_POST['min_stock'];
     $profit_margin = $_POST['profit_margin'];
+    $kitchen_station = $_POST['kitchen_station'] ?? null;
     $category_id = $_POST['category_id'] ?: null;
     $is_visible = isset($_POST['is_visible']) ? 1 : 0;
 
     // Procesar imagen
-    // Procesar imagen
-    $rutaImagen = null; // null indica que no se actualiza la imagen
+    $rutaImagen = null;
     if (isset($_FILES['imagen']) && $_FILES['imagen']['error'] === UPLOAD_ERR_OK) {
-        require_once '../funciones/UploadHelper.php'; // Ensure helper is loaded
+        require_once '../funciones/UploadHelper.php';
         $uploadedPath = UploadHelper::uploadImage($_FILES['imagen']);
-
         if ($uploadedPath) {
             $rutaImagen = $uploadedPath;
         } else {
@@ -48,9 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Actualizar usando ProductManager
-    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id, $is_visible)) {
+    if ($productManager->updateProduct($id, $nombre, $descripcion, $precio_usd, $precio_ves, $stock, $rutaImagen, $profit_margin, $min_stock, $category_id, $is_visible, $kitchen_station)) {
         $mensaje = '<div class="alert alert-success">Producto actualizado con éxito.</div>';
-        $producto = $productManager->getProductById($id); // Refrescar datos
+        $producto = $productManager->getProductById($id);
     } else {
         $mensaje = '<div class="alert alert-danger">Error al actualizar el producto.</div>';
     }
@@ -93,6 +92,22 @@ require_once '../templates/menu.php';
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold"><i
+                                    class="fa fa-kitchen-set me-1 text-warning"></i>Estación de Cocina</label>
+                            <select name="kitchen_station" class="form-select border-warning shadow-sm">
+                                <option value="" <?= empty($producto['kitchen_station']) ? 'selected' : '' ?>>-- Sin
+                                    Estación (Entrega Directa) --</option>
+                                <option value="kitchen" <?= ($producto['kitchen_station'] === 'kitchen') ? 'selected' : '' ?>>🍔 Kitchen (Cocina)</option>
+                                <option value="pizza" <?= ($producto['kitchen_station'] === 'pizza') ? 'selected' : '' ?>>
+                                    🍕 Pizza</option>
+                                <option value="bar" <?= ($producto['kitchen_station'] === 'bar') ? 'selected' : '' ?>>🍹
+                                    Bar (Bebidas)</option>
+                            </select>
+                            <div class="form-text">Define en qué estación se prepara este producto. Afecta el KDS y los
+                                reportes.</div>
                         </div>
 
                         <div class="card border-warning mb-3">
@@ -151,11 +166,13 @@ require_once '../templates/menu.php';
                         <div class="card bg-info bg-opacity-10 border-info">
                             <div class="card-body py-2">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="is_visible" name="is_visible" <?= ($producto['is_visible'] == 1) ? 'checked' : '' ?>>
+                                    <input class="form-check-input" type="checkbox" id="is_visible" name="is_visible"
+                                        <?= ($producto['is_visible'] == 1) ? 'checked' : '' ?>>
                                     <label class="form-check-label fw-bold" for="is_visible">
                                         <i class="fa fa-eye me-1"></i> Visible en Tienda
                                     </label>
-                                    <div class="form-text small">Si se desactiva, el producto no aparecerá en el catálogo para los clientes.</div>
+                                    <div class="form-text small">Si se desactiva, el producto no aparecerá en el
+                                        catálogo para los clientes.</div>
                                 </div>
                             </div>
                         </div>

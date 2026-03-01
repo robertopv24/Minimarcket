@@ -71,6 +71,11 @@ foreach ($transacciones as $tr) {
                             <p><strong>Estado:</strong> <span
                                     class="badge bg-info text-dark"><?= strtoupper($venta['status']) ?></span></p>
                             <p><strong>Dirección/Nota:</strong> <?= htmlspecialchars($venta['shipping_address']) ?></p>
+                            <?php if (!empty($venta['customer_note'])): ?>
+                                <p><strong>Nota de la Orden:</strong> <span
+                                        class="text-primary fw-bold"><?= htmlspecialchars($venta['customer_note']) ?></span>
+                                </p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -97,10 +102,60 @@ foreach ($transacciones as $tr) {
                                 ?>
                                 <tr>
                                     <td>
-                                        <?= htmlspecialchars($prod['name']) ?>
+                                        <div class="fw-bold text-dark"><?= htmlspecialchars($prod['name']) ?></div>
                                         <?php if ($logic === 'proportional'): ?>
-                                            <span class="badge bg-info text-dark" style="font-size: 0.6em">PROP.</span>
+                                            <span class="badge bg-info text-dark mb-1" style="font-size: 0.6em">PROP.</span>
                                         <?php endif; ?>
+
+                                        <?php
+                                        // Obtener modificadores agrupados por sub-item
+                                        $mods = $orderManager->getItemModifiers($prod['id']);
+                                        $groupedMods = [];
+                                        foreach ($mods as $m) {
+                                            $groupedMods[$m['sub_item_index']][] = $m;
+                                        }
+
+                                        // Recorrer cada unidad del producto
+                                        for ($i = 0; $i < $prod['quantity']; $i++):
+                                            $currentMods = $groupedMods[$i] ?? [];
+                                            $itemNote = "";
+                                            $modsList = [];
+                                            $isTakeaway = false;
+
+                                            foreach ($currentMods as $m) {
+                                                if ($m['modifier_type'] == 'info') {
+                                                    if ($m['is_takeaway'])
+                                                        $isTakeaway = true;
+                                                    if (!empty($m['note']))
+                                                        $itemNote = $m['note'];
+                                                } else {
+                                                    $prefix = match ($m['modifier_type']) {
+                                                        'add' => '<i class="fa fa-plus-circle text-success me-1"></i>',
+                                                        'remove' => '<i class="fa fa-minus-circle text-danger me-1"></i>',
+                                                        'side' => '<i class="fa fa-dot-circle text-info me-1"></i>',
+                                                        default => '• '
+                                                    };
+                                                    $modsList[] = '<div class="ms-3 small">' . $prefix . htmlspecialchars($m['ingredient_name']) . '</div>';
+                                                }
+                                            }
+                                            ?>
+                                            <div class="border-start border-3 ms-2 mb-2 ps-2 py-1 bg-light rounded-end"
+                                                style="border-color: #dee2e6 !important;">
+                                                <div class="small fw-bold text-muted d-flex justify-content-between">
+                                                    <span>Ítem #<?= ($i + 1) ?>
+                                                        <?= $isTakeaway ? '<span class="badge bg-danger p-1 ms-1" style="font-size:0.6rem">LLEVAR</span>' : '<span class="badge bg-primary p-1 ms-1" style="font-size:0.6rem">MESA</span>' ?></span>
+                                                </div>
+
+                                                <?php foreach ($modsList as $ml)
+                                                    echo $ml; ?>
+
+                                                <?php if (!empty($itemNote)): ?>
+                                                    <div class="ms-3 small text-info fw-bold italic"><i
+                                                            class="fa fa-sticky-note me-1"></i> <?= htmlspecialchars($itemNote) ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endfor; ?>
                                     </td>
                                     <td class="text-center"><?= $prod['quantity'] ?></td>
                                     <td class="text-end">$<?= number_format($prod['price'], 2) ?></td>
@@ -145,6 +200,17 @@ foreach ($transacciones as $tr) {
                                             <?php if ($t['type'] == 'expense'): ?>
                                                 <span class="badge bg-danger" style="font-size: 0.6rem;">VUELTO</span>
                                             <?php endif; ?>
+
+                                            <?php if (!empty($t['payment_reference'])): ?>
+                                                <br><small class="text-primary fw-bold">Ref:
+                                                    <?= htmlspecialchars($t['payment_reference']) ?></small>
+                                            <?php endif; ?>
+
+                                            <?php if (!empty($t['sender_name'])): ?>
+                                                <br><small class="text-dark">Remitente:
+                                                    <?= htmlspecialchars($t['sender_name']) ?></small>
+                                            <?php endif; ?>
+
                                             <br>
                                             <small class="text-muted"><?= $t['currency'] ?> (Tasa:
                                                 <?= $t['exchange_rate'] ?>)</small>

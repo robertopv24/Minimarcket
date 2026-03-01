@@ -6,9 +6,11 @@ function renderTicket($orderData)
 {
         $orden = $orderData['info'];
         $items = $orderData['items'];
-        $mins = round((time() - strtotime($orden['created_at'])) / 60);
-        if ($mins < 0)
-                $mins = 0;
+        $diffSeconds = time() - strtotime($orden['created_at']);
+        if ($diffSeconds < 0)
+                $diffSeconds = 0;
+        $mins = floor($diffSeconds / 60);
+        $secs = $diffSeconds % 60;
 
         $bgStatus = ($orden['status'] == 'paid') ? 'status-paid' : 'status-preparing';
         $borderClass = ($mins > 25) ? 'late-warning' : (($mins > 15) ? 'medium-warning' : '');
@@ -17,21 +19,31 @@ function renderTicket($orderData)
                 <div class="ticket-head <?= $bgStatus ?>">
                         <span>#<?= $orden['id'] ?> <small
                                         class="ms-1 opacity-75"><?= strtoupper($orden['cliente']) ?></small></span>
-                        <span><i class="fa-regular fa-clock me-1"></i> <?= $mins ?>m</span>
+                        <span class="kds-timer" data-start-time="<?= strtotime($orden['created_at']) ?>"><i
+                                        class="fa-regular fa-clock me-1"></i> <?= $mins ?>m
+                                <?= str_pad($secs, 2, '0', STR_PAD_LEFT) ?>s</span>
                 </div>
                 <div class="ticket-body">
                         <?php foreach ($items as $it): ?>
                                 <?php if ($it['is_main']): ?>
-                                        <div class="main-item"><?= $it['qty'] ?> x <?= strtoupper($it['name']) ?></div>
+                                        <div class="main-item"># <?= strtoupper($it['name']) ?></div>
                                 <?php endif; ?>
 
                                 <?php if ($it['num'] > 0 || !$it['is_combo']): ?>
                                         <div class="sub-item-card">
                                                 <div class="text-center">
-                                                        <span class="tag <?= $it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein' ?>">
-                                                                <?= $it['is_takeaway'] ? 'LLEVAR' : 'MESA' ?>
+                                                        <?php
+                                                        $cType = $it['consumption_type'] ?? '';
+                                                        $tier = $orden['delivery_tier'] ?? '';
+                                                        $tagText = ($cType === 'delivery') ? 'DELIVERY' : ($it['is_takeaway'] ? 'LLEVAR' : 'MESA');
+                                                        if ($cType === 'delivery' && !empty($tier))
+                                                                $tagText .= " ($tier)";
+                                                        ?>
+                                                        <span
+                                                                class="tag <?= $cType === 'delivery' ? 'tag-delivery' : ($it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein') ?>">
+                                                                <?= $tagText ?>
                                                         </span>
-                                                        <div class="item-num">#<?= $it['num'] ?></div>
+                                                        <div class="item-num">#</div>
                                                         <div class="item-name">(<?= strtoupper($it['name']) ?>)</div>
                                                 </div>
 
@@ -85,6 +97,21 @@ function renderTicket($orderData)
                 padding: 1px 10px;
                 font-size: 0.75rem;
                 letter-spacing: 0.5px;
+        }
+
+        .tag-takeaway {
+                background: #ef4444;
+                color: #fff;
+        }
+
+        .tag-delivery {
+                background: #10b981;
+                color: #fff;
+        }
+
+        .tag-dinein {
+                background: #3b82f6;
+                color: #fff;
         }
 
         .mod-line {

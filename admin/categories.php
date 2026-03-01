@@ -19,9 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $station = $_POST['kitchen_station'] ?? 'kitchen';
         $icon = trim($_POST['icon']) ?: 'fa-tag';
         $desc = trim($_POST['description']);
+        $isVisible = isset($_POST['is_visible']) ? 1 : 0;
 
         if (!empty($name)) {
-            if ($productManager->createCategory($name, $station, $icon, $desc)) {
+            if ($productManager->createCategory($name, $station, $icon, $desc, $isVisible)) {
                 $success = "Categoría creada con éxito.";
             } else {
                 $error = "Error al crear la categoría (podría estar duplicada).";
@@ -33,8 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $station = $_POST['kitchen_station'];
         $icon = trim($_POST['icon']);
         $desc = trim($_POST['description']);
+        $isVisible = isset($_POST['is_visible']) ? 1 : 0;
 
-        if ($productManager->updateCategory($id, $name, $station, $icon, $desc)) {
+        if ($productManager->updateCategory($id, $name, $station, $icon, $desc, $isVisible)) {
             $success = "Categoría actualizada.";
         } else {
             $error = "Error al actualizar.";
@@ -153,6 +155,7 @@ require_once '../templates/menu.php';
                         <th style="width: 50px;">Icono</th>
                         <th>Nombre</th>
                         <th>Descripción</th>
+                        <th class="text-center">Visible</th>
                         <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
@@ -179,6 +182,13 @@ require_once '../templates/menu.php';
                                 </td>
                                 <td class="text-muted small">
                                     <?= htmlspecialchars($c['description'] ?? '') ?>
+                                </td>
+                                <td class="text-center">
+                                    <?php if ($c['is_visible']): ?>
+                                        <span class="badge bg-success"><i class="fa fa-eye me-1"></i> Sí</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary"><i class="fa fa-eye-slash me-1"></i> No</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-end">
                                     <button class="btn btn-sm btn-outline-secondary me-1"
@@ -240,6 +250,12 @@ require_once '../templates/menu.php';
                         <option value="bar">BAR (Bebidas)</option>
                     </select>
                 </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_visible" id="create_visible" checked>
+                        <label class="form-check-label fw-bold" for="create_visible">Visible en Tienda</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -287,6 +303,12 @@ require_once '../templates/menu.php';
                         <option value="bar">BAR</option>
                     </select>
                 </div>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="is_visible" id="edit_visible">
+                        <label class="form-check-label fw-bold" for="edit_visible">Visible en Tienda</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -302,6 +324,7 @@ require_once '../templates/menu.php';
         document.getElementById('edit_name').value = cat.name;
         document.getElementById('edit_station').value = cat.kitchen_station;
         document.getElementById('edit_description').value = cat.description;
+        document.getElementById('edit_visible').checked = cat.is_visible == 1;
         selectIcon('edit', cat.icon || 'fa-tag');
         new bootstrap.Modal(document.getElementById('modalEdit')).show();
     }

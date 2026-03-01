@@ -96,7 +96,13 @@ $ventas = $orderManager->getOrdersBySearchAndFilter($search, $filter);
                                 <?= date('d/m/Y', strtotime($venta['created_at'])) ?><br>
                                 <small class="text-muted"><?= date('h:i A', strtotime($venta['created_at'])) ?></small>
                             </td>
-                            <td><?= htmlspecialchars($venta['customer_name'] ?? 'Cliente General') ?></td>
+                            <td>
+                                <?= htmlspecialchars($venta['customer_name'] ?? 'Cliente General') ?>
+                                <?php if (!empty($venta['customer_note'])): ?>
+                                    <br><small class="text-primary fw-bold"><i class="fa fa-sticky-note"></i>
+                                        <?= htmlspecialchars($venta['customer_note']) ?></small>
+                                <?php endif; ?>
+                            </td>
 
                             <td class="fw-bold fs-5">$<?= number_format($venta['total_price'], 2) ?></td>
 

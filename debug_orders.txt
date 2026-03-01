@@ -1,0 +1,19 @@
+Array
+(
+    [0] => Array
+        (
+            [id] => 67
+            [status] => preparing
+            [total_price] => 13.00
+            [consumption_type] => dine_in
+        )
+
+    [1] => Array
+        (
+            [id] => 68
+            [status] => preparing
+            [total_price] => 13.00
+            [consumption_type] => dine_in
+        )
+
+)

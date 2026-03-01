@@ -13,29 +13,26 @@ if (!isset($_SESSION['user_id']) || $userManager->getUserById($_SESSION['user_id
 $success_message = '';
 $error_message = '';
 
-// 1. Procesar Tasa de Cambio
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_exchange_rate'])) {
+// 2. Procesar Costo de Delivery
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_delivery_cost'])) {
     if (!Csrf::validate($_POST['csrf_token'] ?? '')) {
         die("Error de seguridad: Token CSRF inválido");
     }
-    $newRate = floatval($_POST['new_exchange_rate']);
-    if ($newRate > 0) {
-        if ($config->update('exchange_rate', $newRate)) {
-            if ($productManager->updateAllPricesBasedOnRate($newRate)) {
-                $success_message = "Tasa actualizada a <strong>$newRate</strong>. Precios recalculados.";
-            } else {
-                $error_message = "Tasa guardada, pero error al recalcular precios.";
-            }
+    $newCost = floatval($_POST['delivery_base_cost']);
+    if ($newCost >= 0) {
+        if ($config->update('delivery_base_cost', $newCost)) {
+            $success_message = "Costo base de delivery actualizado a <strong>$newCost</strong>.";
         } else {
-            $error_message = "Error al guardar configuración.";
+            $error_message = "Error al guardar configuración de delivery.";
         }
     } else {
-        $error_message = "La tasa debe ser mayor a 0.";
+        $error_message = "El costo debe ser mayor o igual a 0.";
     }
 }
 
-// 2. OBTENER TODAS LAS MÉTRICAS
+// 3. OBTENER TODAS LAS MÉTRICAS
 $currentRate = $config->get('exchange_rate');
+$deliveryBaseCost = $config->get('delivery_base_cost', 0.00);
 $vaultBalance = $vaultManager->getBalance();
 
 // Métricas de Ventas (Ingresos)
@@ -69,20 +66,36 @@ require_once '../templates/header.php';
             <h2>🚀 Dashboard Principal</h2>
             <p class="text-muted">Resumen de actividad y operaciones</p>
         </div>
-        <!-- Tasa de Cambio -->
-        <form method="POST" class="d-flex gap-2 bg-white p-2 rounded shadow-sm align-items-center">
-            <?= Csrf::insertTokenField() ?>
-            <span class="fw-bold text-muted small">TASA:</span>
-            <div class="input-group input-group-sm" style="width: 150px;">
-                <span class="input-group-text bg-light border-0">$1 =</span>
-                <input type="number" step="0.01" name="new_exchange_rate"
-                    class="form-control border-0 bg-light fw-bold text-center" value="<?= $currentRate ?>">
-                <span class="input-group-text bg-light border-0">Bs</span>
-            </div>
-            <button type="submit" name="update_exchange_rate" class="btn btn-sm btn-primary">
-                <i class="fa fa-save"></i>
-            </button>
-        </form>
+        <!-- Configuraciones -->
+        <div class="d-flex gap-3">
+            <!-- Tasa de Cambio -->
+            <form method="POST" class="d-flex gap-2 bg-white p-2 rounded shadow-sm align-items-center">
+                <?= Csrf::insertTokenField() ?>
+                <span class="fw-bold text-muted small">TASA:</span>
+                <div class="input-group input-group-sm" style="width: 150px;">
+                    <span class="input-group-text bg-light border-0">$1 =</span>
+                    <input type="number" step="0.01" name="new_exchange_rate"
+                        class="form-control border-0 bg-light fw-bold text-center" value="<?= $currentRate ?>">
+                </div>
+                <button type="submit" name="update_exchange_rate" class="btn btn-sm btn-primary">
+                    <i class="fa fa-save"></i>
+                </button>
+            </form>
+
+            <!-- Costo Delivery -->
+            <form method="POST" class="d-flex gap-2 bg-white p-2 rounded shadow-sm align-items-center">
+                <?= Csrf::insertTokenField() ?>
+                <span class="fw-bold text-muted small">DELIVERY (BASE):</span>
+                <div class="input-group input-group-sm" style="width: 150px;">
+                    <span class="input-group-text bg-light border-0">$</span>
+                    <input type="number" step="0.01" name="delivery_base_cost"
+                        class="form-control border-0 bg-light fw-bold text-center" value="<?= $deliveryBaseCost ?>">
+                </div>
+                <button type="submit" name="update_delivery_cost" class="btn btn-sm btn-warning">
+                    <i class="fa fa-truck"></i>
+                </button>
+            </form>
+        </div>
     </div>
 
     <!-- Mensajes de Alerta -->

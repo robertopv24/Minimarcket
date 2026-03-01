@@ -97,7 +97,7 @@ if (!empty($search)) {
     $products = $productManager->getAllProducts($catId, true);
 }
 
-$categories = $productManager->getCategories();
+$categories = $productManager->getCategories(true);
 
 require_once '../templates/header.php';
 ?>
@@ -107,7 +107,7 @@ require_once '../templates/header.php';
     // Colocamos este script aquí arriba para que intercepte clics antes de que termine el renderizado
     document.addEventListener('submit', function (e) {
         if (e.target && e.target.classList.contains('add-to-cart-form')) {
-            e.preventDefault(); 
+            e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
             const submitBtn = form.querySelector('button[type="submit"]');
@@ -160,6 +160,14 @@ require_once '../templates/header.php';
             <button class="btn btn-success shadow-sm" onclick="openDebtModal()">
                 <i class="fa fa-hand-holding-usd"></i> Abonar Crédito
             </button>
+
+            <!-- Botones Pendientes (Nuevos) -->
+            <a href="pedidos_pendientes_delivery.php" class="btn btn-info text-white shadow-sm fw-bold">
+                <i class="fa fa-motorcycle"></i> Pendientes Delivery
+            </a>
+            <a href="cuentas_mesas.php" class="btn btn-warning shadow-sm fw-bold">
+                <i class="fa fa-utensils"></i> Cuentas Mesas
+            </a>
         </div>
     </div>
 
@@ -173,17 +181,50 @@ require_once '../templates/header.php';
                     <small><i class="fa fa-user-circle"></i> Datos del Cliente</small>
                 </div>
                 <div class="card-body py-2 d-flex flex-column justify-content-center">
-                    <div class="input-group input-group-sm">
-                        
-                        <!-- Select2 para buscar cliente AJAX -->
-                        <select id="posClientSelect" class="form-select" style="width: 100%"></select>
-                    </div>
-                    <!-- Info Cliente Activo -->
-                    <div id="posClientInfo" class="mt-2 text-center small fw-bold text-success border-top pt-1"
-                        style="display:none;">
-                        <i class="fa fa-check-circle"></i> Cliente Asignado: <span id="posClientNameDisplay"></span>
-                        <button class="btn btn-link btn-sm text-danger p-0 ms-2" onclick="clearPosClient()"
-                            title="Desvincular"><i class="fa fa-times"></i></button>
+                    <ul class="nav nav-pills nav-justified mb-2" id="buyerTabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active py-0 small" id="tab-client-link" data-bs-toggle="tab"
+                                href="#tab-client-content" role="tab">
+                                <i class="fa fa-user"></i> Cliente
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link py-0 small" id="tab-employee-link" data-bs-toggle="tab"
+                                href="#tab-employee-content" role="tab">
+                                <i class="fa fa-id-badge"></i> Empleado
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- Tab Cliente -->
+                        <div class="tab-pane fade show active" id="tab-client-content" role="tabpanel">
+                            <select id="posClientSelect" class="form-select" style="width: 100%"></select>
+                            <div id="posClientInfo" class="mt-2 text-center small fw-bold text-success border-top pt-1"
+                                style="display:none;">
+                                <i class="fa fa-check-circle"></i> <span id="posClientNameDisplay"></span>
+                                <div id="posClientCreditInfo" class="mt-1 d-flex justify-content-center gap-2">
+                                    <span class="text-info">Lím.: $<span id="posClientLimit">0</span></span>
+                                    <span id="posClientDebtWrapper" class="text-danger">Deu.: $<span
+                                            id="posClientDebt">0</span></span>
+                                </div>
+                                <button class="btn btn-link btn-sm text-danger p-0 ms-2" onclick="clearPosClient()"
+                                    title="Desvincular"><i class="fa fa-times"></i> Limpiar</button>
+                            </div>
+                        </div>
+                        <!-- Tab Empleado -->
+                        <div class="tab-pane fade" id="tab-employee-content" role="tabpanel">
+                            <select id="posEmployeeSelect" class="form-select" style="width: 100%"></select>
+                            <div id="posEmployeeInfo"
+                                class="mt-2 text-center small fw-bold text-warning border-top pt-1"
+                                style="display:none;">
+                                <i class="fa fa-id-card"></i> <span id="posEmployeeNameDisplay"></span>
+                                <div class="text-muted small"><i class="fa fa-briefcase"></i> <span
+                                        id="posEmployeeRole"></span></div>
+                                <button class="btn btn-link btn-sm text-danger p-0 ms-2" onclick="clearPosEmployee()"
+                                    title="Desvincular"><i class="fa fa-times"></i> Limpiar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -302,18 +343,20 @@ require_once '../templates/header.php';
             </div>
             <div class="modal-body">
                 <div class="alert alert-light border small py-2 mb-3">
-                    <i class="fa fa-info-circle text-info"></i> <span id="side-instruction-label">Selecciona hasta <strong id="side-max-count"></strong> opciones.</span>
+                    <i class="fa fa-info-circle text-info"></i> <span id="side-instruction-label">Selecciona hasta
+                        <strong id="side-max-count"></strong> opciones.</span>
                 </div>
-                
+
                 <div class="row">
                     <!-- Columna Izquierda: Opciones Disponibles -->
                     <div class="col-md-6 border-end">
                         <h6 class="text-muted mb-3">Disponibles</h6>
-                        <div id="sides-options-container" class="d-grid gap-2" style="max-height: 400px; overflow-y: auto;">
+                        <div id="sides-options-container" class="d-grid gap-2"
+                            style="max-height: 400px; overflow-y: auto;">
                             <!-- Botones generados dinámicamente -->
                         </div>
                     </div>
-                    
+
                     <!-- Columna Derecha: Tu Selección -->
                     <div class="col-md-6">
                         <h6 class="text-success mb-3">Tu Selección (<span id="current-sides-count">0</span>)</h6>
@@ -328,7 +371,8 @@ require_once '../templates/header.php';
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-info text-white fw-bold" id="btnConfirmSides" onclick="submitSidesForm()">
+                <button type="button" class="btn btn-info text-white fw-bold" id="btnConfirmSides"
+                    onclick="submitSidesForm()">
                     Confirmar y Agregar
                 </button>
             </div>
@@ -402,7 +446,7 @@ require_once '../templates/header.php';
     // --- LÓGICA DE CONTORNOS POS (SHOPPING LIST STYLE) ---
     // --- VARIABLES GLOBALES DE MODALES ---
     let sidesModal, debtModal, newClientModal;
-    
+
     // --- ESTADO GLOBAL ---
     let maxAllowedSides = 0;
     let selectedSides = [];
@@ -419,15 +463,15 @@ require_once '../templates/header.php';
 
     function openSidesModal(productId, maxSides) {
         maxAllowedSides = maxSides;
-        selectedSides = []; 
+        selectedSides = [];
         availableSides = [];
-        
+
         document.getElementById('side-product-id').value = productId;
         document.getElementById('side-max-count').textContent = maxSides;
-        
+
         const container = document.getElementById('sides-options-container');
         container.innerHTML = '<div class="text-center py-4"><i class="fa fa-spinner fa-spin fa-2x text-muted"></i></div>';
-        
+
         updateSelectionUI();
         sidesModal.show();
 
@@ -439,7 +483,7 @@ require_once '../templates/header.php';
                     sidesModal.hide();
                     return;
                 }
-                
+
                 if (data.sides.length === 0) {
                     container.innerHTML = '<div class="alert alert-warning">No hay opciones configuradas.</div>';
                     return;
@@ -484,7 +528,7 @@ require_once '../templates/header.php';
             setTimeout(() => countSpan.classList.remove('text-danger', 'fw-bolder'), 300);
             return;
         }
-        selectedSides.push({...side});
+        selectedSides.push({ ...side });
         updateSelectionUI();
     }
 
@@ -497,7 +541,7 @@ require_once '../templates/header.php';
         const list = document.getElementById('sides-selection-list');
         const countSpan = document.getElementById('current-sides-count');
         const placeholder = document.getElementById('selection-placeholder');
-        
+
         list.innerHTML = '';
         countSpan.textContent = `${selectedSides.length} / ${maxAllowedSides}`;
 
@@ -541,12 +585,12 @@ require_once '../templates/header.php';
 
         // Generar inputs: sides[0][id], sides[1][id]...
         selectedSides.forEach((s, index) => {
-           hiddenContainer.innerHTML += `
+            hiddenContainer.innerHTML += `
                <input type="hidden" name="sides[${index}][id]" value="${s.component_id}">
                <input type="hidden" name="sides[${index}][type]" value="${s.component_type}">
                <input type="hidden" name="sides[${index}][qty]" value="${s.quantity}">
                <input type="hidden" name="sides[${index}][price]" value="${s.price_override}">
-           `; 
+           `;
         });
 
         form.submit();
@@ -658,36 +702,55 @@ require_once '../templates/header.php';
                 },
                 processResults: function (data) {
                     return {
-                        results: $.map(data, function (item) {
-                            return {
-                                text: item.name + ' (' + item.document_id + ')',
-                                id: item.id
-                            }
-                        })
+                        results: data.map(c => ({ id: c.id, text: c.name + ' (' + c.document_id + ')' }))
                     };
                 },
                 cache: true
-            }
+            },
+            minimumInputLength: 2
         });
 
-        // 2. Cargar cliente pre-seleccionado (si hay en sesión)
-        <?php if (isset($_SESSION['pos_client_id'])): ?>
-            let option = new Option('<?= $_SESSION['pos_client_name'] ?>', '<?= $_SESSION['pos_client_id'] ?>', true, true);
-            $('#posClientSelect').append(option).trigger('change');
-            updateClientUI('<?= $_SESSION['pos_client_name'] ?>');
-        <?php endif; ?>
-
-        // 3. Evento Selección
         $('#posClientSelect').on('select2:select', function (e) {
-            var data = e.params.data;
-            setPosClient(data.id);
-            updateClientUI(data.text);
+            setPosClient(e.params.data.id);
         });
 
-        $('#posClientSelect').on('select2:unselect', function (e) {
-            setPosClient(null); // Quitar cliente
-            $('#posClientInfo').hide();
+        // 2. Inicializar Select2 para Empleados
+        $('#posEmployeeSelect').select2({
+            placeholder: 'Buscar Empleado (Nombre/Doc)...',
+            allowClear: true,
+            ajax: {
+                url: 'ajax/search_employees.php',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term };
+                },
+                processResults: function (data) {
+                    return {
+                        results: data.map(u => ({ id: u.id, text: u.name + ' (' + (u.job_role || 'Empleado') + ')' }))
+                    };
+                },
+                cache: true
+            },
+            minimumInputLength: 2
         });
+
+        $('#posEmployeeSelect').on('select2:select', function (e) {
+            setPosEmployee(e.params.data.id);
+        });
+
+        // 3. Cargar datos pre-seleccionados de sesión
+        <?php if (isset($_SESSION['pos_client_id'])): ?>
+            let optC = new Option('<?= $_SESSION['pos_client_name'] ?>', '<?= $_SESSION['pos_client_id'] ?>', true, true);
+            $('#posClientSelect').append(optC).trigger('change');
+            setPosClient('<?= $_SESSION['pos_client_id'] ?>');
+        <?php elseif (isset($_SESSION['pos_employee_id'])): ?>
+            let optE = new Option('<?= $_SESSION['pos_employee_name'] ?>', '<?= $_SESSION['pos_employee_id'] ?>', true, true);
+            $('#posEmployeeSelect').append(optE).trigger('change');
+            setPosEmployee('<?= $_SESSION['pos_employee_id'] ?>');
+            // Activar pestaña empleado
+            $('#tab-employee-link').tab('show');
+        <?php endif; ?>
     });
 
     function setPosClient(id) {
@@ -695,22 +758,72 @@ require_once '../templates/header.php';
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ client_id: id })
-        });
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.client) updateClientUI(data.client);
+                    // Si seleccionamos cliente, desvinculamos empleado para evitar conflictos
+                    if (id) clearPosEmployee(false);
+                }
+            });
     }
 
-    function updateClientUI(name) {
-        if (name) {
-            $('#posClientNameDisplay').text(name);
+    function setPosEmployee(id) {
+        fetch('ajax/set_pos_employee.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ employee_id: id })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.employee) updateEmployeeUI(data.employee);
+                    // Si seleccionamos empleado, desvinculamos cliente
+                    if (id) clearPosClient(false);
+                }
+            });
+    }
+
+    function updateClientUI(client) {
+        if (client && client.name) {
+            $('#posClientNameDisplay').text(client.name);
+            $('#posClientLimit').text(parseFloat(client.credit_limit).toFixed(2));
+            $('#posClientDebt').text(parseFloat(client.current_debt).toFixed(2));
+
+            // Si la deuda excede el límite, resaltar en rojo fuerte
+            if (parseFloat(client.current_debt) >= parseFloat(client.credit_limit) && parseFloat(client.credit_limit) > 0) {
+                $('#posClientDebtWrapper').addClass('fw-bold bg-danger text-white px-2 rounded');
+            } else {
+                $('#posClientDebtWrapper').removeClass('fw-bold bg-danger text-white px-2 rounded').addClass('text-danger');
+            }
+
             $('#posClientInfo').fadeIn();
         } else {
             $('#posClientInfo').hide();
         }
     }
 
-    function clearPosClient() {
+    function updateEmployeeUI(emp) {
+        if (emp && emp.name) {
+            $('#posEmployeeNameDisplay').text(emp.name);
+            $('#posEmployeeRole').text(emp.job_role);
+            $('#posEmployeeInfo').fadeIn();
+        } else {
+            $('#posEmployeeInfo').hide();
+        }
+    }
+
+    function clearPosClient(triggerAjax = true) {
         $('#posClientSelect').val(null).trigger('change');
-        setPosClient(null);
+        if (triggerAjax) setPosClient(null);
         $('#posClientInfo').hide();
+    }
+
+    function clearPosEmployee(triggerAjax = true) {
+        $('#posEmployeeSelect').val(null).trigger('change');
+        if (triggerAjax) setPosEmployee(null);
+        $('#posEmployeeInfo').hide();
     }
 
     // --- NUEVO CLIENTE EXPRESS ---
@@ -776,11 +889,13 @@ require_once '../templates/header.php';
     // --- VALIDACIÓN DE ACCESO AL CARRITO ---
     function goToCart() {
         const clientId = $('#posClientSelect').val();
-        if (!clientId) {
+        const empId = $('#posEmployeeSelect').val();
+
+        if (!clientId && !empId) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
-                text: 'Debes seleccionar un CLIENTE antes de ir al carrito.'
+                text: 'Debes seleccionar un CLIENTE o EMPLEADO antes de ir al carrito para habilitar Crédito/Beneficio.'
             });
             return;
         }

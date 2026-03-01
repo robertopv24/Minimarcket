@@ -16,7 +16,7 @@ class OrderManager
      * 1. CREAR ORDEN (CON PROTECCIÓN DE TRANSACCIÓN)
      * Transfiere la configuración exacta a la orden, respetando transacciones externas.
      */
-    public function createOrder($user_id, $items, $shipping_address, $shipping_method = null)
+    public function createOrder($user_id, $items, $shipping_address, $shipping_method = null, $delivery_tier = null, $customerNote = null)
     {
         // Detectar si ya estamos dentro de una transacción (ej: desde process_checkout.php)
         $inTransaction = $this->db->inTransaction();
@@ -37,9 +37,27 @@ class OrderManager
             // Obtener tasa de cambio actual
             $exchange_rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1.0000;
 
-            // Insertar la cabecera de la orden (Agregamos exchange_rate)
-            $stmt = $this->db->prepare("INSERT INTO orders (user_id, total_price, exchange_rate, shipping_address, shipping_method, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW())");
-            $stmt->execute([$user_id, $total_price, $exchange_rate, $shipping_address, $shipping_method]);
+            // Insertar la cabecera de la orden
+            $sql = "INSERT INTO orders (user_id, client_id, employee_id, total_price, exchange_rate, shipping_address, customer_note, shipping_method, consumption_type, delivery_tier, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())";
+            $stmt = $this->db->prepare($sql);
+
+            // Determinar si es cliente o empleado
+            $clientId = $items[0]['client_id'] ?? null;
+            $empId = $items[0]['employee_id'] ?? null;
+
+            $stmt->execute([
+                $user_id,
+                $clientId,
+                $empId,
+                $total_price,
+                $exchange_rate,
+                $shipping_address,
+                $customerNote,
+                $shipping_method,
+                $items[0]['consumption_type'] ?? 'dine_in',
+                $delivery_tier
+            ]);
             $order_id = $this->db->lastInsertId();
 
             // Preparar consultas para Ítems (Agregamos cost_at_sale)
@@ -59,7 +77,7 @@ class OrderManager
             foreach ($items as $item) {
                 $price = $item['unit_price_final'] ?? $item['price'];
                 $cost_at_sale = $productManager->calculateProductCost($item['product_id']);
-                
+
                 // El tipo global se puede dejar como dine_in, la verdad granular está en los modificadores
                 $cType = $item['consumption_type'] ?? 'dine_in';
 
@@ -78,6 +96,29 @@ class OrderManager
             if (!$inTransaction) {
                 $this->db->commit();
             }
+
+            // REGISTRO DE TRACABILIDAD INICIAL POR ESTACIÓN
+            $stations = [];
+            foreach ($items as $item) {
+                $pInfo = $productManager->getProductById($item['product_id']);
+                if ($pInfo && !empty($pInfo['kitchen_station'])) {
+                    $stations[] = $pInfo['kitchen_station'];
+                }
+                // Si es combo, revisar estaciones de componentes
+                if (($item['product_type'] ?? '') === 'compound') {
+                    $comps = $productManager->getProductComponents($item['product_id']);
+                    foreach ($comps as $c) {
+                        $st = $c['category_station'] ?? $c['kitchen_station'] ?? '';
+                        if ($st)
+                            $stations[] = $st;
+                    }
+                }
+            }
+            $stations = array_unique($stations);
+            foreach ($stations as $st) {
+                $this->logStatusMilestone($order_id, $st, 'received');
+            }
+
             return $order_id;
 
         } catch (PDOException $e) {
@@ -86,6 +127,57 @@ class OrderManager
                 $this->db->rollBack();
             }
             // Re-lanzamos la excepción para que el padre (process_checkout) maneje el error global
+            throw $e;
+        }
+    }
+
+    /**
+     * 1b. AÑADIR ÍTEMS A UNA ORDEN EXISTENTE
+     * Útil para consolidar pedidos de la misma mesa.
+     */
+    public function addItemsToOrder($orderId, $items)
+    {
+        $inTransaction = $this->db->inTransaction();
+        try {
+            if (!$inTransaction)
+                $this->db->beginTransaction();
+
+            $newItemsTotal = 0;
+            $exchange_rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1.0000;
+
+            $stmtItem = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, cost_at_sale, consumption_type) VALUES (?, ?, ?, ?, ?, ?)");
+            $sqlCopyMods = "INSERT INTO order_item_modifiers
+                            (order_item_id, modifier_type, component_id, component_type, quantity_adjustment, price_adjustment_usd, note, sub_item_index, is_takeaway)
+                            SELECT ?, modifier_type, component_id, component_type, quantity_adjustment, price_adjustment, note, sub_item_index, is_takeaway
+                            FROM cart_item_modifiers
+                            WHERE cart_id = ?";
+            $stmtCopy = $this->db->prepare($sqlCopyMods);
+            $productManager = new ProductManager($this->db);
+
+            foreach ($items as $item) {
+                $price = $item['unit_price_final'] ?? $item['price'];
+                $cost_at_sale = $productManager->calculateProductCost($item['product_id']);
+                $cType = $item['consumption_type'] ?? 'dine_in';
+
+                $stmtItem->execute([$orderId, $item['product_id'], $item['quantity'], $price, $cost_at_sale, $cType]);
+                $order_item_id = $this->db->lastInsertId();
+
+                if (isset($item['id'])) {
+                    $stmtCopy->execute([$order_item_id, $item['id']]);
+                }
+                $newItemsTotal += $price * $item['quantity'];
+            }
+
+            // Actualizar total de la orden
+            $stmtUpdate = $this->db->prepare("UPDATE orders SET total_price = total_price + ? WHERE id = ?");
+            $stmtUpdate->execute([$newItemsTotal, $orderId]);
+
+            if (!$inTransaction)
+                $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            if (!$inTransaction)
+                $this->db->rollBack();
             throw $e;
         }
     }
@@ -125,8 +217,11 @@ class OrderManager
             // 1. Procesar el producto principal
             $this->processProductDeduction($item['product_id'], $item['quantity'], $item['order_item_id'], null, $isReversion);
 
-            // 2. Procesar el empaque
-            $this->processPackagingDeduction($item['product_id'], $item['quantity'], $isReversion);
+            // 2. Procesar el empaque (Solo si es Para Llevar o Delivery)
+            $cType = $item['consumption_type'] ?? 'dine_in';
+            if ($cType === 'takeaway' || $cType === 'delivery') {
+                $this->processPackagingDeduction($item['product_id'], $item['quantity'], $isReversion);
+            }
         }
     }
 
@@ -190,10 +285,10 @@ class OrderManager
                     // Instanciamos ProductManager para buscar la receta exacta
                     $pm = new ProductManager($this->db);
                     $recipeData = $pm->getCompanionRecipe($originCompanionId);
-                    
+
                     // Si es custom, usamos esa. Si es original, $customComponents sigue null y usa lógica estándar
                     if ($recipeData['type'] === 'custom') {
-                        $customComponents = $recipeData['components']; 
+                        $customComponents = $recipeData['components'];
                         // OJO: La estructura retornada por getCompanionRecipe ya viene normalizada
                     }
                 }
@@ -331,7 +426,7 @@ class OrderManager
     private function updateStock($table, $id, $qty, $isReversion = false)
     {
         $field = ($table == 'raw_materials') ? 'stock_quantity' : 'stock';
-        
+
         if ($isReversion) {
             // En reversión simplemente sumamos, no hace falta check de negativo
             $sql = "UPDATE {$table} SET {$field} = {$field} + ? WHERE id = ?";
@@ -353,7 +448,35 @@ class OrderManager
     public function updateOrderStatus($id, $status, $tracking_number = null)
     {
         $stmt = $this->db->prepare("UPDATE orders SET status = ?, tracking_number = ?, updated_at = NOW() WHERE id = ?");
-        return $stmt->execute([$status, $tracking_number, $id]);
+        $res = $stmt->execute([$status, $tracking_number, $id]);
+
+        // Autoregistro de hitos globales
+        if (in_array($status, ['preparing', 'ready', 'delivered'])) {
+            $this->logStatusMilestone($id, 'system', $status);
+
+            // Si entregamos, nos aseguramos que todas las estaciones queden como 'ready' en el log
+            if ($status === 'delivered') {
+                $items = $this->getOrderItems($id);
+                $stations = [];
+                foreach ($items as $item) {
+                    $pInfo = (new ProductManager($this->db))->getProductById($item['product_id']);
+                    if ($pInfo && !empty($pInfo['kitchen_station']))
+                        $stations[] = $pInfo['kitchen_station'];
+                }
+                $stations = array_unique($stations);
+
+                foreach ($stations as $st) {
+                    // Verificar si ya tiene un 'ready'
+                    $check = $this->db->prepare("SELECT id FROM order_time_log WHERE order_id = ? AND station = ? AND event_type = 'ready'");
+                    $check->execute([$id, $st]);
+                    if (!$check->fetch()) {
+                        $this->logStatusMilestone($id, $st, 'ready');
+                    }
+                }
+            }
+        }
+
+        return $res;
     }
 
     public function getOrderById($id)
@@ -491,6 +614,78 @@ class OrderManager
         $query = "SELECT COUNT(*) AS total FROM orders WHERE DATE(created_at) = CURDATE() AND (status = 'paid' OR status = 'delivered' OR status = 'pending')";
         $stmt = $this->db->query($query);
         return $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    }
+
+    /**
+     * REGISTRO DE TRACABILIDAD DE TIEMPOS (PRODUCTIVIDAD)
+     * @param int $orderId ID de la orden
+     * @param string $station Estación ('kitchen', 'pizza', 'bar', 'system', etc)
+     * @param string $eventType Evento ('received', 'preparing', 'ready', 'delivered')
+     */
+    public function logStatusMilestone($orderId, $station, $eventType)
+    {
+        try {
+            $stmt = $this->db->prepare("INSERT INTO order_time_log (order_id, station, event_type, created_at) VALUES (?, ?, ?, NOW())");
+            $stmt->execute([$orderId, $station, $eventType]);
+
+            // Si el evento es 'delivered', actualizamos también la tabla orders
+            if ($eventType === 'delivered') {
+                $this->db->prepare("UPDATE orders SET delivered_at = NOW(), status = 'delivered' WHERE id = ?")->execute([$orderId]);
+            }
+            return true;
+        } catch (PDOException $e) {
+            error_log("Error logging status milestone: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Obtener órdenes activas para el monitor KDS con filtrado opcional por estación.
+     */
+    public function getKDSOrders($station = null)
+    {
+        $sql = "SELECT o.id, o.created_at, o.status, o.shipping_address, 
+                       o.kds_kitchen_ready, o.kds_pizza_ready,
+                       o.kds_kitchen_preparing, o.kds_pizza_preparing, o.delivery_tier,
+                       o.client_id, o.employee_id, o.consumption_type,
+                       u_creator.name as fallback_name,
+                       c.name as client_name,
+                       u_emp.name as employee_name
+                FROM orders o
+                JOIN users u_creator ON o.user_id = u_creator.id
+                LEFT JOIN clients c ON o.client_id = c.id
+                LEFT JOIN users u_emp ON o.employee_id = u_emp.id
+                WHERE o.status IN ('paid', 'preparing', 'ready')
+                ORDER BY o.created_at ASC";
+
+        $stmt = $this->db->query($sql);
+        $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($orders as &$o) {
+            // Procesar nombre del cliente
+            if (!empty($o['employee_name'])) {
+                $o['cliente_display'] = "EMP: " . $o['employee_name'];
+            } elseif (!empty($o['client_name'])) {
+                $o['cliente_display'] = $o['client_name'] . " (C)";
+            } else {
+                $o['cliente_display'] = $o['fallback_name'];
+            }
+
+            // Flags de estación actual
+            $o['is_ready_here'] = ($station === 'kitchen') ? $o['kds_kitchen_ready'] : (($station === 'pizza') ? $o['kds_pizza_ready'] : false);
+            $o['is_prep_here'] = ($station === 'kitchen') ? $o['kds_kitchen_preparing'] : (($station === 'pizza') ? $o['kds_pizza_preparing'] : false);
+
+            // Filtrar si ya está lista en esta estación
+            if ($station && $o['is_ready_here']) {
+                $o['skip'] = true;
+                continue;
+            }
+            $o['skip'] = false;
+        }
+
+        return array_filter($orders, function ($o) {
+            return !$o['skip'];
+        });
     }
 }
 ?>

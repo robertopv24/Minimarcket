@@ -22,7 +22,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($client) {
         $_SESSION['pos_client_id'] = $client['id'];
         $_SESSION['pos_client_name'] = $client['name'];
-        echo json_encode(['success' => true, 'message' => 'Cliente seleccionado']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Cliente seleccionado',
+            'client' => [
+                'id' => $client['id'],
+                'name' => $client['name'],
+                'credit_limit' => $client['credit_limit'],
+                'current_debt' => $client['current_debt']
+            ]
+        ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Cliente no encontrado']);
     }

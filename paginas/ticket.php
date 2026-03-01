@@ -94,7 +94,13 @@ $customerTicket .= center("ORDEN #" . str_pad($orderId, 6, '0', STR_PAD_LEFT)) .
 $customerTicket .= center(date('d/m/Y h:i A', strtotime($order['created_at']))) . EOL;
 $customerTicket .= EOL;
 $customerTicket .= "CAJERO : " . clean(substr($order['customer_name'], 0, 20)) . EOL;
-$customerTicket .= "CLIENTE: " . clean(substr($order['shipping_address'] ?? 'MOSTRADOR', 0, 20)) . EOL;
+$displayClient = (!empty($order['shipping_address']) && $order['shipping_address'] !== 'Tienda Física')
+    ? preg_replace('/DELIVERY \([A-Z]\): /i', '', $order['shipping_address'])
+    : 'MOSTRADOR';
+$customerTicket .= "CLIENTE: " . clean(substr($displayClient, 0, 20)) . EOL;
+if (($order['consumption_type'] ?? '') === 'delivery' && !empty($order['delivery_tier'])) {
+    $customerTicket .= "SERVICIO: DELIVERY (" . $order['delivery_tier'] . ")" . EOL;
+}
 $customerTicket .= line();
 
 $customerTicket .= "CANT DESCRIPCION           TOTAL" . EOL;
@@ -160,6 +166,11 @@ if ($changeTx) {
     $customerTicket .= row("SU CAMBIO:", "$0.00") . EOL;
 }
 
+if (!empty($order['customer_note'])) {
+    $customerTicket .= line();
+    $customerTicket .= "NOTA: " . clean($order['customer_note']) . EOL;
+}
+
 $customerTicket .= EOL;
 $customerTicket .= center("*** GRACIAS POR SU COMPRA ***") . EOL;
 $customerTicket .= EOL . EOL;
@@ -194,11 +205,22 @@ $kitchenTicket .= EOL;
 $kitchenTicket .= center("- - - CORTE COCINA - - -") . EOL;
 $kitchenTicket .= EOL;
 $kitchenTicket .= center("ORDEN #" . $orderId) . EOL;
-$kitchenTicket .= center(clean(substr($order['shipping_address'] ?? '', 0, 30))) . EOL;
+$displayClientKitchen = (!empty($order['shipping_address']) && $order['shipping_address'] !== 'Tienda Física')
+    ? preg_replace('/DELIVERY \([A-Z]\): /i', '', $order['shipping_address'])
+    : 'MOSTRADOR';
+$kitchenTicket .= center(clean(substr($displayClientKitchen, 0, 30))) . EOL;
+
+if (($order['consumption_type'] ?? '') === 'delivery' && !empty($order['delivery_tier'])) {
+    $kitchenTicket .= center("DELIVERY (" . $order['delivery_tier'] . ")") . EOL;
+}
+
 $kitchenTicket .= line();
 
 $useShortCodes = ($GLOBALS['config']->get('kds_use_short_codes', '0') == '1');
 foreach ($items as $item) {
+    if (strpos(strtoupper($item['name']), 'SERVICIO DELIVERY') !== false) {
+        continue;
+    }
     $mods = $orderManager->getItemModifiers($item['id']);
     $groupedMods = [];
     foreach ($mods as $m) {
@@ -260,28 +282,50 @@ foreach ($items as $item) {
         $currentMods = $groupedMods[$i] ?? [];
         $isTakeaway = false;
         foreach ($currentMods as $m) {
-            if ($m['modifier_type'] == 'info' && $m['is_takeaway'] == 1)
+            if ($m['modifier_type'] == 'info' && ($m['is_takeaway'] == 1 || ($m['ingredient_name'] ?? '') == '[LLEVAR]'))
                 $isTakeaway = true;
         }
 
-        $tag = $isTakeaway ? '[LLEVAR]' : '[LOCAL]';
-        $componentLabel = isset($subNames[$i]) ? " ** (" . clean($subNames[$i]) . ")" : '';
+        $orderType = $order['consumption_type'] ?? 'dine_in';
+        $cTypeItem = $item['consumption_type'] ?? 'dine_in';
 
+        $tag = '[LOCAL]';
+        if ($orderType === 'delivery' || $cTypeItem === 'delivery') {
+            $tag = '[DELIVERY]';
+        } elseif ($isTakeaway || $cTypeItem === 'takeaway' || $orderType === 'takeaway') {
+            $tag = '[LLEVAR]';
+        }
+
+        $componentLabel = isset($subNames[$i]) ? " ** (" . clean($subNames[$i]) . ")" : '';
         $kitchenTicket .= "   $tag #" . ($i + 1) . $componentLabel . EOL;
 
+        // IMPRIMIR NOTA INDEPENDIENTE SI EXISTE
         foreach ($currentMods as $m) {
-            if ($m['modifier_type'] == 'remove') {
-                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
-                $kitchenTicket .= "     -- " . clean($mName) . EOL;
-            } elseif ($m['modifier_type'] == 'side') {
-                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
-                $kitchenTicket .= "     ** " . clean($mName) . EOL;
-            } elseif ($m['modifier_type'] == 'add') {
-                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
-                $kitchenTicket .= "     ++ " . clean($mName) . EOL;
+            if ($m['modifier_type'] == 'info' && !empty($m['note'])) {
+                $kitchenTicket .= "    ! " . clean($m['note']) . EOL;
             }
         }
 
+        foreach ($currentMods as $m) {
+            // Saltamos modificadores de información de delivery que ya están en el tag
+            if ($m['modifier_type'] == 'info' && preg_match('/^\[[A-Z]\]$/', $m['ingredient_name'] ?? '')) {
+                continue;
+            }
+
+            $prefix = match ($m['modifier_type']) {
+                'remove' => '     -- ',
+                'side' => '     ** ',
+                'add' => '     ++ ',
+                default => '     >> '
+            };
+
+            if ($m['modifier_type'] !== 'info') {
+                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                $kitchenTicket .= $prefix . clean($mName) . EOL;
+            }
+        }
+
+        // Notas específicas del ítem
         if ($i == 0) {
             foreach ($mods as $gm) {
                 if ($gm['sub_item_index'] == -1 && $gm['modifier_type'] == 'info' && !empty($gm['note'])) {
@@ -289,9 +333,8 @@ foreach ($items as $item) {
                 }
             }
         }
-        $kitchenTicket .= EOL;
     }
-    $kitchenTicket .= str_repeat("=", WIDTH) . EOL;
+    $kitchenTicket .= str_repeat("-", WIDTH) . EOL;
 }
 $kitchenTicket .= ".";
 $kitchenTicket .= EOL;
@@ -409,7 +452,7 @@ require_once '../templates/menu.php';
                 <button onclick="printSelect('customer')" class="btn btn-primary btn-lg w-100 mb-2">
                     <i class="fa fa-print"></i> Imprimir (Windows)
                 </button>
-                
+
             </div>
         </div>
 
@@ -423,7 +466,7 @@ require_once '../templates/menu.php';
                 <button onclick="printSelect('kitchen')" class="btn btn-primary btn-lg w-100 mb-2">
                     <i class="fa fa-print"></i> Imprimir (Windows)
                 </button>
-               
+
             </div>
         </div>
     </div>

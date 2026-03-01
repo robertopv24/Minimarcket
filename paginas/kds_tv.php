@@ -14,10 +14,15 @@ $userManager->requireKitchenAccess($_SESSION);
 $refreshSeconds = $config->get('kds_refresh_interval', 30);
 $colorLlevar = $config->get('kds_color_llevar', '#ef4444');
 $colorLocal = $config->get('kds_color_local', '#3b82f6');
+$colorDelivery = $config->get('kds_color_delivery', '#10b981');
 $warningMedium = $config->get('kds_warning_time_medium', 15);
 $warningLate = $config->get('kds_warning_time_late', 25);
+$colorWarningMedium = $config->get('kds_color_warning_medium', '#3b82f6');
+$colorWarningLate = $config->get('kds_color_warning_late', '#ef4444');
+$colorPreparing = $config->get('kds_color_preparing', '#f59e0b');
 $soundEnabled = $config->get('kds_sound_enabled', '1');
 $useShortCodes = ($config->get('kds_use_short_codes', '0') == '1');
+$useSimpleFlow = ($config->get('kds_simple_flow', '0') == '1');
 
 // Nuevos colores
 $colorCardBg = $config->get('kds_color_card_bg', '#ffffff');
@@ -26,209 +31,17 @@ $colorModAdd = $config->get('kds_color_mod_add', '#198754');
 $colorModRemove = $config->get('kds_color_mod_remove', '#dc3545');
 $colorModSide = $config->get('kds_color_mod_side', '#0dcaf0');
 $colorProductName = $config->get('kds_product_name_color', '#ffffff');
-$soundUrl = '../assets/sounds/ping_a.mp3'; // Standardizing to known working sound
+$soundUrl = '../assets/sounds/ping_a.mp3';
 ?>
 <?php
-// 1. OBTENER ÓRDENES (Paid o Preparing)
-$sql = "SELECT o.id, o.created_at, o.status, u.name as cliente, o.shipping_address, 
-               o.kds_kitchen_ready, o.kds_pizza_ready
-        FROM orders o
-        JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('paid', 'preparing', 'ready')
-        ORDER BY o.created_at ASC";
+require_once '../funciones/KDSController.php';
 
-$stmt = $db->query($sql);
-$ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$listaPizza = getKDSData('pizza');
+$listaCocina = getKDSData('kitchen');
 
-// 2. PROCESAMIENTO UNIFICADO
-$listaPizza = [];
-$listaCocina = [];
-
-foreach ($ordenes as $orden) {
-    $items = $orderManager->getOrderItems($orden['id']);
-    $itemsParaPizza = [];
-    $itemsParaCocina = [];
-
-    foreach ($items as $item) {
-        $pInfo = $productManager->getProductById($item['product_id']);
-
-        if (!$pInfo || empty($pInfo['kitchen_station']))
-            continue;
-
-        $mods = $orderManager->getItemModifiers($item['id']);
-        $groupedMods = [];
-        foreach ($mods as $m)
-            $groupedMods[$m['sub_item_index']][] = $m;
-
-        $isCompound = ($item['product_type'] == 'compound');
-
-        // 2. OBTENER COMPONENTES DE COMBO
-        $subItems = [];
-        if ($isCompound) {
-            $comps = $productManager->getProductComponents($item['product_id']);
-            foreach ($comps as $c) {
-                $compData = null;
-                if ($c['component_type'] == 'product') {
-                    $compData = $productManager->getProductById($c['component_id']);
-                } elseif ($c['component_type'] == 'manufactured') {
-                    $stmtM = $db->prepare("SELECT kitchen_station, name, short_code FROM manufactured_products WHERE id = ?");
-                    $stmtM->execute([$c['component_id']]);
-                    $compData = $stmtM->fetch(PDO::FETCH_ASSOC);
-                }
-
-                for ($k = 0; $k < $c['quantity']; $k++) {
-                    $subItems[] = [
-                        'name' => ($useShortCodes && !empty($compData['short_code'])) ? $compData['short_code'] : ($compData['name'] ?? 'ITEM'),
-                        'station' => $compData['category_station'] ?? $compData['kitchen_station'] ?? ''
-                    ];
-                }
-            }
-        }
-
-        // AÑADIR HEADER (is_main)
-        $mainItem = [
-            'qty' => $item['quantity'],
-            'name' => ($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name'],
-            'is_main' => true,
-            'mods' => [],
-            'num' => 0,
-            'is_takeaway' => false
-        ];
-
-        // Decidir en qué lista poner el header (o en ambas)
-        $pStation = $pInfo['category_station'] ?? $pInfo['kitchen_station'];
-        $hasForPizza = false;
-        $hasForKitchen = false;
-
-        if (!$isCompound) {
-            if ($pStation == 'pizza')
-                $hasForPizza = true;
-            if ($pStation == 'kitchen')
-                $hasForKitchen = true;
-        } else {
-            foreach ($subItems as $si) {
-                if ($si['station'] == 'pizza')
-                    $hasForPizza = true;
-                if ($si['station'] == 'kitchen')
-                    $hasForKitchen = true;
-            }
-        }
-
-        if ($hasForPizza && !$orden['kds_pizza_ready'])
-            $itemsParaPizza[] = $mainItem;
-        if ($hasForKitchen && !$orden['kds_kitchen_ready'])
-            $itemsParaCocina[] = $mainItem;
-
-        // 3. DETERMINAR BUCLE DE ÍTEMS / COMPONENTES
-        $maxIdx = $isCompound ? count($subItems) : $item['quantity'];
-        foreach (array_keys($groupedMods) as $idx)
-            if ($idx >= $maxIdx)
-                $maxIdx = $idx + 1;
-
-        for ($i = 0; $i <= $maxIdx; $i++) {
-            $currentMods = $groupedMods[$i] ?? [];
-            if (empty($currentMods) && $isCompound && !isset($subItems[$i]))
-                continue;
-            if (empty($currentMods) && !$isCompound && $i > 0)
-                continue;
-
-            $isTakeaway = false;
-            foreach ($currentMods as $m)
-                if ($m['modifier_type'] == 'info' && $m['is_takeaway'] == 1)
-                    $isTakeaway = true;
-
-            // Ordenar modificadores: 1. Side (**), 2. Add (++), 3. Remove (--)
-            usort($currentMods, function ($a, $b) {
-                $order = ['side' => 1, 'add' => 2, 'remove' => 3];
-                $va = $order[$a['modifier_type']] ?? 99;
-                $vb = $order[$b['modifier_type']] ?? 99;
-                return $va <=> $vb;
-            });
-
-            $modsList = [];
-            foreach ($currentMods as $m) {
-                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
-                $type = strtolower($m['modifier_type'] ?? '');
-
-                if ($type == 'remove') {
-                    $modsList[] = '<span style="color: var(--mod-remove);">-- ' . strtoupper($mName ?? '') . '</span>';
-                } elseif ($type == 'add') {
-                    $modsList[] = '<span style="color: var(--mod-add);">++ ' . strtoupper($mName ?? '') . '</span>';
-                } elseif ($type != 'info') {
-                    // Fallback para 'side' y cualquier otro tipo personalizado
-                    $modsList[] = '<span style="color: var(--mod-side);">** ' . strtoupper($mName ?? '') . '</span>';
-                }
-            }
-
-            $compName = "";
-            if ($isCompound && isset($subItems[$i])) {
-                $compName = $subItems[$i]['name'];
-                $compStation = $subItems[$i]['station'];
-            } else {
-                $compStation = $pStation;
-            }
-
-            $compStation = strtolower($compStation);
-            if (!in_array($compStation, ['pizza', 'kitchen']))
-                continue;
-
-            $processedSub = [
-                'num' => $i + 1,
-                'name' => $compName ?: "",
-                'station' => $compStation,
-                'is_main' => false,
-                'is_takeaway' => $isTakeaway,
-                'mods' => $modsList,
-                'note' => ($i == 0 || $i == -1) ? ($groupedMods[-1][0]['note'] ?? "") : ""
-            ];
-
-            if ($processedSub['station'] == 'pizza' && !$orden['kds_pizza_ready'])
-                $itemsParaPizza[] = $processedSub;
-            elseif ($processedSub['station'] == 'kitchen' && !$orden['kds_kitchen_ready'])
-                $itemsParaCocina[] = $processedSub;
-        }
-    }
-
-    // DETECTAR SI ES MIXTO
-    $hasKitchen = false;
-    $hasPizza = false;
-    $allOrderItems = $orderManager->getOrderItems($orden['id']);
-    foreach ($allOrderItems as $ai) {
-        $aiInfo = $productManager->getProductById($ai['product_id']);
-        if (!$aiInfo)
-            continue;
-
-        $stations = [];
-        if ($ai['product_type'] == 'compound') {
-            $comps = $productManager->getProductComponents($ai['product_id']);
-            foreach ($comps as $c) {
-                if ($c['component_type'] == 'product') {
-                    $p = $productManager->getProductById($c['component_id']);
-                    $stations[] = $p['category_station'] ?? $p['kitchen_station'] ?? '';
-                } elseif ($c['component_type'] == 'manufactured') {
-                    $stmtM = $db->prepare("SELECT kitchen_station FROM manufactured_products WHERE id = ?");
-                    $stmtM->execute([$c['component_id']]);
-                    $mR = $stmtM->fetch(PDO::FETCH_ASSOC);
-                    $stations[] = $mR['kitchen_station'] ?? '';
-                }
-            }
-        } else {
-            $stations[] = $aiInfo['category_station'] ?? $aiInfo['kitchen_station'] ?? '';
-        }
-
-        foreach ($stations as $st) {
-            if ($st == 'kitchen')
-                $hasKitchen = true;
-            if ($st == 'pizza')
-                $hasPizza = true;
-        }
-    }
-    $isMixed = ($hasKitchen && $hasPizza);
-
-    if (!empty($itemsParaPizza))
-        $listaPizza[] = ['info' => $orden, 'items' => $itemsParaPizza, 'is_mixed' => $isMixed, 'station_type' => 'pizza'];
-    if (!empty($itemsParaCocina))
-        $listaCocina[] = ['info' => $orden, 'items' => $itemsParaCocina, 'is_mixed' => $isMixed, 'station_type' => 'kitchen'];
+// Función helper para renderizar tickets (se asume que existe o se define en template)
+if (!function_exists('renderTicket')) {
+    require_once 'kds_template.php';
 }
 ?>
 <!DOCTYPE html>
@@ -250,10 +63,17 @@ foreach ($ordenes as $orden) {
                 <?= $colorMixedBg ?>
             ;
             --accent-red: #ef4444;
-            --accent-orange: #f59e0b;
-            --accent-blue: #3b82f6;
+            --accent-orange:
+                <?= $colorPreparing ?>
+            ;
+            --accent-blue:
+                <?= $colorLocal ?>
+            ;
             --text-dark: #1e293b;
             --text-muted: #64748b;
+            --preparing-bg:
+                <?= $colorPreparing ?>
+            ;
             --mod-add:
                 <?= $colorModAdd ?>
             ;
@@ -265,6 +85,15 @@ foreach ($ordenes as $orden) {
             ;
             --product-text:
                 <?= $colorProductName ?>
+            ;
+            --warning-medium:
+                <?= $colorWarningMedium ?>
+            ;
+            --warning-late:
+                <?= $colorWarningLate ?>
+            ;
+            --status-preparing-active:
+                <?= $colorPreparing ?>
             ;
         }
 
@@ -322,8 +151,8 @@ foreach ($ordenes as $orden) {
             margin-bottom: 0.4rem;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            border: 1px solid transparent;
-            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            transition: all 0.15s ease;
         }
 
         .ticket-head {
@@ -335,30 +164,55 @@ foreach ($ordenes as $orden) {
             font-weight: 700;
             font-size: 0.85rem;
             cursor: pointer;
-            transition: opacity 0.2s;
         }
 
-        .ticket-head:hover {
-            opacity: 0.8;
+
+        .ticket-head.status-preparing {
+            background-color: var(--preparing-bg) !important;
         }
 
-        .status-paid {
-            background-color: var(--accent-blue);
+        .ticket-head.status-medium {
+            background-color: var(--warning-medium) !important;
         }
 
-        .status-preparing {
-            background-color: var(--accent-orange);
+        .ticket-head.status-late {
+            background-color: var(--warning-late) !important;
         }
 
-        /* Nuevos estados por tiempo */
-        .status-medium {
-            background-color: #3b82f6 !important;
-            /* Azul */
+        /* Full ticket highlight only for Preparing Active */
+        .ticket.status-preparing-active {
+            border-color: var(--status-preparing-active);
+            box-shadow: 0 0 12px var(--status-preparing-active);
         }
 
-        .status-late {
-            background-color: #ef4444 !important;
-            /* Rojo */
+        .ticket.status-preparing-active .ticket-head {
+            background-color: var(--status-preparing-active) !important;
+            animation: pulse-opac 2s infinite;
+        }
+
+        /* Alertas de tiempo: siempre dominan sobre cualquier otro estado */
+        .ticket .ticket-head.status-medium {
+            background-color: var(--warning-medium) !important;
+            animation: none !important;
+        }
+
+        .ticket .ticket-head.status-late {
+            background-color: var(--warning-late) !important;
+            animation: none !important;
+        }
+
+        @keyframes pulse-opac {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
 
         .ticket-mixed {
@@ -385,17 +239,19 @@ foreach ($ordenes as $orden) {
         .main-item-line {
             font-size: 0.85rem;
             font-weight: 800;
-            color: var(--product-text) !important;
+            color: var(--text-dark) !important;
             margin-bottom: 0.2rem;
             display: block;
+            border-bottom: 1.5px solid #e2e8f0;
         }
 
         .sub-item-line {
             display: flex;
             align-items: center;
             gap: 3px;
-            font-size: 0.7rem;
+            font-size: 0.73rem;
             font-weight: 700;
+            color: #1e293b;
         }
 
         .item-index {
@@ -415,33 +271,10 @@ foreach ($ordenes as $orden) {
         }
 
         .mod-line {
-            font-size: 0.6rem;
+            font-size: 0.62rem;
             font-weight: 700;
-            margin-left: 8px;
-            line-height: 1;
-        }
-
-        .tag-takeaway {
-            background: #000;
-            color: #fff;
-        }
-
-        .tag-dinein {
-            background: #fff;
-            color: #000;
-            border: 2px solid #000;
-        }
-
-        .mod-bad {
-            color: #dc2626;
-            font-weight: 700;
-            font-size: 0.7rem;
-        }
-
-        .mod-good {
-            color: #16a34a;
-            font-weight: 700;
-            font-size: 0.7rem;
+            margin-left: 12px;
+            line-height: 1.05;
         }
 
         .note-box {
@@ -456,21 +289,21 @@ foreach ($ordenes as $orden) {
         }
 
         .late-warning {
-            animation: pulse-red 2s infinite;
-            border-color: #ef4444;
+            border-color: var(--warning-late) !important;
+            animation: pulse-shadow-red 2s infinite;
         }
 
         .medium-warning {
-            border-color: #f59e0b;
+            border-color: var(--warning-medium) !important;
         }
 
-        @keyframes pulse-red {
+        @keyframes pulse-shadow-red {
             0% {
                 box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
             }
 
             70% {
-                box-shadow: 0 0 0 15px rgba(239, 68, 68, 0);
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
             }
 
             100% {
@@ -532,76 +365,54 @@ foreach ($ordenes as $orden) {
     </div>
 
     <script>
-        // Use standard sound
-        const soundUrl = '<?= $config->get('kds_sound_url_dispatch', '../assets/sounds/ping_a.mp3') ?>';
+        const STATION = 'tv';
+        let currentIdsStr = document.getElementById('main-monitor-row').dataset.visibleIds || '';
+        let currentIds = currentIdsStr ? currentIdsStr.split(',') : [];
 
+        // Sound logic
+        const soundUrl = '<?= $config->get('kds_sound_url_dispatch', '../assets/sounds/ping_a.mp3') ?>';
         let audioContext = null;
 
         function checkAudioState() {
             if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-            // Try to resume automatically (works if domain has high MEI)
             audioContext.resume().then(() => {
                 if (audioContext.state === 'running') {
                     document.getElementById('sound-init-overlay').style.display = 'none';
-                } else {
-                    document.getElementById('sound-init-overlay').style.display = 'flex';
                 }
-            }).catch(() => {
-                document.getElementById('sound-init-overlay').style.display = 'flex';
-            });
+            }).catch(() => { });
         }
-
-        // Run check on load
         checkAudioState();
 
         document.getElementById('sound-init-overlay').addEventListener('click', () => {
             if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
             audioContext.resume().then(() => {
                 document.getElementById('sound-init-overlay').style.display = 'none';
-                playPing(true); // Feedback sound
+                playPing(true);
             });
         });
 
         function playPing(isTest = false) {
-            // 1. Try File
             const audio = new Audio(soundUrl);
-            const playPromise = audio.play();
-
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.warn("File playback failed, switching to Oscillator:", error);
-                    playOscillatorBackup();
-                });
-            }
+            audio.play().catch(() => playOscillatorBackup());
         }
 
         function playOscillatorBackup() {
             if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
-
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 (Agudo para Ping)
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
-
             gainNode.gain.setValueAtTime(0, audioContext.currentTime);
             gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.05);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
             oscillator.start();
             oscillator.stop(audioContext.currentTime + 0.5);
         }
 
-        // Logic: Detect New Orders via Set Difference (Handle Returns)
-        let currentIdsStr = document.getElementById('main-monitor-row').dataset.visibleIds || '';
-        let currentIds = currentIdsStr ? currentIdsStr.split(',') : [];
-
-        // AJAX Refresh Logic
         function refreshKDS() {
-            // Anti-cache timestamp
-            const url = window.location.href.split('?')[0]; // Clean base URL
+            const url = window.location.href.split('?')[0];
             const params = new URLSearchParams(window.location.search);
             params.set('ts', new Date().getTime());
 
@@ -611,60 +422,63 @@ foreach ($ordenes as $orden) {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
                     const newRow = doc.getElementById('main-monitor-row');
-
                     if (newRow) {
                         const currentRow = document.getElementById('main-monitor-row');
                         currentRow.innerHTML = newRow.innerHTML;
-
-                        // Update Data Attribute
                         const newIdsStr = newRow.dataset.visibleIds || '';
                         const newIds = newIdsStr ? newIdsStr.split(',') : [];
-                        currentRow.dataset.visibleIds = newIdsStr; // Update DOM state
-
-                        // Check for ANY ID in newIds that is NOT in currentIds
-                        const hasNew = newIds.some(id => !currentIds.includes(id));
-
-                        if (hasNew) {
-                            playPing();
-                        }
+                        if (newIds.some(id => !currentIds.includes(id))) playPing();
                         currentIds = newIds;
-
-                        // Re-attach listeners
-                        attachClickListeners();
+                        currentRow.dataset.visibleIds = newIdsStr;
                     }
-                })
-                .catch(err => console.error("Refresh failed", err));
+                }).catch(err => console.error("Refresh failed", err));
         }
 
         setInterval(refreshKDS, <?= $refreshSeconds * 1000 ?>);
 
-        // Click handler to reusable function
-        function attachClickListeners() {
-            document.querySelectorAll('.ticket-head').forEach(head => {
-                head.addEventListener('click', function () {
-                    const orderId = this.dataset.orderId;
-                    const station = this.dataset.station;
-
-                    fetch('../ajax/update_kds_status.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            order_id: orderId,
-                            station: station,
-                            status: 'ready'
-                        })
-                    }).then(res => res.json()).then(data => {
-                        if (data.success) {
-                            this.closest('.ticket').style.opacity = '0.3';
-                            refreshKDS(); // Immediate refresh
-                        }
-                    });
-                });
-            });
+        function updateStatus(orderId, targetStatus, station) {
+            fetch('../ajax/update_kds_status.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order_id: orderId, station: station, status: targetStatus })
+            }).then(res => res.json()).then(data => {
+                if (data.success) refreshKDS();
+            }).catch(err => console.error("Update failed", err));
         }
 
-        // Initial attach
-        attachClickListeners();
+        function updateLiveTimers() {
+            const now = Math.floor(Date.now() / 1000);
+            const warningMedium = <?= $warningMedium ?>;
+            const warningLate = <?= $warningLate ?>;
+
+            document.querySelectorAll('.ticket').forEach(ticket => {
+                const timerSpan = ticket.querySelector('.kds-timer');
+                if (!timerSpan) return;
+                const startTime = parseInt(timerSpan.dataset.startTime);
+                const diff = now - startTime;
+                const mins = Math.floor(diff / 60);
+                const secs = diff % 60;
+                timerSpan.textContent = `${mins}m ${secs.toString().padStart(2, '0')}s`;
+
+                const head = ticket.querySelector('.ticket-head');
+                if (head) {
+                    ticket.classList.remove('medium-warning', 'late-warning');
+                    head.classList.remove('status-preparing', 'status-medium', 'status-late');
+                    if (mins >= warningLate) {
+                        ticket.classList.remove('status-preparing-active');
+                        ticket.classList.add('late-warning');
+                        head.classList.add('status-late');
+                    } else if (mins >= warningMedium) {
+                        ticket.classList.remove('status-preparing-active');
+                        ticket.classList.add('medium-warning');
+                        head.classList.add('status-medium');
+                    } else if (!ticket.classList.contains('status-preparing-active')) {
+                        head.classList.add('status-preparing');
+                    }
+                }
+            });
+        }
+        setInterval(updateLiveTimers, 1000);
     </script>
 </body>
 
@@ -675,79 +489,68 @@ function renderTicket($data)
 {
     $orden = $data['info'];
     $items = $data['items'];
-    $mins = round((time() - strtotime($orden['created_at'])) / 60);
-    if ($mins < 0)
-        $mins = 0;
-
-    $bgStatus = ($orden['status'] == 'paid') ? 'status-paid' : 'status-preparing';
+    $diffSeconds = max(0, time() - strtotime($orden['created_at']));
+    $mins = floor($diffSeconds / 60);
+    $secs = $diffSeconds % 60;
 
     global $warningMedium, $warningLate;
-    $borderClass = ($mins >= $warningLate) ? 'late-warning' : (($mins >= $warningMedium) ? 'medium-warning' : '');
+    $stationType = $data['station_type'] ?? 'kitchen';
+    $isPrep = $orden['is_prep_here'];
+    $targetStatus = $orden['simple_flow'] ? 'ready' : ($isPrep ? 'ready' : 'preparing');
 
-    // Prioridad de color por tiempo
-    if ($mins >= $warningLate) {
+    // Las alertas de tiempo tienen prioridad máxima sobre el estado de preparación
+    if ($mins >= $warningLate)
         $bgStatus = 'status-late';
-    } elseif ($mins >= $warningMedium) {
+    elseif ($mins >= $warningMedium)
         $bgStatus = 'status-medium';
-    }
+    elseif ($isPrep)
+        $bgStatus = 'status-preparing-active';
+    else
+        $bgStatus = 'status-preparing';
 
-    $mixedClass = ($data['is_mixed'] ?? false) ? 'ticket-mixed' : '';
+    $borderClass = ($mins >= $warningLate) ? 'late-warning' : (($mins >= $warningMedium) ? 'medium-warning' : '');
     ?>
-    <div class="ticket <?= $borderClass ?> <?= $mixedClass ?>">
-        <div class="ticket-head <?= $bgStatus ?> d-flex justify-content-between align-items-center"
-            data-order-id="<?= $orden['id'] ?>" data-station="<?= $data['station_type'] ?? 'kitchen' ?>"
-            title="Clic para marcar como LISTO">
-            <div>
+    <div class="ticket <?= $borderClass ?> <?= ($data['is_mixed'] ?? false) ? 'ticket-mixed' : '' ?> <?= $isPrep ? 'status-preparing-active' : '' ?>"
+        id="ticket-<?= $orden['id'] ?>-<?= $stationType ?>">
+        <div class="ticket-head <?= $bgStatus ?>"
+            onclick="updateStatus(<?= $orden['id'] ?>, '<?= $targetStatus ?>', '<?= $stationType ?>')">
+            <div class="d-flex align-items-center">
                 <span class="fw-bold">#<?= $orden['id'] ?></span>
-                <small class="ms-1 opacity-75 d-none d-sm-inline">
-                    <?php
-                    $displayClient = (!empty($orden['shipping_address']) && $orden['shipping_address'] !== 'Tienda Física') 
-                        ? $orden['shipping_address'] 
-                        : $orden['cliente'];
-                    echo substr(strtoupper($displayClient), 0, 20);
-                    ?>
-                </small>
+                <small class="ms-1 opacity-75 d-inline-block text-truncate"
+                    style="max-width: 80px;"><?= strtoupper($orden['cliente_display']) ?></small>
                 <?php if ($orden['kds_kitchen_ready']): ?><i class="fa fa-fire ms-2 text-success"
                         title="Cocina Lista"></i><?php endif; ?>
                 <?php if ($orden['kds_pizza_ready']): ?><i class="fa fa-pizza-slice ms-1 text-danger"
                         title="Pizza Lista"></i><?php endif; ?>
             </div>
-            <span><?= $mins ?>m</span>
+            <span class="kds-timer" data-start-time="<?= strtotime($orden['created_at']) ?>"><?= $mins ?>m
+                <?= str_pad($secs, 2, '0', STR_PAD_LEFT) ?>s</span>
         </div>
         <div class="ticket-body">
             <?php foreach ($items as $it): ?>
                 <div class="minimal-row">
                     <?php if (isset($it['is_main']) && $it['is_main']): ?>
-                        <span class="main-item-line"><?= $it['qty'] ?> x <?= strtoupper($it['name']) ?></span>
+                        <span class="main-item-line"># <?= strtoupper($it['name']) ?></span>
                     <?php endif; ?>
-
-                    <?php if (!(isset($it['is_main']) && $it['is_main']) && ($it['num'] > 0 || !empty($it['name']))): ?>
+                    <?php if (!(isset($it['is_main']) && $it['is_main']) && (!empty($it['name']))): ?>
                         <div class="sub-item-line">
-                            <span class="item-index">#<?= $it['num'] ?></span>
+                            <span class="item-index">#</span>
                             <?php
-                            global $colorLlevar, $colorLocal;
-                            if ($it['is_takeaway']): ?>
-                                <span class="tag-mini fw-bold px-1 text-white"
-                                    style="font-size: 0.6rem; background-color: <?= $colorLlevar ?> !important; border-color: <?= $colorLlevar ?> !important;">LLEVAR</span>
-                            <?php else: ?>
-                                <span class="tag-mini fw-bold px-1 text-white"
-                                    style="font-size: 0.6rem; background-color: <?= $colorLocal ?> !important; border-color: <?= $colorLocal ?> !important;">LOCAL</span>
-                            <?php endif; ?>
-                            <?= (isset($it['is_contour']) && $it['is_contour'] && !empty($it['name'])) ? "(" . strtoupper($it['name']) . ")" : (!empty($it['name']) ? strtoupper($it['name']) : "") ?>
+                            global $colorLlevar, $colorLocal, $colorDelivery;
+                            $cType = $it['consumption_type'] ?? 'dine_in';
+                            $bgColor = ($cType === 'delivery') ? $colorDelivery : (($cType === 'takeaway' || ($it['is_takeaway'] ?? false)) ? $colorLlevar : $colorLocal);
+                            $label = ($cType === 'delivery') ? 'DELIVERY' . ($orden['delivery_tier'] ? " ({$orden['delivery_tier']})" : "") : (($cType === 'takeaway' || ($it['is_takeaway'] ?? false)) ? 'LLEVAR' : 'LOCAL');
+                            ?>
+                            <span class="tag-mini fw-bold px-1 text-white"
+                                style="background-color: <?= $bgColor ?> !important;"><?= $label ?></span>
+                            <?= strtoupper($it['name']) ?>
                         </div>
-
-                        <?php if (!empty($it['mods'])): ?>
-                            <?php foreach ($it['mods'] as $m): ?>
-                                <div class="mod-line">
-                                    <?= $m ?>
-                                </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
+                        <?php foreach (($it['mods'] ?? []) as $m): ?>
+                            <div class="mod-line"><?= $m ?></div>
+                        <?php endforeach; ?>
                     <?php endif; ?>
-
                     <?php if (isset($it['note']) && $it['note']): ?>
-                        <div class="note-box"><i class="fa-solid fa-comment-dots me-1"></i>
-                            <?= strtoupper($it['note']) ?></div>
+                        <div class="note-box"><i class="fa-solid fa-comment-dots me-1"></i><?= strtoupper($it['note']) ?></div>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>

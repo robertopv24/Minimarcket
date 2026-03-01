@@ -142,14 +142,14 @@ class ProductManager
     }
 
     // Actualizar un producto
-    public function updateProduct($id, $name, $description, $price_usd, $price_ves, $stock, $image = null, $profit_margin = 20.00, $min_stock = 5, $category_id = null, $is_visible = 1)
+    public function updateProduct($id, $name, $description, $price_usd, $price_ves, $stock, $image = null, $profit_margin = 20.00, $min_stock = 5, $category_id = null, $is_visible = 1, $kitchen_station = null)
     {
         if ($image) {
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, image_url = ?, profit_margin = ?, min_stock = ?, category_id = ?, is_visible = ?, updated_at = NOW() WHERE id = ?");
-            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image, $profit_margin, $min_stock, $category_id, $is_visible, $id]);
+            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, image_url = ?, profit_margin = ?, min_stock = ?, category_id = ?, is_visible = ?, kitchen_station = ?, updated_at = NOW() WHERE id = ?");
+            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $image, $profit_margin, $min_stock, $category_id, $is_visible, $kitchen_station, $id]);
         } else {
-            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, profit_margin = ?, min_stock = ?, category_id = ?, is_visible = ?, updated_at = NOW() WHERE id = ?");
-            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $profit_margin, $min_stock, $category_id, $is_visible, $id]);
+            $stmt = $this->db->prepare("UPDATE products SET name = ?, description = ?, price_usd = ?, price_ves = ?, stock = ?, profit_margin = ?, min_stock = ?, category_id = ?, is_visible = ?, kitchen_station = ?, updated_at = NOW() WHERE id = ?");
+            return $stmt->execute([$name, $description, $price_usd, $price_ves, $stock, $profit_margin, $min_stock, $category_id, $is_visible, $kitchen_station, $id]);
         }
     }
 
@@ -448,7 +448,7 @@ class ProductManager
             if ($overrideRowId) {
                 $validSides = $this->getComponentSideOverrides($overrideRowId);
             }
-            
+
             if (empty($validSides)) {
                 $validSides = $this->getValidSides($productId);
             }
@@ -688,7 +688,8 @@ class ProductManager
         if (!empty($companions)) {
             foreach ($companions as $comp) {
                 $compQty = floatval($comp['quantity']);
-                if ($compQty <= 0) continue;
+                if ($compQty <= 0)
+                    continue;
 
                 $subAnalysis = $this->getVirtualStockAnalysis($comp['companion_id'], $depth + 1);
                 $compStock = $subAnalysis['max_produceable'];
@@ -821,7 +822,7 @@ class ProductManager
         $customRecipe = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!empty($customRecipe)) {
-             return ['type' => 'custom', 'components' => $customRecipe];
+            return ['type' => 'custom', 'components' => $customRecipe];
         }
 
         // 2. Si no, obtener la receta original del producto acompañante
@@ -830,7 +831,8 @@ class ProductManager
         $stmtInfo->execute([$companionRowId]);
         $companionId = $stmtInfo->fetchColumn();
 
-        if (!$companionId) return ['type' => 'original', 'components' => []];
+        if (!$companionId)
+            return ['type' => 'original', 'components' => []];
 
         $originalComponents = $this->getProductComponents($companionId);
         return ['type' => 'original', 'components' => $originalComponents];
@@ -1126,7 +1128,7 @@ class ProductManager
             // 1. Insert or Update companion link
             // Nota: addCompanion verifica si existe y hace update, pero no retorna el ID si hace update.
             // Para garantizar copia de receta custom, es mejor manejarlo manualmente aquí o asegurar que addCompanion retorne ID.
-            
+
             // Verificamos si ya existe en destino
             $check = $this->db->prepare("SELECT id FROM product_companions WHERE product_id = ? AND companion_id = ?");
             $check->execute([$toId, $item['companion_id']]);
@@ -1252,22 +1254,27 @@ class ProductManager
 
     // --- SISTEMA DE CATEGORÍAS ---
 
-    public function getCategories()
+    public function getCategories($onlyVisible = false)
     {
-        $stmt = $this->db->query("SELECT * FROM categories ORDER BY name ASC");
+        $sql = "SELECT * FROM categories";
+        if ($onlyVisible) {
+            $sql .= " WHERE is_visible = 1";
+        }
+        $sql .= " ORDER BY name ASC";
+        $stmt = $this->db->query($sql);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function createCategory($name, $station = 'kitchen', $icon = 'fa-tag', $description = '')
+    public function createCategory($name, $station = 'kitchen', $icon = 'fa-tag', $description = '', $is_visible = 1)
     {
-        $stmt = $this->db->prepare("INSERT INTO categories (name, kitchen_station, icon, description) VALUES (?, ?, ?, ?)");
-        return $stmt->execute([$name, $station, $icon, $description]);
+        $stmt = $this->db->prepare("INSERT INTO categories (name, kitchen_station, icon, description, is_visible) VALUES (?, ?, ?, ?, ?)");
+        return $stmt->execute([$name, $station, $icon, $description, $is_visible]);
     }
 
-    public function updateCategory($id, $name, $station, $icon, $description)
+    public function updateCategory($id, $name, $station, $icon, $description, $is_visible = 1)
     {
-        $stmt = $this->db->prepare("UPDATE categories SET name = ?, kitchen_station = ?, icon = ?, description = ? WHERE id = ?");
-        return $stmt->execute([$name, $station, $icon, $description, $id]);
+        $stmt = $this->db->prepare("UPDATE categories SET name = ?, kitchen_station = ?, icon = ?, description = ?, is_visible = ? WHERE id = ?");
+        return $stmt->execute([$name, $station, $icon, $description, $is_visible, $id]);
     }
 
     public function deleteCategory($id)

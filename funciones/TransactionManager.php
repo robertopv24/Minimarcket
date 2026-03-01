@@ -29,7 +29,9 @@ class TransactionManager
                         'order',
                         $orderId,
                         'Cobro Venta #' . $orderId,
-                        $userId
+                        $userId,
+                        $payment['payment_reference'] ?? null,
+                        $payment['sender_name'] ?? null
                     );
                 }
             }
@@ -194,7 +196,7 @@ class TransactionManager
      * Función centralizada para insertar en la tabla `transactions`
      * Calcula automáticamente la tasa de cambio y el valor referencia en USD.
      */
-    private function logTransaction($sessionId, $type, $amount, $currency, $methodId, $refType, $refId, $desc, $userId)
+    private function logTransaction($sessionId, $type, $amount, $currency, $methodId, $refType, $refId, $desc, $userId, $paymentRef = null, $senderName = null)
     {
         // Obtener tasa actual del sistema
         $rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1;
@@ -204,8 +206,8 @@ class TransactionManager
 
         $sql = "INSERT INTO transactions (
                     cash_session_id, type, amount, currency, exchange_rate, amount_usd_ref,
-                    payment_method_id, reference_type, reference_id, description, created_by, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                    payment_method_id, reference_type, reference_id, description, payment_reference, sender_name, created_by, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
@@ -219,6 +221,8 @@ class TransactionManager
             $refType,
             $refId,
             $desc,
+            $paymentRef,
+            $senderName,
             $userId
         ]);
     }

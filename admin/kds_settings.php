@@ -19,9 +19,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         'kds_refresh_interval',
         'kds_color_llevar',
         'kds_color_local',
+        'kds_color_delivery',
+        'kds_color_preparing',
         'kds_sound_enabled',
         'kds_warning_time_medium',
         'kds_warning_time_late',
+        'kds_color_warning_medium',
+        'kds_color_warning_late',
         'kds_use_short_codes',
         'kds_color_card_bg',
         'kds_color_mixed_bg',
@@ -31,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         'kds_product_name_color',
         'kds_sound_url_kitchen',
         'kds_sound_url_pizza',
-        'kds_sound_url_dispatch'
+        'kds_sound_url_dispatch',
+        'kds_simple_flow'
     ];
 
     $allOk = true;
@@ -113,6 +118,17 @@ require_once '../templates/menu.php';
                             </div>
 
                             <div class="col-md-6">
+                                <label class="form-label fw-bold">Color [DELIVERY]</label>
+                                <div class="input-group overflow-hidden" style="border-radius: 8px;">
+                                    <input type="color" class="form-control form-control-color w-100 border-0"
+                                        name="kds_color_delivery"
+                                        value="<?= $currentSettings['kds_color_delivery'] ?? '#10b981' ?>"
+                                        style="height: 45px;">
+                                </div>
+                                <small class="text-muted">Color de la etiqueta de domicilio.</small>
+                            </div>
+
+                            <div class="col-md-6">
                                 <label class="form-label fw-bold">Color Fondo Tarjeta</label>
                                 <div class="input-group overflow-hidden" style="border-radius: 8px;">
                                     <input type="color" class="form-control form-control-color w-100 border-0"
@@ -132,6 +148,18 @@ require_once '../templates/menu.php';
                                         style="height: 45px;">
                                 </div>
                                 <small class="text-muted">Color de fondo para resaltar Combos/Mixtos.</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Color Tarjeta [PREPARANDO]</label>
+                                <div class="input-group overflow-hidden" style="border-radius: 8px;">
+                                    <input type="color" class="form-control form-control-color w-100 border-0"
+                                        name="kds_color_preparing"
+                                        value="<?= $currentSettings['kds_color_preparing'] ?? '#f59e0b' ?>"
+                                        style="height: 45px;">
+                                </div>
+                                <small class="text-muted">Color base de las tarjetas en estado
+                                    pendiente/preparando.</small>
                             </div>
 
                             <div class="col-md-4">
@@ -205,6 +233,28 @@ require_once '../templates/menu.php';
                                 <small class="text-muted">Cambio a color rojo parpadeante.</small>
                             </div>
 
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Color Alerta Media</label>
+                                <div class="input-group overflow-hidden" style="border-radius: 8px;">
+                                    <input type="color" class="form-control form-control-color w-100 border-0"
+                                        name="kds_color_warning_medium"
+                                        value="<?= $currentSettings['kds_color_warning_medium'] ?? '#3b82f6' ?>"
+                                        style="height: 45px;">
+                                </div>
+                                <small class="text-muted">Color de la cabecera al llegar al tiempo medio.</small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Color Alerta Tardía</label>
+                                <div class="input-group overflow-hidden" style="border-radius: 8px;">
+                                    <input type="color" class="form-control form-control-color w-100 border-0"
+                                        name="kds_color_warning_late"
+                                        value="<?= $currentSettings['kds_color_warning_late'] ?? '#ef4444' ?>"
+                                        style="height: 45px;">
+                                </div>
+                                <small class="text-muted">Color de la cabecera al llegar al tiempo tardío.</small>
+                            </div>
+
                             <!-- SECCIÓN: CÓDIGOS CORTOS -->
                             <div class="col-12 mt-5">
                                 <h5 class="text-info border-bottom border-secondary pb-2 mb-3"><i
@@ -229,6 +279,29 @@ require_once '../templates/menu.php';
                                 </div>
                                 <small class="text-muted d-block mt-1">Ejemplo: Mostrar "/t" en lugar de "TOSINETA".
                                     Requiere configurar los códigos primero.</small>
+                            </div>
+
+                            <!-- SECCIÓN: FLUJO DE TRABAJO -->
+                            <div class="col-12 mt-5">
+                                <h5 class="text-warning border-bottom border-secondary pb-2 mb-3"><i
+                                        class="fa fa-bolt me-2"></i> Flujo de Operación</h5>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold d-block">Rapidez Operativa</label>
+                                <div class="p-3 rounded border border-secondary d-flex justify-content-between align-items-center"
+                                    style="background: rgba(255,193,7,0.05);">
+                                    <div class="form-check form-switch p-0 m-0">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox"
+                                            name="kds_simple_flow" value="1" id="simpleFlowSwitch"
+                                            <?= ($currentSettings['kds_simple_flow'] ?? '0') == '1' ? 'checked' : '' ?>>
+                                        <label class="form-check-label text-white" for="simpleFlowSwitch">
+                                            Habilitar Flujo Simple (1 Clic para finalizar)
+                                        </label>
+                                    </div>
+                                    <span class="badge bg-warning text-dark fw-bold">1 CLIC</span>
+                                </div>
+                                <small class="text-muted d-block mt-1">Si se deshabilita, se requerirán 2 clics (Preparando -> Listo) para registrar métricas de productividad.</small>
                             </div>
 
                             <!-- SECCIÓN: SONIDO -->
