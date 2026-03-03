@@ -30,42 +30,42 @@ function renderTicket($orderData)
                                 <?php endif; ?>
 
                                 <?php if ($it['num'] > 0 || !$it['is_combo']): ?>
-                                        <div class="sub-item-card">
-                                                <div class="text-center">
-                                                        <?php
-                                                        $cType = $it['consumption_type'] ?? '';
-                                                        $tier = $orden['delivery_tier'] ?? '';
-                                                        $tagText = ($cType === 'delivery') ? 'DELIVERY' : ($it['is_takeaway'] ? 'LLEVAR' : 'MESA');
-                                                        if ($cType === 'delivery' && !empty($tier))
-                                                                $tagText .= " ($tier)";
-                                                        ?>
-                                                        <span
-                                                                class="tag <?= $cType === 'delivery' ? 'tag-delivery' : ($it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein') ?>">
-                                                                <?= $tagText ?>
-                                                        </span>
-                                                        <div class="item-num">#</div>
-                                                        <div class="item-name">(<?= strtoupper($it['name']) ?>)</div>
-                                                </div>
-
-                                                <?php if (!empty($it['mods'])): ?>
-                                                        <div class="mods-container mt-2">
-                                                                <?php foreach ($it['mods'] as $m): ?>
-                                                                        <div class="mod-line <?= (strpos($m, 'SIN') !== false) ? 'mod-bad' : 'mod-good' ?>">
-                                                                                <?= strtoupper($m) ?>
-                                                                        </div>
-                                                                <?php endforeach; ?>
-                                                        </div>
-                                                <?php endif; ?>
-
-                                                <?php if ($it['note']): ?>
-                                                        <div class="item-note">
-                                                                <i class="fa-solid fa-comment-dots me-1"></i> <?= strtoupper($it['note']) ?>
-                                                        </div>
-                                                <?php endif; ?>
+                                        <div class="text-center">
+                                                <?php
+                                                $cType = $it['consumption_type'] ?? '';
+                                                $tier = $orden['delivery_tier'] ?? '';
+                                                $tagText = ($cType === 'delivery') ? 'DELIVERY' : ($it['is_takeaway'] ? 'LLEVAR' : 'MESA');
+                                                if ($cType === 'delivery' && !empty($tier))
+                                                        $tagText .= " ($tier)";
+                                                ?>
+                                                <span
+                                                        class="tag <?= $cType === 'delivery' ? 'tag-delivery' : ($it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein') ?>">
+                                                        <?= $tagText ?>
+                                                        <div class="item-num"><?= ($it['qty'] > 1) ? $it['qty'] . ' x ' : '•' ?></div>
+                                                        <?php if (!empty($it['name'])): ?>
+                                                                <div class="item-name">(<?= strtoupper($it['name']) ?>)</div>
+                                                        <?php endif; ?>
                                         </div>
-                                <?php endif; ?>
-                        <?php endforeach; ?>
-                </div>
+
+                                        <?php if (!empty($it['mods'])): ?>
+                                                <div class="mods-container mt-2">
+                                                        <?php foreach ($it['mods'] as $m): ?>
+                                                                <div class="mod-line <?= (strpos($m, 'SIN') !== false) ? 'mod-bad' : 'mod-good' ?>">
+                                                                        <?= strtoupper($m) ?>
+                                                                </div>
+                                                        <?php endforeach; ?>
+                                                </div>
+                                        <?php endif; ?>
+
+                                        <?php if ($it['note']): ?>
+                                                <div class="item-note">
+                                                        <i class="fa-solid fa-comment-dots me-1"></i> <?= strtoupper($it['note']) ?>
+                                                </div>
+                                        <?php endif; ?>
+                                </div>
+                        <?php endif; ?>
+                <?php endforeach; ?>
+        </div>
         </div>
 <?php } ?>
 

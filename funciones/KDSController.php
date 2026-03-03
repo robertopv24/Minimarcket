@@ -20,12 +20,12 @@ function getKDSData($stationFilter = 'all')
 
         foreach ($items as $item) {
             $pInfo = $productManager->getProductById($item['product_id']);
-            if (!$pInfo || empty($pInfo['kitchen_station']))
+            $pStation = strtolower($pInfo['category_station'] ?? $pInfo['kitchen_station'] ?? '');
+            if (empty($pStation))
                 continue;
 
-            $pStation = strtolower($pInfo['category_station'] ?? $pInfo['kitchen_station']);
             $isCompound = ($item['product_type'] == 'compound');
-            $subItems = [];
+            $subItemsTemplate = [];
 
             if ($isCompound) {
                 $comps = $productManager->getProductComponents($item['product_id']);
@@ -41,7 +41,7 @@ function getKDSData($stationFilter = 'all')
                     if ($compData) {
                         for ($k = 0; $k < $c['quantity']; $k++) {
                             $st = strtolower($compData['category_station'] ?? $compData['kitchen_station'] ?? '');
-                            $subItems[] = [
+                            $subItemsTemplate[] = [
                                 'name' => ($useShortCodes && !empty($compData['short_code'])) ? $compData['short_code'] : ($compData['name'] ?? 'ITEM'),
                                 'station' => $st
                             ];
@@ -59,66 +59,30 @@ function getKDSData($stationFilter = 'all')
                     $hasPizza = true;
             }
 
-            // --- NUEVA LÓGICA DE FILTRADO Y DETALLE (CORREGIDA V2) ---
-            $productItemsBuffer = [];
+            // --- NUEVA LÓGICA DE FILTRADO, DETALLE Y AGRUPACIÓN (V5 - GROUPED) ---
+            $tempBuffer = []; // Buffer temporal para agrupar
             $mods = $orderManager->getItemModifiers($item['id']);
             $groupedMods = [];
             foreach ($mods as $m)
                 $groupedMods[$m['sub_item_index']][] = $m;
 
             $generalNote = $groupedMods[-1][0]['note'] ?? "";
+            $mainItemName = ($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name'];
 
-            if ($isCompound) {
-                // Para productos compuestos, evaluamos cada componente individualmente respetando su índice original
-                foreach ($subItems as $idx => $comp) {
-                    // Filtrar por estación si el filtro no es 'all'
-                    if ($stationFilter !== 'all' && ($comp['station'] ?? '') !== $stationFilter) {
-                        continue;
-                    }
+            for ($q = 0; $q < $item['quantity']; $q++) {
+                if ($isCompound) {
+                    $itemsPerCombo = count($subItemsTemplate);
+                    foreach ($subItemsTemplate as $templateIdx => $comp) {
+                        $realModIdx = ($q * $itemsPerCombo) + $templateIdx;
+                        if ($stationFilter !== 'all' && ($comp['station'] ?? '') !== $stationFilter)
+                            continue;
 
-                    $currentMods = $groupedMods[$idx] ?? [];
-                    $isTakeaway = false;
-                    $modsList = [];
+                        $currentMods = $groupedMods[$realModIdx] ?? [];
+                        if (empty($currentMods) && $q > 0)
+                            $currentMods = $groupedMods[$templateIdx] ?? [];
 
-                    foreach ($currentMods as $m) {
-                        if ($m['modifier_type'] == 'info' && ($m['is_takeaway'] == 1 || ($m['ingredient_name'] ?? '') == '[LLEVAR]'))
-                            $isTakeaway = true;
-                        if ($m['modifier_type'] != 'info') {
-                            $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
-                            $type = strtolower($m['modifier_type'] ?? '');
-                            $prefix = ($type === 'side') ? '** ' : (($type === 'add') ? '++ ' : (($type === 'remove') ? '-- ' : ''));
-                            $color = ($type === 'side') ? 'var(--mod-side)' : (($type === 'add') ? 'var(--mod-add)' : (($type === 'remove') ? 'var(--mod-remove)' : ''));
-
-                            $modsList[] = '<span style="color: ' . $color . ';">' . $prefix . strtoupper($mName) . '</span>';
-                        }
-                    }
-
-                    $itemNote = "";
-                    foreach ($currentMods as $m) {
-                        if ($m['modifier_type'] == 'info' && !empty($m['note'])) {
-                            $itemNote = $m['note'];
-                            break;
-                        }
-                    }
-
-                    $productItemsBuffer[] = [
-                        'num' => $idx + 1,
-                        'name' => $comp['name'] ?? 'ITEM',
-                        'is_main' => false,
-                        'is_combo' => true,
-                        'is_takeaway' => $isTakeaway,
-                        'mods' => $modsList,
-                        'note' => $itemNote ?: ((empty($productItemsBuffer)) ? $generalNote : ""),
-                        'consumption_type' => $item['consumption_type'] ?? 'dine_in'
-                    ];
-                }
-            } else {
-                // Para productos simples, evaluamos la estación principal una sola vez
-                if ($stationFilter === 'all' || $pStation === $stationFilter) {
-                    for ($i = 0; $i < $item['quantity']; $i++) {
-                        $currentMods = $groupedMods[$i] ?? [];
                         $isTakeaway = false;
-                        $modsList = [];
+                        $typeGroups = ['side' => [], 'add' => [], 'remove' => []];
 
                         foreach ($currentMods as $m) {
                             if ($m['modifier_type'] == 'info' && ($m['is_takeaway'] == 1 || ($m['ingredient_name'] ?? '') == '[LLEVAR]'))
@@ -126,10 +90,18 @@ function getKDSData($stationFilter = 'all')
                             if ($m['modifier_type'] != 'info') {
                                 $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
                                 $type = strtolower($m['modifier_type'] ?? '');
+                                if (isset($typeGroups[$type])) {
+                                    $typeGroups[$type][] = strtoupper($mName);
+                                }
+                            }
+                        }
+
+                        $modsList = [];
+                        foreach ($typeGroups as $type => $names) {
+                            if (!empty($names)) {
                                 $prefix = ($type === 'side') ? '** ' : (($type === 'add') ? '++ ' : (($type === 'remove') ? '-- ' : ''));
                                 $color = ($type === 'side') ? 'var(--mod-side)' : (($type === 'add') ? 'var(--mod-add)' : (($type === 'remove') ? 'var(--mod-remove)' : ''));
-
-                                $modsList[] = '<span style="color: ' . $color . ';">' . $prefix . strtoupper($mName) . '</span>';
+                                $modsList[] = '<span style="color: ' . $color . ';">' . $prefix . implode(' / ', $names) . '</span>';
                             }
                         }
 
@@ -141,25 +113,94 @@ function getKDSData($stationFilter = 'all')
                             }
                         }
 
-                        $productItemsBuffer[] = [
-                            'num' => $i + 1,
-                            'name' => $item['name'],
-                            'is_main' => false,
-                            'is_combo' => false,
-                            'is_takeaway' => $isTakeaway,
-                            'mods' => $modsList,
-                            'note' => $itemNote ?: ((empty($productItemsBuffer)) ? $generalNote : ""),
-                            'consumption_type' => $item['consumption_type'] ?? 'dine_in'
-                        ];
+                        $displayName = $comp['name'] ?? 'ITEM';
+                        if (strtoupper($displayName) === strtoupper($mainItemName))
+                            $displayName = "";
+
+                        $finalNote = $itemNote ?: $generalNote;
+
+                        // Generar firma única para agrupación
+                        $signature = md5($displayName . serialize($modsList) . $finalNote . ($isTakeaway ? '1' : '0'));
+
+                        if (!isset($tempBuffer[$signature])) {
+                            $tempBuffer[$signature] = [
+                                'qty' => 0,
+                                'name' => $displayName,
+                                'is_main' => false,
+                                'is_combo' => true,
+                                'is_takeaway' => $isTakeaway,
+                                'mods' => $modsList,
+                                'note' => $finalNote,
+                                'consumption_type' => $item['consumption_type'] ?? 'dine_in'
+                            ];
+                        }
+                        $tempBuffer[$signature]['qty']++;
+                    }
+                } else {
+                    if ($stationFilter === 'all' || $pStation === $stationFilter) {
+                        $currentMods = $groupedMods[$q] ?? [];
+                        if (empty($currentMods) && $q > 0)
+                            $currentMods = $groupedMods[0] ?? [];
+
+                        $isTakeaway = false;
+                        $typeGroups = ['side' => [], 'add' => [], 'remove' => []];
+
+                        foreach ($currentMods as $m) {
+                            if ($m['modifier_type'] == 'info' && ($m['is_takeaway'] == 1 || ($m['ingredient_name'] ?? '') == '[LLEVAR]'))
+                                $isTakeaway = true;
+                            if ($m['modifier_type'] != 'info') {
+                                $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
+                                $type = strtolower($m['modifier_type'] ?? '');
+                                if (isset($typeGroups[$type])) {
+                                    $typeGroups[$type][] = strtoupper($mName);
+                                }
+                            }
+                        }
+
+                        $modsList = [];
+                        foreach ($typeGroups as $type => $names) {
+                            if (!empty($names)) {
+                                $prefix = ($type === 'side') ? '** ' : (($type === 'add') ? '++ ' : (($type === 'remove') ? '-- ' : ''));
+                                $color = ($type === 'side') ? 'var(--mod-side)' : (($type === 'add') ? 'var(--mod-add)' : (($type === 'remove') ? 'var(--mod-remove)' : ''));
+                                $modsList[] = '<span style="color: ' . $color . ';">' . $prefix . implode(' / ', $names) . '</span>';
+                            }
+                        }
+
+                        $itemNote = "";
+                        foreach ($currentMods as $m) {
+                            if ($m['modifier_type'] == 'info' && !empty($m['note'])) {
+                                $itemNote = $m['note'];
+                                break;
+                            }
+                        }
+
+                        $finalNote = $itemNote ?: $generalNote;
+                        $signature = md5("" . serialize($modsList) . $finalNote . ($isTakeaway ? '1' : '0'));
+
+                        if (!isset($tempBuffer[$signature])) {
+                            $tempBuffer[$signature] = [
+                                'qty' => 0,
+                                'name' => "",
+                                'is_main' => false,
+                                'is_combo' => false,
+                                'is_takeaway' => $isTakeaway,
+                                'mods' => $modsList,
+                                'note' => $finalNote,
+                                'consumption_type' => $item['consumption_type'] ?? 'dine_in'
+                            ];
+                        }
+                        $tempBuffer[$signature]['qty']++;
                     }
                 }
             }
+
+            $productItemsBuffer = array_values($tempBuffer);
 
             // Si se generaron ítems para esta estación, añadir cabecera + ítems procesados
             if (!empty($productItemsBuffer)) {
                 $stationItems[] = [
                     'qty' => $item['quantity'],
-                    'name' => ($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name'],
+                    'name' => $mainItemName,
                     'is_main' => true,
                     'is_combo' => $isCompound,
                     'consumption_type' => $item['consumption_type'] ?? 'dine_in'

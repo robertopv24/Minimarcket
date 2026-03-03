@@ -488,11 +488,12 @@ function renderTicket($data)
             <?php foreach ($items as $it): ?>
                 <div class="minimal-row">
                     <?php if (isset($it['is_main']) && $it['is_main']): ?>
-                        <span class="main-item-line"># <?= strtoupper($it['name']) ?></span>
+                        <span class="main-item-line">#
+                            <?= ((isset($it['qty']) && $it['qty'] > 1) ? $it['qty'] . ' X ' : '') . strtoupper($it['name']) ?></span>
                     <?php endif; ?>
-                    <?php if (!(isset($it['is_main']) && $it['is_main']) && (!empty($it['name']))): ?>
+                    <?php if (!(isset($it['is_main']) && $it['is_main'])): ?>
                         <div class="sub-item-line">
-                            <span class="item-index">#</span>
+                            <span class="item-index"><?= ($it['qty'] > 1) ? $it['qty'] . ' x ' : '•' ?></span>
                             <?php
                             global $colorLlevar, $colorLocal, $colorDelivery;
                             $cType = $it['consumption_type'] ?? 'dine_in';
@@ -501,7 +502,7 @@ function renderTicket($data)
                             ?>
                             <span class="tag-mini fw-bold px-1 text-white"
                                 style="background-color: <?= $bgColor ?> !important;"><?= $label ?></span>
-                            <?= strtoupper($it['name']) ?>
+                            <?= !empty($it['name']) ? strtoupper($it['name']) : '' ?>
                         </div>
                         <?php foreach (($it['mods'] ?? []) as $m): ?>
                             <div class="mod-line"><?= $m ?></div>
