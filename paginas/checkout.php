@@ -69,12 +69,14 @@ require_once '../templates/menu.php';
                         $groupedMods = $item['modifiers_grouped'] ?? [];
                         ?>
                         <div class="list-group-item p-0 border-0 mb-2 shadow-sm rounded overflow-hidden">
-                            <div class="bg-light px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
-                                <span class="fw-bold text-primary small">
+                            <div
+                                class="bg-dark bg-opacity-50 px-3 py-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
+                                <span class="fw-bold text-info small">
                                     <i class="fa <?= $isCombo ? 'fa-cubes' : 'fa-tag' ?> me-1"></i>
                                     <?= htmlspecialchars($item['name']) ?>
                                 </span>
-                                <span class="badge bg-white text-dark border fw-bold">x<?= $item['quantity'] ?></span>
+                                <span
+                                    class="badge bg-secondary text-white border-0 fw-bold">x<?= $item['quantity'] ?></span>
                             </div>
 
                             <div class="p-2">
@@ -159,7 +161,9 @@ require_once '../templates/menu.php';
                 </div>
             </div>
             <div class="d-grid mt-3">
-                <a href="carrito.php" class="btn btn-outline-secondary">⬅ Volver al Carrito</a>
+                <a href="carrito.php" class="btn btn-outline-info fw-bold py-2 shadow-sm">
+                    <i class="fa fa-arrow-left me-2"></i> Volver al Carrito
+                </a>
             </div>
         </div>
 
@@ -175,11 +179,12 @@ require_once '../templates/menu.php';
 
                         <div class="row g-2 mb-3">
                             <div class="col-md-6">
-                                <input type="text" class="form-control" name="customer_name"
-                                    placeholder="Nota (Opcional)">
+                                <input type="text" class="form-control bg-dark text-white border-secondary fw-bold"
+                                    name="customer_name" placeholder="Nota (Opcional)">
                             </div>
                             <div class="col-md-6">
-                                <input type="text" class="form-control" name="shipping_address"
+                                <input type="text" class="form-control bg-dark text-white border-secondary fw-bold"
+                                    name="shipping_address"
                                     value="<?= htmlspecialchars($orderId ? ($orderData['shipping_address'] ?? '') : ($_SESSION['pos_client_name'] ?? '')) ?>"
                                     placeholder="Nombre Del Cliente" <?= $orderId ? 'readonly' : '' ?>>
                             </div>
@@ -187,58 +192,77 @@ require_once '../templates/menu.php';
 
                         <hr>
 
-                        <h6 class="text-primary mb-3">Ingrese Montos Recibidos:</h6>
-                        <div class="row g-3">
+                        <h6 class="text-info fw-bold mb-3"><i class="fa fa-money-bill-wave me-2"></i> Ingrese Montos
+                            Recibidos:</h6>
+                        <div class="row g-3" id="paymentMethodsContainer">
                             <?php foreach ($methods as $method):
                                 $isPagoMovil = (strpos(strtolower($method['name']), 'pago móvil') !== false || strpos(strtolower($method['name']), 'pagomovil') !== false);
                                 $isZelle = (strpos(strtolower($method['name']), 'zelle') !== false);
+                                $isDigital = $isPagoMovil || $isZelle;
                                 ?>
-                                <div class="col-md-6">
-                                    <div class="card p-2 border-0 bg-light-subtle shadow-sm mb-2">
-                                        <div class="input-group">
-                                            <span class="input-group-text w-50 small" style="font-size: 0.85rem;">
+                                <div class="col-md-6 method-card" id="method-card-<?= $method['id'] ?>">
+                                    <div class="card p-2 border-0 bg-dark bg-opacity-25 shadow-sm mb-2 h-100">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span class="badge bg-primary text-white small px-3">
                                                 <?= $method['name'] ?>
                                             </span>
-                                            <input type="number" step="0.01"
-                                                class="form-control payment-input fw-bold text-end"
-                                                name="payments[<?= $method['id'] ?>]"
-                                                data-currency="<?= $method['currency'] ?>"
-                                                data-method-name="<?= htmlspecialchars($method['name']) ?>"
-                                                placeholder="0.00">
-                                            <span class="input-group-text"><?= $method['currency'] ?></span>
+                                            <?php if ($isDigital): ?>
+                                                <button type="button" class="btn btn-sm btn-info py-0 px-2 text-dark fw-bold"
+                                                    onclick="addPaymentRow(<?= $method['id'] ?>, <?= $isPagoMovil ? 'true' : 'false' ?>, <?= $isZelle ? 'true' : 'false' ?>)">
+                                                    <i class="fa fa-plus small"></i> AGREGAR
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
 
-                                        <!-- Detalles adicionales para Pago Móvil o Zelle -->
-                                        <div class="mt-2 extra-details" id="details-<?= $method['id'] ?>"
-                                            style="display:none;">
-                                            <?php if ($isPagoMovil): ?>
-                                                <input type="text" class="form-control form-control-sm"
-                                                    name="payment_details[<?= $method['id'] ?>][reference]"
-                                                    placeholder="Número de Movimiento (# Referencia)" data-required="true">
-                                            <?php elseif ($isZelle): ?>
-                                                <input type="text" class="form-control form-control-sm mb-1"
-                                                    name="payment_details[<?= $method['id'] ?>][reference]"
-                                                    placeholder="Código de Confirmación">
-                                                <input type="text" class="form-control form-control-sm"
-                                                    name="payment_details[<?= $method['id'] ?>][sender]"
-                                                    placeholder="Nombre del Remitente" data-required="true">
-                                            <?php endif; ?>
+                                        <div class="rows-container" id="rows-<?= $method['id'] ?>">
+                                            <div class="payment-row mb-3 pb-3 border-bottom border-light-subtle">
+                                                <div class="input-group">
+                                                    <input type="number" step="0.01"
+                                                        class="form-control payment-input fw-bold text-end text-white bg-dark"
+                                                        name="payments[<?= $method['id'] ?>][]"
+                                                        data-currency="<?= $method['currency'] ?>"
+                                                        data-method-name="<?= htmlspecialchars($method['name']) ?>"
+                                                        placeholder="0.00">
+                                                    <span
+                                                        class="input-group-text bg-secondary text-white border-0"><?= $method['currency'] ?></span>
+                                                </div>
+
+                                                <!-- Detalles para Pago Móvil o Zelle -->
+                                                <div class="mt-2 extra-details" style="display:none;">
+                                                    <?php if ($isPagoMovil): ?>
+                                                        <input type="text"
+                                                            class="form-control form-control-sm bg-dark text-white border-secondary"
+                                                            name="payment_details[<?= $method['id'] ?>][reference][]"
+                                                            placeholder="# Referencia (8-10 dígitos)" data-required="true">
+                                                    <?php elseif ($isZelle): ?>
+                                                        <input type="text"
+                                                            class="form-control form-control-sm mb-1 bg-dark text-white border-secondary"
+                                                            name="payment_details[<?= $method['id'] ?>][reference][]"
+                                                            placeholder="Código Conf.">
+                                                        <input type="text"
+                                                            class="form-control form-control-sm bg-dark text-white border-secondary"
+                                                            name="payment_details[<?= $method['id'] ?>][sender][]"
+                                                            placeholder="Remitente" data-required="true">
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
 
-                        <div class="mt-4 p-3 rounded border" style="background-color: #f8f9fa;">
+                        <div class="mt-4 p-3 rounded border border-secondary"
+                            style="background-color: rgba(0,0,0,0.4);">
                             <div class="row text-center align-items-center">
                                 <div class="col-md-4 border-end">
-                                    <small class="text-muted d-block text-uppercase fw-bold">Total Recibido</small>
-                                    <div id="paidUsd" class="fs-4 fw-bold text-primary">$0.00</div>
-                                    <div id="paidVes" class="small text-muted">0.00 Bs</div>
+                                    <small class="text-white-50 d-block text-uppercase fw-bold">Total Recibido</small>
+                                    <div id="paidUsd" class="fs-4 fw-bold text-info">$0.00</div>
+                                    <div id="paidVes" class="small text-white-50">0.00 Bs</div>
                                 </div>
 
                                 <div class="col-md-4 border-end" id="colRemaining">
-                                    <small class="text-muted d-block text-uppercase fw-bold">Falta por Pagar</small>
+                                    <small class="text-white-50 d-block text-uppercase fw-bold">Falta por Pagar</small>
                                     <div id="remainUsd" class="fs-4 fw-bold text-danger">
                                         $<?= number_format($totalUsd, 2) ?></div>
                                     <div id="remainVes" class="small text-danger">
@@ -247,7 +271,7 @@ require_once '../templates/menu.php';
                                 </div>
 
                                 <div class="col-md-4" id="colChange" style="opacity: 0.5;">
-                                    <small class="text-muted d-block text-uppercase fw-bold">Su Cambio</small>
+                                    <small class="text-white-50 d-block text-uppercase fw-bold">Su Cambio</small>
                                     <div id="changeUsd" class="fs-4 fw-bold text-success">$0.00</div>
                                     <div id="changeVes" class="small text-success fw-bold">0.00 Bs</div>
                                 </div>
@@ -276,8 +300,8 @@ require_once '../templates/menu.php';
 
                         <!-- SECCIÓN CRÉDITO Y BENEFICIOS -->
                         <div class="mt-4">
-                            <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal"
-                                data-bs-target="#modalCredit">
+                            <button type="button" class="btn btn-outline-info w-100 fw-bold py-2 shadow-sm"
+                                data-bs-toggle="modal" data-bs-target="#modalCredit">
                                 <i class="fa fa-handshake me-2"></i> Procesar Crédito o Beneficio
                             </button>
                         </div>
@@ -404,7 +428,6 @@ require_once '../templates/menu.php';
 <script>
     const totalOrderUsd = <?= $totalUsd ?>;
     const rate = <?= $rate ?>;
-    const inputs = document.querySelectorAll('.payment-input');
     const btnSubmit = document.getElementById('btnSubmit');
     const divChangeMethod = document.getElementById('changeMethodContainer');
     const selectChangeMethod = document.querySelector('select[name="change_method_id"]');
@@ -414,11 +437,70 @@ require_once '../templates/menu.php';
     let selectedEmpId = <?= $sessionEmployeeId ?: 'null' ?>;
     let currentCreditType = selectedEmpId ? 'employee_credit' : 'client_credit';
 
+    function addPaymentRow(methodId, isPagoMovil, isZelle) {
+        const container = document.getElementById('rows-' + methodId);
+        const row = document.createElement('div');
+        row.className = 'payment-row mb-3 pb-3 border-bottom border-light-subtle animate__animated animate__fadeIn';
+
+        const currency = container.querySelector('.payment-input').dataset.currency;
+        const methodName = container.querySelector('.payment-input').dataset.methodName;
+
+        let extraFields = '';
+        if (isPagoMovil) {
+            extraFields = `<input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" name="payment_details[${methodId}][reference][]" placeholder="# Referencia (8-10 dígitos)" data-required="true">`;
+        } else if (isZelle) {
+            extraFields = `
+                <input type="text" class="form-control form-control-sm mb-1 bg-dark text-white border-secondary" name="payment_details[${methodId}][reference][]" placeholder="Código Conf.">
+                <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" name="payment_details[${methodId}][sender][]" placeholder="Remitente" data-required="true">
+            `;
+        }
+
+        row.innerHTML = `
+            <div class="d-flex gap-1 align-items-center mb-2">
+                <div class="input-group">
+                    <input type="number" step="0.01" class="form-control payment-input fw-bold text-end text-white bg-dark border-secondary" name="payments[${methodId}][]" data-currency="${currency}" data-method-name="${methodName}" placeholder="0.00">
+                    <span class="input-group-text bg-secondary text-white border-0">${currency}</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger text-white shadow-sm" onclick="this.closest('.payment-row').remove(); calculate();">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="mt-2 extra-details">
+                ${extraFields}
+            </div>
+        `;
+
+        container.appendChild(row);
+
+        // Re-enlazar eventos a los nuevos inputs
+        const newInputs = row.querySelectorAll('.payment-input');
+        newInputs.forEach(initInputEvent);
+    }
+
+    function initInputEvent(input) {
+        input.addEventListener('input', () => {
+            calculate();
+            const row = input.closest('.payment-row');
+            const detailsDiv = row.querySelector('.extra-details');
+            if (!detailsDiv) return;
+
+            const val = parseFloat(input.value) || 0;
+            if (val > 0) {
+                detailsDiv.style.display = 'block';
+            } else {
+                detailsDiv.style.display = 'none';
+                detailsDiv.querySelectorAll('input').forEach(i => i.value = '');
+            }
+        });
+        input.addEventListener('keyup', calculate);
+    }
+
     function calculate() {
         let paidUsd = 0;
+        const allInputs = document.querySelectorAll('.payment-input');
 
         // 1. Sumar Pagos (Convirtiendo todo a USD base)
-        inputs.forEach(input => {
+        allInputs.forEach(input => {
             let val = parseFloat(input.value) || 0;
             if (input.dataset.currency === 'VES') {
                 paidUsd += (val / rate);
@@ -432,51 +514,34 @@ require_once '../templates/menu.php';
         let epsilon = 0.001;
         let isCredit = document.getElementById('is_credit').value == '1';
 
-        // Si es credito, forzamos "Pagado" visualmente
         if (isCredit) {
             paidUsd = totalOrderUsd;
             diff = 0;
         }
 
-        // 3. Actualizar Visuales (Pagado)
         document.getElementById('paidUsd').textContent = '$' + paidUsd.toFixed(2);
         document.getElementById('paidVes').textContent = (paidUsd * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
 
-        // 4. Lógica de Estados
         if (diff > epsilon && !isCredit) {
-            // AÚN FALTA DINERO
             document.getElementById('remainUsd').textContent = '$' + diff.toFixed(2);
             document.getElementById('remainVes').textContent = (diff * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
-
             document.getElementById('changeUsd').textContent = "$0.00";
             document.getElementById('changeVes').textContent = "0.00 Bs";
-
-            // Estilos
             document.getElementById('colRemaining').style.opacity = "1";
             document.getElementById('colChange').style.opacity = "0.3";
             divChangeMethod.style.display = "none";
             selectChangeMethod.required = false;
-
-            // Botón bloqueado
             btnSubmit.disabled = true;
             btnSubmit.className = "btn btn-secondary btn-lg py-3";
             btnSubmit.innerHTML = '<i class="fa fa-lock me-2"></i> Complete el Pago';
-
         } else {
-            // PAGO COMPLETO O SOBRANTE (VUELTO) O CRÉDITO
             let change = Math.abs(diff);
-
             document.getElementById('remainUsd').textContent = "$0.00";
             document.getElementById('remainVes').textContent = "0.00 Bs";
-
             document.getElementById('changeUsd').textContent = '$' + change.toFixed(2);
             document.getElementById('changeVes').textContent = (change * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
-
-            // Estilos
             document.getElementById('colRemaining').style.opacity = "0.3";
             document.getElementById('colChange').style.opacity = "1";
-
-            // Activar botón
             btnSubmit.disabled = false;
 
             if (isCredit) {
@@ -488,8 +553,6 @@ require_once '../templates/menu.php';
             } else {
                 btnSubmit.className = "btn btn-success btn-lg py-3 shadow";
                 btnSubmit.innerHTML = '<i class="fa fa-check-circle me-2"></i> <strong>CONFIRMAR VENTA</strong>';
-
-                // Lógica de Vuelto
                 if (change > 0.01) {
                     divChangeMethod.style.display = "block";
                     selectChangeMethod.required = true;
@@ -501,24 +564,8 @@ require_once '../templates/menu.php';
         }
     }
 
-    inputs.forEach(input => {
-        input.addEventListener('input', () => {
-            calculate();
-            // Mostrar/ocultar campos de referencia según si hay monto
-            const methodId = input.name.match(/payments\[(\d+)\]/)?.[1];
-            if (!methodId) return;
-            const detailsDiv = document.getElementById('details-' + methodId);
-            if (!detailsDiv) return;
-            const val = parseFloat(input.value) || 0;
-            if (val > 0) {
-                detailsDiv.style.display = 'block';
-            } else {
-                detailsDiv.style.display = 'none';
-                detailsDiv.querySelectorAll('input').forEach(i => i.value = '');
-            }
-        });
-        input.addEventListener('keyup', calculate);
-    });
+    // Inicializar eventos para inputs existentes
+    document.querySelectorAll('.payment-input').forEach(initInputEvent);
 
     // --- CREDIT MODAL LOGIC ---
 
@@ -708,7 +755,7 @@ require_once '../templates/menu.php';
         modal.hide();
 
         // Disable Payment Inputs to avoid confusion
-        inputs.forEach(i => i.disabled = true);
+        document.querySelectorAll('.payment-input').forEach(i => i.disabled = true);
 
         // Recalculate to update button
         calculate();
@@ -727,8 +774,11 @@ require_once '../templates/menu.php';
 
         // Validar campos obligatorios de Pago Móvil y Zelle
         let isValid = true;
-        document.querySelectorAll('.extra-details:visible input[data-required="true"]').forEach(field => {
-            if (!field.value.trim()) {
+        document.querySelectorAll('.extra-details input[data-required="true"]').forEach(field => {
+            const row = field.closest('.payment-row');
+            const amount = parseFloat(row.querySelector('.payment-input').value) || 0;
+
+            if (amount > 0 && !field.value.trim()) {
                 isValid = false;
                 field.classList.add('is-invalid');
                 $(field).effect('shake');

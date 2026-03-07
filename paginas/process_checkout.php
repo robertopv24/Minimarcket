@@ -96,24 +96,31 @@ $rate = $config->get('exchange_rate');
 $rawPayments = $_POST['payments'] ?? [];
 $processedPayments = [];
 
-foreach ($rawPayments as $methodId => $amount) {
-    if ($amount > 0) {
-        $stmt = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
-        $stmt->execute([$methodId]);
-        $currency = $stmt->fetchColumn();
+foreach ($rawPayments as $methodId => $amounts) {
+    // Asegurar que tratamos montos como array (por los campos dinámicos [])
+    if (!is_array($amounts)) {
+        $amounts = [$amounts];
+    }
 
-        // CAPTURAR DETALLES ADICIONALES (Referencia y Remitente)
-        $details = $_POST['payment_details'][$methodId] ?? [];
-        $paymentRef = $details['reference'] ?? null;
-        $senderName = $details['sender'] ?? null;
+    foreach ($amounts as $index => $amount) {
+        if ($amount > 0) {
+            $stmt = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
+            $stmt->execute([$methodId]);
+            $currency = $stmt->fetchColumn();
 
-        $processedPayments[] = [
-            'method_id' => $methodId,
-            'amount' => $amount,
-            'currency' => $currency,
-            'payment_reference' => $paymentRef,
-            'sender_name' => $senderName
-        ];
+            // CAPTURAR DETALLES ADICIONALES (Referencia y Remitente) de la fila correspondiente
+            $details = $_POST['payment_details'][$methodId] ?? [];
+            $paymentRef = (isset($details['reference']) && is_array($details['reference'])) ? ($details['reference'][$index] ?? null) : null;
+            $senderName = (isset($details['sender']) && is_array($details['sender'])) ? ($details['sender'][$index] ?? null) : null;
+
+            $processedPayments[] = [
+                'method_id' => $methodId,
+                'amount' => $amount,
+                'currency' => $currency,
+                'payment_reference' => $paymentRef,
+                'sender_name' => $senderName
+            ];
+        }
     }
 }
 
