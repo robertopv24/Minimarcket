@@ -33,13 +33,23 @@ function renderTicket($orderData)
                                         <div class="text-center">
                                                 <?php
                                                 $cType = $it['consumption_type'] ?? '';
-                                                $tier = $orden['delivery_tier'] ?? '';
-                                                $tagText = ($cType === 'delivery') ? 'DELIVERY' : ($it['is_takeaway'] ? 'LLEVAR' : 'MESA');
-                                                if ($cType === 'delivery' && !empty($tier))
-                                                        $tagText .= " ($tier)";
+                                                $tier = strtolower($orden['delivery_tier'] ?? '');
+
+                                                if ($cType === 'delivery') {
+                                                        if ($tier === 'a') {
+                                                                $tagText = 'LLEVAR';
+                                                                $tagClass = 'tag-takeaway';
+                                                        } else {
+                                                                $tagText = 'DELIVERY';
+                                                                $tagClass = 'tag-delivery';
+                                                        }
+                                                } else {
+                                                        $isTakeaway = ($it['is_takeaway'] ?? false);
+                                                        $tagText = $isTakeaway ? 'LLEVAR' : 'LOCAL';
+                                                        $tagClass = $isTakeaway ? 'tag-takeaway' : 'tag-dinein';
+                                                }
                                                 ?>
-                                                <span
-                                                        class="tag <?= $cType === 'delivery' ? 'tag-delivery' : ($it['is_takeaway'] ? 'tag-takeaway' : 'tag-dinein') ?>">
+                                                <span class="tag <?= $tagClass ?>">
                                                         <?= $tagText ?>
                                                         <div class="item-num"><?= ($it['qty'] > 1) ? $it['qty'] . ' x ' : '•' ?></div>
                                                         <?php if (!empty($it['name'])): ?>

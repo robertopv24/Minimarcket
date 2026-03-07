@@ -497,8 +497,21 @@ function renderTicket($data)
                             <?php
                             global $colorLlevar, $colorLocal, $colorDelivery;
                             $cType = $it['consumption_type'] ?? 'dine_in';
-                            $bgColor = ($cType === 'delivery') ? $colorDelivery : (($cType === 'takeaway' || ($it['is_takeaway'] ?? false)) ? $colorLlevar : $colorLocal);
-                            $label = ($cType === 'delivery') ? 'DELIVERY' . ($orden['delivery_tier'] ? " ({$orden['delivery_tier']})" : "") : (($cType === 'takeaway' || ($it['is_takeaway'] ?? false)) ? 'LLEVAR' : 'LOCAL');
+                            $tier = strtolower($orden['delivery_tier'] ?? '');
+
+                            if ($cType === 'delivery') {
+                                if ($tier === 'a') {
+                                    $label = 'LLEVAR';
+                                    $bgColor = $colorLlevar;
+                                } else {
+                                    $label = 'DELIVERY';
+                                    $bgColor = $colorDelivery;
+                                }
+                            } else {
+                                $isTakeaway = ($cType === 'takeaway' || ($it['is_takeaway'] ?? false));
+                                $label = $isTakeaway ? 'LLEVAR' : 'LOCAL';
+                                $bgColor = $isTakeaway ? $colorLlevar : $colorLocal;
+                            }
                             ?>
                             <span class="tag-mini fw-bold px-1 text-white"
                                 style="background-color: <?= $bgColor ?> !important;"><?= $label ?></span>

@@ -16,8 +16,9 @@ require_once '../templates/header.php';
         <div class="col-12">
             <div class="bg-secondary rounded h-100 p-4">
                 <h6 class="mb-4">Planillas Administrativas (Soporte Físico)</h6>
-                <p class="text-muted">Seleccione una planilla para previsualizar e imprimir. Estas planillas sirven como respaldo físico para auditar el sistema.</p>
-                
+                <p class="text-muted">Seleccione una planilla para previsualizar e imprimir. Estas planillas sirven como
+                    respaldo físico para auditar el sistema.</p>
+
                 <div class="row g-4">
                     <!-- Planilla 1: Recepción -->
                     <div class="col-md-4">
@@ -26,7 +27,8 @@ require_once '../templates/header.php';
                                 <i class="fa fa-truck fa-3x text-primary mb-3"></i>
                                 <h5>Recepción de Mercancía</h5>
                                 <p class="small">Control de entrada de proveedores.</p>
-                                <a href="imprimir_planilla.php?tipo=recepcion" target="_blank" class="btn btn-primary w-100">
+                                <a href="imprimir_planilla.php?tipo=recepcion" target="_blank"
+                                    class="btn btn-primary w-100">
                                     <i class="fa fa-print me-2"></i>Generar PDF
                                 </a>
                             </div>
@@ -40,7 +42,8 @@ require_once '../templates/header.php';
                                 <i class="fa fa-utensils fa-3x text-success mb-3"></i>
                                 <h5>Control de Producción</h5>
                                 <p class="small">Registro de transformaciones y lotes.</p>
-                                <a href="imprimir_planilla.php?tipo=produccion" target="_blank" class="btn btn-success w-100">
+                                <a href="imprimir_planilla.php?tipo=produccion" target="_blank"
+                                    class="btn btn-success w-100">
                                     <i class="fa fa-print me-2"></i>Generar PDF
                                 </a>
                             </div>
@@ -54,7 +57,8 @@ require_once '../templates/header.php';
                                 <i class="fa fa-boxes fa-3x text-info mb-3"></i>
                                 <h5>Inventario Físico</h5>
                                 <p class="small">Hoja de conteo para auditoría semanal.</p>
-                                <a href="imprimir_planilla.php?tipo=inventario" target="_blank" class="btn btn-info w-100">
+                                <a href="imprimir_planilla.php?tipo=inventario" target="_blank"
+                                    class="btn btn-info w-100">
                                     <i class="fa fa-print me-2"></i>Generar PDF
                                 </a>
                             </div>
@@ -68,7 +72,8 @@ require_once '../templates/header.php';
                                 <i class="fa fa-trash-alt fa-3x text-danger mb-3"></i>
                                 <h5>Mermas y Averías</h5>
                                 <p class="small">Reporte de daños y vencimientos.</p>
-                                <a href="imprimir_planilla.php?tipo=mermas" target="_blank" class="btn btn-danger w-100">
+                                <a href="imprimir_planilla.php?tipo=mermas" target="_blank"
+                                    class="btn btn-danger w-100">
                                     <i class="fa fa-print me-2"></i>Generar PDF
                                 </a>
                             </div>
@@ -82,7 +87,39 @@ require_once '../templates/header.php';
                                 <i class="fa fa-cash-register fa-3x text-warning mb-3"></i>
                                 <h5>Arqueo de Caja Diario</h5>
                                 <p class="small">Soporte físico para cierre de turno.</p>
-                                <a href="imprimir_planilla.php?tipo=arqueo" target="_blank" class="btn btn-warning w-100 text-dark">
+                                <a href="imprimir_planilla.php?tipo=arqueo" target="_blank"
+                                    class="btn btn-warning w-100 text-dark">
+                                    <i class="fa fa-print me-2"></i>Generar PDF
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Planilla 6: Levantamiento Materias Primas -->
+                    <div class="col-md-4">
+                        <div class="card bg-dark border-info h-100">
+                            <div class="card-body text-center">
+                                <i class="fa fa-list-check fa-3x text-info mb-3"></i>
+                                <h5>Levantamiento Materias Primas</h5>
+                                <p class="small">Recolección de insumos iniciales.</p>
+                                <a href="imprimir_planilla.php?tipo=materias_primas" target="_blank"
+                                    class="btn btn-info w-100 text-dark">
+                                    <i class="fa fa-print me-2"></i>Generar PDF
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Planilla 7: Levantamiento Manufactura -->
+                    <div class="col-md-4">
+                        <div class="card bg-dark"
+                            style="border-color: #a855f7 !important; border-width: 1.5px; border-style: solid;">
+                            <div class="card-body text-center">
+                                <i class="fa fa-flask fa-3x mb-3" style="color: #a855f7;"></i>
+                                <h5 style="color: #fff;">Estandarización de Recetas</h5>
+                                <p class="small text-muted">Prueba técnica de producción.</p>
+                                <a href="imprimir_planilla.php?tipo=manufactura" target="_blank"
+                                    class="btn w-100 text-white" style="background-color: #a855f7;">
                                     <i class="fa fa-print me-2"></i>Generar PDF
                                 </a>
                             </div>

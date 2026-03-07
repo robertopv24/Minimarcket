@@ -30,6 +30,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_delivery_cost'
     }
 }
 
+// 2b. Procesar Tiempo Límite de Edición
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_edit_time'])) {
+    if (!Csrf::validate($_POST['csrf_token'] ?? '')) {
+        die("Error de seguridad: Token CSRF inválido");
+    }
+    $newTime = intval($_POST['order_edit_time_limit']);
+    if ($newTime >= 0) {
+        if ($config->update('order_edit_time_limit', $newTime)) {
+            $success_message = "Tiempo límite de edición actualizado a <strong>$newTime</strong> minutos.";
+        } else {
+            $error_message = "Error al guardar configuración de tiempo.";
+        }
+    } else {
+        $error_message = "El tiempo debe ser mayor o igual a 0.";
+    }
+}
+
 // 3. OBTENER TODAS LAS MÉTRICAS
 $currentRate = $config->get('exchange_rate');
 $deliveryBaseCost = $config->get('delivery_base_cost', 0.00);
@@ -93,6 +110,19 @@ require_once '../templates/header.php';
                 </div>
                 <button type="submit" name="update_delivery_cost" class="btn btn-sm btn-warning">
                     <i class="fa fa-truck"></i>
+                </button>
+            </form>
+
+            <!-- Tiempo Límite Edición -->
+            <form method="POST" class="d-flex gap-2 bg-white p-2 rounded shadow-sm align-items-center">
+                <?= Csrf::insertTokenField() ?>
+                <span class="fw-bold text-muted small">MÁX. EDICIÓN (MIN):</span>
+                <div class="input-group input-group-sm" style="width: 100px;">
+                    <input type="number" name="order_edit_time_limit"
+                        class="form-control border-0 bg-light fw-bold text-center" value="<?= $config->get('order_edit_time_limit', 15) ?>">
+                </div>
+                <button type="submit" name="update_edit_time" class="btn btn-sm btn-info">
+                    <i class="fa fa-clock"></i>
                 </button>
             </form>
         </div>

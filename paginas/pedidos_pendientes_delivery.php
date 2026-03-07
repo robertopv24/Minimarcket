@@ -60,6 +60,28 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <a href="ticket.php?id=<?= $o['id'] ?>" target="_blank" class="btn btn-outline-info btn-sm">
                                     <i class="fa fa-print me-1"></i> Ver Ticket
                                 </a>
+                                <?php 
+                                $isModifiable = $orderManager->isOrderModifiable($o['id']);
+                                $isCancellable = $orderManager->isOrderCancellable($o['id']);
+                                ?>
+                                <?php if ($isModifiable || $isCancellable): ?>
+                                    <div class="row g-2 mt-1">
+                                        <?php if ($isModifiable): ?>
+                                            <div class="col-6">
+                                                <button onclick="orderAction(<?= $o['id'] ?>, 'modify')" class="btn btn-outline-primary btn-sm w-100">
+                                                    <i class="fa fa-edit"></i> Editar
+                                                </button>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if ($isCancellable): ?>
+                                            <div class="<?= $isModifiable ? 'col-6' : 'col-12' ?>">
+                                                <button onclick="orderAction(<?= $o['id'] ?>, 'cancel')" class="btn btn-outline-danger btn-sm w-100">
+                                                    <i class="fa fa-times"></i> Cancelar
+                                                </button>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -68,5 +90,55 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     <?php endif; ?>
 </div>
+
+<!-- Script de Acciones de Orden -->
+<script>
+function orderAction(orderId, action) {
+    const actionText = action === 'modify' ? 'modificar' : 'cancelar';
+    const actionColor = action === 'modify' ? '#3085d6' : '#d33';
+    const confirmButtonText = action === 'modify' ? 'Sí, modificar' : 'Sí, cancelar';
+
+    Swal.fire({
+        title: `¿Estás seguro de ${actionText} la orden #${orderId}?`,
+        text: action === 'modify' ? 'La orden actual se cancelará y los productos se cargarán en tu carrito para editarlos.' : 'Esta acción revertirá el stock y cancelará la orden permanentemente.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: actionColor,
+        cancelButtonColor: '#aaa',
+        confirmButtonText: confirmButtonText,
+        cancelButtonText: 'No, volver'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            Swal.fire({
+                title: 'Procesando...',
+                didOpen: () => { Swal.showLoading() },
+                allowOutsideClick: false
+            });
+
+            $.ajax({
+                url: '../ajax/order_actions.php',
+                method: 'POST',
+                data: { order_id: orderId, action: action },
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('¡Éxito!', response.message, 'success').then(() => {
+                            if (action === 'modify') {
+                                window.location.href = 'tienda.php';
+                            } else {
+                                location.reload();
+                            }
+                        });
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error', 'No se pudo procesar la solicitud.', 'error');
+                }
+            });
+        }
+    });
+}
+</script>
 
 <?php require_once '../templates/footer.php'; ?>

@@ -204,6 +204,75 @@ class OrderManager
         $this->handleStockChange($orderId, true);
     }
 
+    /**
+     * CANCELAR ORDEN (NUEVO)
+     * Cancela la orden y revierte el stock.
+     */
+    public function cancelOrder($orderId)
+    {
+        $startedTransaction = false;
+        try {
+            if (!$this->db->inTransaction()) {
+                $this->db->beginTransaction();
+                $startedTransaction = true;
+            }
+
+            // 1. Revertir stock
+            $this->revertStockFromSale($orderId);
+
+            // 2. Cambiar estado a cancelado
+            $stmt = $this->db->prepare("UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$orderId]);
+
+            // 3. Registrar hito
+            $this->logStatusMilestone($orderId, 'system', 'cancelled');
+
+            if ($startedTransaction) {
+                $this->db->commit();
+            }
+            return true;
+        } catch (Exception $e) {
+            if ($startedTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            error_log("Error al cancelar orden #$orderId: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * VERIFICAR SI LA ORDEN ES CANCELABLE (NUEVO)
+     * La cancelación se permite siempre que no esté ya entregada o cancelada.
+     */
+    public function isOrderCancellable($orderId)
+    {
+        $order = $this->getOrderById($orderId);
+        if (!$order) return false;
+
+        // Órdenes ya entregadas o canceladas no se pueden cancelar
+        return !in_array($order['status'], ['delivered', 'cancelled']);
+    }
+
+    /**
+     * VERIFICAR SI LA ORDEN ES MODIFICABLE (NUEVO)
+     * La modificación está sujeta al tiempo límite configurado.
+     */
+    public function isOrderModifiable($orderId)
+    {
+        // Primero debe ser cancelable (estado válido)
+        if (!$this->isOrderCancellable($orderId)) return false;
+
+        $order = $this->getOrderById($orderId);
+        global $config;
+        $limitMinutes = intval(($config ?? new GlobalConfig())->get('order_edit_time_limit', 15));
+        
+        $createdAt = strtotime($order['created_at']);
+        $now = time();
+        $diffMinutes = ($now - $createdAt) / 60;
+
+        return ($diffMinutes <= $limitMinutes);
+    }
+
     private function handleStockChange($orderId, $isReversion = false)
     {
         $sql = "SELECT oi.id as order_item_id, oi.product_id, oi.quantity
@@ -644,7 +713,7 @@ class OrderManager
      */
     public function getKDSOrders($station = null)
     {
-        $sql = "SELECT o.id, o.created_at, o.status, o.shipping_address, 
+        $sql = "SELECT o.id, o.created_at, o.status, o.shipping_address, o.customer_note,
                        o.kds_kitchen_ready, o.kds_pizza_ready,
                        o.kds_kitchen_preparing, o.kds_pizza_preparing, o.delivery_tier,
                        o.client_id, o.employee_id, o.consumption_type,
@@ -662,11 +731,16 @@ class OrderManager
         $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($orders as &$o) {
-            // Procesar nombre del cliente
+            // Procesar nombre del cliente (Prioridad: Empresa/Empleado > Cliente Vinculado > Nombre Manual en shipping_address > Nota > Cajero)
             if (!empty($o['employee_name'])) {
                 $o['cliente_display'] = "EMP: " . $o['employee_name'];
             } elseif (!empty($o['client_name'])) {
                 $o['cliente_display'] = $o['client_name'] . " (C)";
+            } elseif (!empty($o['shipping_address']) && $o['shipping_address'] !== 'Tienda Física') {
+                // El POS guarda el nombre del cliente en shipping_address para órdenes que no son de sistema
+                $o['cliente_display'] = preg_replace('/DELIVERY \([A-Z]\): /i', '', $o['shipping_address']);
+            } elseif (!empty($o['customer_note'])) {
+                $o['cliente_display'] = $o['customer_note'];
             } else {
                 $o['cliente_display'] = $o['fallback_name'];
             }

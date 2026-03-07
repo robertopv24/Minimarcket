@@ -11,7 +11,7 @@ class CartManager
     }
 
     // 1. AGREGAR AL CARRITO (Mejorado para Plan v2)
-    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in', $parentCartId = null, $priceOverride = null)
+    public function addToCart($user_id, $product_id, $quantity, $modifiers = [], $consumptionType = 'dine_in', $parentCartId = null, $priceOverride = null, $skipAutoCompanions = false)
     {
         $startedTransaction = false;
         try {
@@ -99,7 +99,7 @@ class CartManager
             // Solo buscamos acompañantes si nosotros NO somos ya un acompañante (evitar bucles infinitos)
             // --- LÓGICA DE ACOMPAÑANTES v2 (Independientes) ---
             // Solo buscamos acompañantes si nosotros NO somos ya un acompañante (evitar bucles infinitos)
-            if ($parentCartId === null) {
+            if ($parentCartId === null && !$skipAutoCompanions) {
                 // Modificado para pasar false (no calcular precio recursivo) o verificar firma
                 $companions = $productManager->getCompanions($product_id);
                 foreach ($companions as $comp) {
@@ -117,7 +117,7 @@ class CartManager
                     $newCompanionCartId = $this->db->lastInsertId();
 
                     // Insertamos el modificador oculto 'companion_origin'
-                    $stmtLink = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type, note) VALUES (?, 'companion_origin', -1, ?, 'setup', 'Linked to ProductCompanion #')");
+                    $stmtLink = $this->db->prepare("INSERT INTO cart_item_modifiers (cart_id, modifier_type, sub_item_index, component_id, component_type, note) VALUES (?, 'companion_origin', -1, ?, 'setup', 'Linked to ProductCompanion')");
                     $stmtLink->execute([$newCompanionCartId, $comp['id']]);
                 }
             }
@@ -598,6 +598,65 @@ class CartManager
             $total_usd += $item['total_price'];
         $rate = isset($GLOBALS['config']) ? $GLOBALS['config']->get('exchange_rate') : 1;
         return ['total_usd' => $total_usd, 'total_ves' => $total_usd * $rate];
+    }
+
+    /**
+     * CARGAR ORDEN EN CARRITO (NUEVO)
+     * Recrea una orden completa en el carrito de un usuario.
+     */
+    public function loadOrderIntoCart($user_id, $orderId)
+    {
+        $orderManager = new OrderManager($this->db);
+        $items = $orderManager->getOrderItems($orderId);
+
+        foreach ($items as $item) {
+            // 1. Obtener modificadores formateados para addToCart
+            $modData = ['items' => []];
+            $rawMods = $orderManager->getItemModifiers($item['id']);
+
+            foreach ($rawMods as $m) {
+                $idx = $m['sub_item_index'];
+                
+                if ($idx == -1) {
+                    if ($m['modifier_type'] == 'info') $modData['general_note'] = $m['note'];
+                    continue;
+                }
+
+                if (!isset($modData['items'][$idx])) {
+                    $modData['items'][$idx] = [
+                        'index' => $idx,
+                        'consumption' => ($m['is_takeaway'] == 1) ? 'takeaway' : 'dine_in',
+                        'note' => $m['note'] ?? null,
+                        'remove' => [],
+                        'add' => [],
+                        'sides' => []
+                    ];
+                }
+
+                if ($m['modifier_type'] == 'add') {
+                    $modData['items'][$idx]['add'][] = [
+                        'id' => $m['component_id'],
+                        'type' => $m['component_type'],
+                        'qty' => $m['quantity_adjustment'],
+                        'price' => $m['price_adjustment_usd']
+                    ];
+                } elseif ($m['modifier_type'] == 'side') {
+                    $modData['items'][$idx]['sides'][] = [
+                        'id' => $m['component_id'],
+                        'type' => $m['component_type'],
+                        'qty' => $m['quantity_adjustment'],
+                        'price' => $m['price_adjustment_usd']
+                    ];
+                } elseif ($m['modifier_type'] == 'remove') {
+                    $modData['items'][$idx]['remove'][] = $m['component_id'];
+                }
+            }
+
+            // 2. Agregar al carrito (skipAutoCompanions = true para evitar duplicados al cargar orden)
+            $this->addToCart($user_id, $item['product_id'], $item['quantity'], $modData, $item['consumption_type'], null, null, true);
+        }
+
+        return true;
     }
 }
 ?>
