@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // OBTENER PEDIDOS ACTIVOS
 // (Paid -> Preparing -> Ready)
-$sql = "SELECT o.*, u.name as cliente
+$sql = "SELECT o.*, o.delivery_tier, u.name as cliente
         FROM orders o
         JOIN users u ON o.user_id = u.id
         WHERE o.status IN ('ready')
@@ -110,36 +110,31 @@ $soundUrl = $config->get('kds_sound_url_dispatch', '../assets/sounds/success.mp3
         margin-bottom: 0.5rem !important;
     }
 
-    /* Estilos idénticos al Ticket para consistencia mental */
-    .badge-takeaway {
-        background-color:
-            <?= $colorLlevar ?>
-        ;
-        color: #fff;
-        font-size: 0.65em;
+    /* Estilos idénticos al Monitor KDS para consistencia */
+    .tag-mini {
+        font-size: 0.55rem;
+        font-weight: 800;
+        padding: 0 4px;
+        border: 1px solid currentColor;
         border-radius: 3px;
-        padding: 1px 4px;
+        text-transform: uppercase;
+        display: inline-block;
+        line-height: 1.2;
+    }
+
+    .badge-takeaway {
+        background-color: <?= $colorLlevar ?> !important;
+        color: #fff !important;
     }
 
     .badge-delivery {
-        background-color:
-            <?= $colorDelivery ?>
-        ;
-        color: #fff;
-        font-size: 0.65em;
-        border-radius: 3px;
-        padding: 1px 4px;
+        background-color: <?= $colorDelivery ?> !important;
+        color: #fff !important;
     }
 
     .badge-dinein {
-        background-color:
-            <?= $colorLocal ?>
-        ;
-        color: #fff;
-        font-size: 0.65em;
-        border-radius: 3px;
-        padding: 1px 4px;
-        font-weight: bold;
+        background-color: <?= $colorLocal ?> !important;
+        color: #fff !important;
     }
 
     /* Rediseño Minimalista (Sin Tarjetas Internas) */
@@ -381,6 +376,8 @@ function renderDispatchCard($o)
 {
     global $db, $orderManager, $productManager, $colorLlevar, $colorLocal, $colorDelivery, $useShortCodes, $colorModAdd, $colorModRemove, $colorModSide;
 
+    $deliveryTier = strtolower($o['delivery_tier'] ?? '');
+
     // Lógica de colores según estado
     $cardClass = 'shadow-sm';
     $headerClass = 'bg-dark text-white border-secondary';
@@ -532,16 +529,22 @@ function renderDispatchCard($o)
                                 <div class="sub-item-text">
                                     <?php
                                     $cType = $item['consumption_type'] ?? 'dine_in';
-                                    if ($cType === 'delivery'): ?>
-                                        <span class="badge badge-delivery text-white"
-                                            style="font-size: 0.5rem; padding: 1px 2px;">DELIVERY</span>
-                                    <?php elseif ($isTakeaway || $cType === 'takeaway'): ?>
-                                        <span class="badge badge-takeaway text-white"
-                                            style="font-size: 0.5rem; padding: 1px 2px;">LLEVAR</span>
-                                    <?php else: ?>
-                                        <span class="badge badge-dinein text-white"
-                                            style="font-size: 0.5rem; padding: 1px 2px;">LOCAL</span>
-                                    <?php endif; ?>
+                                    
+                                    if ($cType === 'delivery') {
+                                        if ($deliveryTier === 'a') {
+                                            $label = 'LLEVAR';
+                                            $class = 'badge-takeaway';
+                                        } else {
+                                            $label = 'DELIVERY';
+                                            $class = 'badge-delivery';
+                                        }
+                                    } else {
+                                        $isTakeawayItem = ($cType === 'takeaway' || $isTakeaway);
+                                        $label = $isTakeawayItem ? 'LLEVAR' : 'LOCAL';
+                                        $class = $isTakeawayItem ? 'badge-takeaway' : 'badge-dinein';
+                                    }
+                                    ?>
+                                    <span class="tag-mini <?= $class ?>"><?= $label ?></span>
 
                                     <span class="badge bg-secondary ms-1"
                                         style="font-size: 0.5rem; padding: 1px 2px;">#<?= $i + 1 ?></span>
