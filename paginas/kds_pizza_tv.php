@@ -245,7 +245,7 @@ if (!function_exists('renderTicket')) {
             color: white;
             padding: 0 2px;
             border-radius: 2px;
-            font-size: 0.55rem;
+            font-size: 1rem;
         }
 
         .tag-mini {
