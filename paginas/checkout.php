@@ -11,45 +11,104 @@ if (!$userId || !$cashRegisterManager->hasOpenSession($userId)) {
 }
 
 // 2. Obtener datos de la compra (del carrito o de una orden pendiente)
-$orderId = $_GET['order_id'] ?? null;
+// Si hay una orden siendo editada (flujo: Editar → Tienda → Carrito → Checkout),
+// usamos su ID para mostrar abonos previos y datos de delivery.
+$orderId = $_GET['order_id'] ?? $_SESSION['pos_editing_order_id'] ?? null;
 $cartItems = [];
+$orderData = [];
 
 if ($orderId) {
-    // Si viene un order_id, cargamos los ítems de esa orden
-    $cartItems = $orderManager->getOrderItems($orderId);
     $orderData = $orderManager->getOrderById($orderId);
-    $totalUsd = $orderData['total_price'];
+}
 
-    // Simular estructura de carrito para compatibilidad con el resto de la página
-    foreach ($cartItems as &$item) {
-        $item['total_price'] = $item['price'] * $item['quantity'];
+// Leer ítems del carrito siempre (la edición carga allí; también las nuevas ventas)
+$cartItemsRaw = $cartManager->getCart($userId);
+
+if ($orderId && !empty($orderData)) {
+    // Si hay orden de referencia, usamos el carrito (que fue cargado desde esa orden)
+    // y obtenemos el total directamente del carrito más actualizado
+    if (!empty($cartItemsRaw)) {
+        $cartItems = $cartItemsRaw;
+        $totals = $cartManager->calculateTotal($cartItems);
+        $totalUsd = $totals['total_usd'];
+    } else {
+        // Fallback: cargar ítems desde la orden
+        $cartItems = $orderManager->getOrderItems($orderId);
+        foreach ($cartItems as &$item) {
+            $item['total_price'] = $item['price'] * $item['quantity'];
+        }
+        $totalUsd = $orderData['total_price'];
     }
+} elseif (!empty($cartItemsRaw)) {
+    // Nueva venta desde carrito
+    $cartItems = $cartItemsRaw;
+    $totals = $cartManager->calculateTotal($cartItems);
+    $totalUsd = $totals['total_usd'];
+    $orderId = null; // Aseguramos que no hay orden de referencia
 } else {
-    // Si no hay order_id, usamos el carrito normal
-    $cartItems = $cartManager->getCart($userId);
-    if (empty($cartItems)) {
+    if (!empty($_GET['order_id'])) {
+        // Acceso directo a checkout con order_id (ej: "Procesar Pago")
+        $cartItems = $orderManager->getOrderItems($orderId);
+        foreach ($cartItems as &$item) {
+            $item['total_price'] = $item['price'] * $item['quantity'];
+        }
+        $totalUsd = $orderData['total_price'];
+    } else {
         header("Location: tienda.php");
         exit;
     }
-    $totals = $cartManager->calculateTotal($cartItems);
-    $totalUsd = $totals['total_usd'];
 }
 
 $rate = $config->get('exchange_rate');
 $methods = $transactionManager->getPaymentMethods();
 
-// Obtener datos del cliente/empleado de la sesión para el modal de crédito
-$sessionClientId = $_SESSION['pos_client_id'] ?? null;
+// Obtener datos del cliente/empleado para el proceso de cobro
+if ($orderId && !empty($orderData)) {
+    $sessionClientId   = $orderData['client_id']   ?? $_SESSION['pos_client_id']   ?? null;
+    $sessionEmployeeId = $orderData['employee_id']  ?? $_SESSION['pos_employee_id'] ?? null;
+} else {
+    $sessionClientId   = $_SESSION['pos_client_id']   ?? null;
+    $sessionEmployeeId = $_SESSION['pos_employee_id'] ?? null;
+}
+
 $sessionClientData = null;
 if ($sessionClientId) {
     $sessionClientData = $creditManager->getClientById($sessionClientId);
 }
 
-$sessionEmployeeId = $_SESSION['pos_employee_id'] ?? null;
 $sessionEmployeeData = null;
 if ($sessionEmployeeId) {
     $sessionEmployeeData = $userManager->getUserById($sessionEmployeeId);
 }
+
+// Calcular Saldo Pendiente y Gastos de Envío actuales
+$alreadyPaid = 0;
+$deliveryFeeInCart = 0;
+
+// Calcular el fee que ya viene en el carrito/orden
+foreach ($cartItems as $item) {
+    if (isset($item['name']) && $item['name'] === 'Servicio Delivery') {
+        $deliveryFeeInCart += (floatval($item['price'] ?? $item['price_usd'] ?? 0) * $item['quantity']);
+    }
+}
+
+if ($orderId) {
+    $alreadyPaid = $transactionManager->getTotalPaidByOrder($orderId);
+}
+
+// El Total Base es el total sin el cargo de delivery específico,
+// para que el JS pueda sumarlo dinámicamente según la radio button.
+$baseTotalUsd = $totalUsd - $deliveryFeeInCart;
+
+// Saldo a Favor del Cliente (Deuda negativa)
+$clientBalance = ($sessionClientData && ($sessionClientData['current_debt'] < -0.001)) ? abs($sessionClientData['current_debt']) : 0;
+$amountRemaining = max(0, $totalUsd - $alreadyPaid - $clientBalance);
+
+// Delivery Fees from Config
+$deliveryBase = floatval($config->get('delivery_base_cost', 0.00));
+$feeA = 0; // Tier A is usually Llevar/Pick-up
+$feeB = $deliveryBase;
+$feeC = $deliveryBase * 2;
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
@@ -64,6 +123,7 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="list-group list-group-flush shadow-sm">
                     <?php foreach ($cartItems as $item):
+                        if ($item['name'] === 'Servicio Delivery') continue; // Ocultar del loop de productos
                         $cId = $item['id'];
                         $isCombo = ($item['product_type'] == 'compound');
                         $groupedMods = $item['modifiers_grouped'] ?? [];
@@ -152,10 +212,45 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="card-footer bg-light">
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fs-5">Total:</span>
+                        <span class="fs-5">Subtotal:</span>
                         <div class="text-end">
-                            <div class="fs-4 fw-bold text-success">$<?= number_format($totalUsd, 2) ?></div>
-                            <div class="small text-muted"><?= number_format($totalUsd * $rate, 2) ?> Bs</div>
+                            <div class="fs-5 fw-bold text-dark">$<?= number_format($baseTotalUsd, 2) ?></div>
+                        </div>
+                    </div>
+                    <div id="deliveryRow" class="d-flex justify-content-between align-items-center border-top pt-2 mt-2" style="display:none !important;">
+                        <span class="fs-6">Cargo Delivery:</span>
+                        <div class="text-end">
+                            <div id="summaryDeliveryFee" class="fs-6 fw-bold text-primary">$0.00</div>
+                        </div>
+                    </div>
+                    <?php if ($alreadyPaid > 0): ?>
+                    <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                        <span class="fs-6 text-muted">Abonado:</span>
+                        <div class="text-end">
+                            <div class="fs-6 fw-bold text-info">$<?= number_format($alreadyPaid, 2) ?></div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                        <span class="fs-4"><?= $alreadyPaid > 0 ? 'Por Pagar:' : 'Total:' ?></span>
+                        <div class="text-end">
+                            <div id="summaryTotalUsd" class="fs-3 fw-bold text-success">$<?= number_format($amountRemaining + $clientBalance, 2) ?></div>
+                            <div id="summaryTotalVes" class="small text-muted"><?= number_format(($amountRemaining + $clientBalance) * $rate, 2) ?> Bs</div>
+                        </div>
+                    </div>
+                    <?php if ($clientBalance > 0): ?>
+                    <div id="clientBalanceRow" class="d-flex justify-content-between align-items-center border-top pt-1 mt-1 text-primary">
+                        <span class="small fw-bold animate__animated animate__pulse animate__infinite"><i class="fa fa-star me-1"></i> Saldo a Favor Aplicado:</span>
+                        <div class="text-end">
+                            <div class="small fw-bold">-$<?= number_format($clientBalance, 2) ?></div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <div class="d-flex justify-content-between align-items-center border-dark border-top pt-2 mt-2">
+                        <span class="fs-4 fw-bold">Diferencia a Cobrar:</span>
+                        <div class="text-end">
+                            <div id="summaryRemainingUsd" class="fs-4 fw-bold text-danger">$<?= number_format($amountRemaining, 2) ?></div>
+                            <div id="summaryRemainingVes" class="small text-muted"><?= number_format($amountRemaining * $rate, 2) ?> Bs</div>
                         </div>
                     </div>
                 </div>
@@ -179,14 +274,47 @@ require_once '../templates/menu.php';
 
                         <div class="row g-2 mb-3">
                             <div class="col-md-6">
+                                <label class="form-label small text-white-50 fw-bold">Nombre del Cliente</label>
                                 <input type="text" class="form-control bg-dark text-white border-secondary fw-bold"
-                                    name="customer_name" placeholder="Nota (Opcional)">
+                                    name="customer_name" 
+                                    value="<?= htmlspecialchars($orderId ? ($orderData['customer_note'] ?? '') : ($_SESSION['pos_client_name'] ?? '')) ?>"
+                                    placeholder="Nombre del Cliente">
                             </div>
                             <div class="col-md-6">
-                                <input type="text" class="form-control bg-dark text-white border-secondary fw-bold"
-                                    name="shipping_address"
-                                    value="<?= htmlspecialchars($orderId ? ($orderData['shipping_address'] ?? '') : ($_SESSION['pos_client_name'] ?? '')) ?>"
-                                    placeholder="Nombre Del Cliente" <?= $orderId ? 'readonly' : '' ?>>
+                                <label class="form-label small text-white-50 fw-bold">Tipo de Consumo</label>
+                                <div class="btn-group w-100" role="group">
+                                    <?php 
+                                    $ctype = $orderId ? ($orderData['consumption_type'] ?? 'dine_in') : 'dine_in';
+                                    ?>
+                                    <input type="radio" class="btn-check" name="consumption_type" id="type_dine_in" value="dine_in" <?= $ctype == 'dine_in' ? 'checked' : '' ?> onchange="toggleDeliveryFields()">
+                                    <label class="btn btn-outline-info" for="type_dine_in">Local</label>
+
+                                    <input type="radio" class="btn-check" name="consumption_type" id="type_takeaway" value="takeaway" <?= $ctype == 'takeaway' ? 'checked' : '' ?> onchange="toggleDeliveryFields()">
+                                    <label class="btn btn-outline-warning" for="type_takeaway">Llevar</label>
+
+                                    <input type="radio" class="btn-check" name="consumption_type" id="type_delivery" value="delivery" <?= $ctype == 'delivery' ? 'checked' : '' ?> onchange="toggleDeliveryFields()">
+                                    <label class="btn btn-outline-success" for="type_delivery">Domicilio</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php 
+                        $dtier = $orderId ? ($orderData['delivery_tier'] ?? 'A') : 'A';
+                        $daddress = ($orderId && $ctype == 'delivery') ? ($orderData['shipping_address'] ?? '') : '';
+                        ?>
+                        <div id="deliveryFields" style="display: <?= $ctype == 'delivery' ? 'block' : 'none' ?>; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);" class="p-4 mb-4 rounded-4 shadow-sm animate__animated animate__fadeIn">
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-12 text-center">
+                                    <label class="form-label small text-info text-uppercase fw-bold mb-3 d-block" style="letter-spacing: 1px;">
+                                        <i class="fa fa-truck-loading me-2"></i>Tipo de Servicio
+                                    </label>
+                                    <select name="delivery_tier" id="delivery_tier" class="form-select bg-dark text-white border-info border-opacity-25 fw-bold mx-auto shadow-sm" style="max-width:320px; border-radius: 12px; height: 45px;" onchange="calculate()">
+                                        <option value="A" data-fee="<?= $feeA ?>" <?= $dtier == 'A' ? 'selected' : '' ?>>📍 Tipo A (Gratis)</option>
+                                        <option value="B" data-fee="<?= $feeB ?>" <?= $dtier == 'B' ? 'selected' : '' ?>>🚚 Tipo B ($<?= number_format($feeB, 2) ?>)</option>
+                                        <option value="C" data-fee="<?= $feeC ?>" <?= $dtier == 'C' ? 'selected' : '' ?>>🚀 Tipo C ($<?= number_format($feeC, 2) ?>)</option>
+                                    </select>
+                                    <input type="hidden" name="shipping_address" id="shipping_address" value="Delivery">
+                                </div>
                             </div>
                         </div>
 
@@ -285,14 +413,16 @@ require_once '../templates/menu.php';
                                 entregas el vuelto?</label>
                             <select name="change_method_id" class="form-select border-warning">
                                 <option value="">Seleccione origen del dinero...</option>
-                                <?php foreach ($methods as $m):
-                                    // Solo mostramos métodos de Efectivo o Pago Móvil para dar vuelto
-                                    // Asumimos que Zelle no se usa para dar vuelto comúnmente, pero lo dejamos abierto.
-                                    ?>
+                                <?php foreach ($methods as $m): ?>
                                     <option value="<?= $m['id'] ?>">
                                         Entregar en <?= $m['name'] ?> (<?= $m['currency'] ?>)
                                     </option>
                                 <?php endforeach; ?>
+                                <?php if ($sessionClientId): ?>
+                                    <option value="store_credit" class="fw-bold text-primary">
+                                        Abonar a cuenta (Saldo a Favor cliente)
+                                    </option>
+                                <?php endif; ?>
                             </select>
                             <div class="form-text text-muted">El sistema registrará la salida de dinero de esta cuenta.
                             </div>
@@ -308,9 +438,9 @@ require_once '../templates/menu.php';
 
                         <!-- Inputs Ocultos para Crédito -->
                         <input type="hidden" name="is_credit" id="is_credit" value="0">
-                        <input type="hidden" name="credit_client_id" id="credit_client_id">
-                        <input type="hidden" name="credit_employee_id" id="credit_employee_id">
-                        <input type="hidden" name="credit_type" id="credit_type" value="">
+                        <input type="hidden" name="credit_client_id" id="credit_client_id" value="<?= $sessionClientId ?>">
+                        <input type="hidden" name="credit_employee_id" id="credit_employee_id" value="<?= $sessionEmployeeId ?>">
+                        <input type="hidden" name="credit_type" id="credit_type" value="<?= $sessionEmployeeId ? 'employee_credit' : ($sessionClientId ? 'client_credit' : '') ?>">
                         <!-- 'client_credit', 'employee_credit', 'benefit' -->
                         <input type="hidden" name="admin_password" id="admin_password_input">
 
@@ -426,7 +556,11 @@ require_once '../templates/menu.php';
 </div>
 
 <script>
-    const totalOrderUsd = <?= $totalUsd ?>;
+    const initialTotalUsd = <?= $baseTotalUsd ?>;
+    const alreadyPaidUsd = <?= $alreadyPaid ?>;
+    const clientBalanceUsd = <?= $clientBalance ?>;
+    let currentDeliveryFee = 0;
+    let totalOrderUsd = initialTotalUsd;
     const rate = <?= $rate ?>;
     const btnSubmit = document.getElementById('btnSubmit');
     const divChangeMethod = document.getElementById('changeMethodContainer');
@@ -495,9 +629,42 @@ require_once '../templates/menu.php';
         input.addEventListener('keyup', calculate);
     }
 
+    function toggleDeliveryFields() {
+        const isDelivery = document.getElementById('type_delivery').checked;
+        const fields = document.getElementById('deliveryFields');
+        const row = document.getElementById('deliveryRow');
+        
+        if (isDelivery) {
+            fields.style.display = 'block';
+            row.style.setProperty('display', 'flex', 'important');
+        } else {
+            fields.style.display = 'none';
+            row.style.setProperty('display', 'none', 'important');
+        }
+        calculate();
+    }
+
     function calculate() {
         let paidUsd = 0;
         const allInputs = document.querySelectorAll('.payment-input');
+
+        // 0. Actualizar Total con Delivery Fee
+        const isDelivery = document.getElementById('type_delivery').checked;
+        if (isDelivery) {
+            const tierSelect = document.getElementById('delivery_tier');
+            const selectedOption = tierSelect.options[tierSelect.selectedIndex];
+            currentDeliveryFee = parseFloat(selectedOption.dataset.fee) || 0;
+        } else {
+            currentDeliveryFee = 0;
+        }
+        
+        totalOrderUsd = initialTotalUsd + currentDeliveryFee;
+        let remainingDue = Math.max(0, totalOrderUsd - alreadyPaidUsd);
+
+        // Actualizar UI del resumen
+        document.getElementById('summaryDeliveryFee').textContent = '$' + currentDeliveryFee.toFixed(2);
+        document.getElementById('summaryTotalUsd').textContent = '$' + remainingDue.toFixed(2);
+        document.getElementById('summaryTotalVes').textContent = (remainingDue * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
 
         // 1. Sumar Pagos (Convirtiendo todo a USD base)
         allInputs.forEach(input => {
@@ -509,9 +676,10 @@ require_once '../templates/menu.php';
             }
         });
 
-        // 2. Calcular Diferencia
-        let diff = totalOrderUsd - paidUsd;
-        let epsilon = 0.001;
+        // 2. Calcular Diferencia (Lo que falta por pagar hoy)
+        // Se resta lo ya pagado y el saldo a favor del cliente
+        let diff = (totalOrderUsd - alreadyPaidUsd - clientBalanceUsd) - paidUsd;
+        let epsilon = 0.005; // Ajuste por redondeo
         let isCredit = document.getElementById('is_credit').value == '1';
 
         if (isCredit) {
@@ -525,6 +693,14 @@ require_once '../templates/menu.php';
         if (diff > epsilon && !isCredit) {
             document.getElementById('remainUsd').textContent = '$' + diff.toFixed(2);
             document.getElementById('remainVes').textContent = (diff * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
+            
+            // Actualizar también el resumen a la derecha
+            const summaryRemUsd = document.getElementById('summaryRemainingUsd');
+            if(summaryRemUsd) {
+                summaryRemUsd.textContent = '$' + diff.toFixed(2);
+                document.getElementById('summaryRemainingVes').textContent = (diff * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
+            }
+
             document.getElementById('changeUsd').textContent = "$0.00";
             document.getElementById('changeVes').textContent = "0.00 Bs";
             document.getElementById('colRemaining').style.opacity = "1";
@@ -536,8 +712,18 @@ require_once '../templates/menu.php';
             btnSubmit.innerHTML = '<i class="fa fa-lock me-2"></i> Complete el Pago';
         } else {
             let change = Math.abs(diff);
+            if (diff > 0) change = 0; // Evitar mostrar cambio si falta centavos
+
             document.getElementById('remainUsd').textContent = "$0.00";
             document.getElementById('remainVes').textContent = "0.00 Bs";
+
+            // Actualizar resumen
+            const summaryRemUsd = document.getElementById('summaryRemainingUsd');
+            if(summaryRemUsd) {
+                summaryRemUsd.textContent = "$0.00";
+                document.getElementById('summaryRemainingVes').textContent = "0.00 Bs";
+            }
+
             document.getElementById('changeUsd').textContent = '$' + change.toFixed(2);
             document.getElementById('changeVes').textContent = (change * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
             document.getElementById('colRemaining').style.opacity = "0.3";
@@ -793,10 +979,22 @@ require_once '../templates/menu.php';
             return false;
         }
 
+        // Validar campos de Delivery
+        const isDelivery = document.getElementById('type_delivery').checked;
+        if (isDelivery) {
+            const address = document.getElementById('shipping_address').value.trim();
+            if (address.length < 5) {
+                alert("⚠️ Por favor, ingrese una dirección de entrega válida.");
+                document.getElementById('shipping_address').focus();
+                e.preventDefault();
+                return false;
+            }
+        }
+
         btnSubmit.disabled = true;
         btnSubmit.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i> Procesando...';
     });
-    // Si ya hay empleado en sesión, activar el tab de empleado y asignar tipo
+    // Si ya existe empleado en sesión, activar el tab de empleado y asignar tipo
     if (selectedEmpId) {
         try {
             var empTabEl = document.querySelector('#creditTabs a[href="#tabEmployee"]');
@@ -804,6 +1002,11 @@ require_once '../templates/menu.php';
             empTab.show();
             currentCreditType = 'employee_credit';
         } catch (e) { console.error("Error activating emp tab:", e); }
+    }
+
+    // Inicializar campos de delivery si ya vienen marcados
+    if (document.getElementById('type_delivery').checked) {
+        toggleDeliveryFields();
     }
 </script>
 

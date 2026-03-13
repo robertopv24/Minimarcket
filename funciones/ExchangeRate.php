@@ -7,7 +7,7 @@ class ExchangeRate
 
     public function __construct()
     {
-        $this->pdo = Database::getInstance();
+        $this->pdo = Database::getConnection();
     }
 
     // Obtener la tasa de cambio más reciente

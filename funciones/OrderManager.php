@@ -562,7 +562,7 @@ class OrderManager
         $stmt = $this->db->prepare("
                 SELECT oi.*, p.name, p.price_usd, p.product_type, p.short_code
                 FROM order_items oi
-                JOIN products p ON oi.product_id = p.id
+                LEFT JOIN products p ON oi.product_id = p.id
                 WHERE order_id = ?
             ");
         $stmt->execute([$order_id]);
@@ -736,11 +736,11 @@ class OrderManager
                 $o['cliente_display'] = "EMP: " . $o['employee_name'];
             } elseif (!empty($o['client_name'])) {
                 $o['cliente_display'] = $o['client_name'] . " (C)";
+            } elseif (!empty($o['customer_note'])) {
+                $o['cliente_display'] = $o['customer_note'];
             } elseif (!empty($o['shipping_address']) && $o['shipping_address'] !== 'Tienda Física') {
                 // El POS guarda el nombre del cliente en shipping_address para órdenes que no son de sistema
                 $o['cliente_display'] = preg_replace('/DELIVERY \([A-Z]\): /i', '', $o['shipping_address']);
-            } elseif (!empty($o['customer_note'])) {
-                $o['cliente_display'] = $o['customer_note'];
             } else {
                 $o['cliente_display'] = $o['fallback_name'];
             }

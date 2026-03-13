@@ -29,54 +29,9 @@ try {
     $address = preg_replace('/DELIVERY \([A-Z]\): /i', '', $customerName);
 
     // --- CARGO POR DELIVERY ---
-    if ($type === 'delivery' && ($deliveryTier === 'B' || $deliveryTier === 'C')) {
-        $base = floatval($config->get('delivery_base_cost', 0));
-        $fee = ($deliveryTier === 'C') ? ($base * 2) : $base;
-
-        if ($fee > 0) {
-            // Buscamos o asumimos un ID de producto para "Delivery" (podemos usar uno genérico o crearlo al vuelo si no existe)
-            // Por simplicidad en este sistema POS, a veces se usan IDs fijos para servicios. 
-            // Buscaremos uno llamado 'Delivery' o usaremos un placeholder.
-            // 1. Asegurar que existe una categoría 'DOMICILIO' que no va a ninguna estación KDS
-            $stmtCat = $db->prepare("SELECT id FROM categories WHERE name = 'DOMICILIO' LIMIT 1");
-            $stmtCat->execute();
-            $catId = $stmtCat->fetchColumn();
-
-            if (!$catId) {
-                $db->prepare("INSERT INTO categories (name, kitchen_station, icon, description) VALUES ('DOMICILIO', 'none', 'fa-truck', 'Gastos de envío')")->execute();
-                $catId = $db->lastInsertId();
-            } else {
-                // Asegurar que la categoría existente no tenga estación
-                $db->prepare("UPDATE categories SET kitchen_station = 'none' WHERE id = ?")->execute([$catId]);
-            }
-
-            // 2. Buscar el producto de servicio
-            $stmtD = $db->prepare("SELECT id FROM products WHERE name = 'Servicio Delivery' LIMIT 1");
-            $stmtD->execute();
-            $dId = $stmtD->fetchColumn();
-
-            if (!$dId) {
-                // Crear el producto si no existe
-                $db->prepare("INSERT INTO products (name, description, price_usd, price_ves, product_type, category_id, stock, is_visible, kitchen_station, created_at) 
-                             VALUES ('Servicio Delivery', 'Servicio de entrega a domicilio', 0, 0, 'simple', ?, 9999, 0, '', NOW())")->execute([$catId]);
-                $dId = $db->lastInsertId();
-            } else {
-                // FORZAR: Actualizar categoría y quitar estación propia del producto para asegurar que no salga en KDS
-                $db->prepare("UPDATE products SET category_id = ?, kitchen_station = '' WHERE id = ?")->execute([$catId, $dId]);
-            }
-
-            $cartItems[] = [
-                'product_id' => $dId,
-                'quantity' => 1,
-                'price' => $fee,
-                'unit_price_final' => $fee,
-                'consumption_type' => 'delivery',
-                'product_type' => 'simple',
-                'client_id' => $cartItems[0]['client_id'] ?? null,
-                'employee_id' => $cartItems[0]['employee_id'] ?? null
-            ];
-        }
-    }
+    // Ya no inyectamos ítems virtuales. El cargo 'Servicio Delivery' debe estar 
+    // en $cartItems si el usuario lo seleccionó en carrito.php.
+    // Solo nos aseguramos de que el tipo de consumo y etiquetas sean correctos.
 
     // FORZAR: Si es delivery, todos los items se marcan como "Para Llevar" técnicamente
     // para que se dispare la lógica de empaques y etiquetas en KDS.

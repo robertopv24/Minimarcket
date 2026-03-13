@@ -15,7 +15,7 @@ $sql = "SELECT o.*, u.name as customer_name
         FROM orders o 
         JOIN users u ON o.user_id = u.id 
         WHERE o.consumption_type = 'delivery' 
-        AND o.status IN ('preparing', 'ready')
+        AND o.status IN ('preparing', 'ready', 'paid')
         ORDER BY o.created_at DESC";
 $stmt = $db->query($sql);
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -43,20 +43,44 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <span class="badge bg-info text-white"><?= strtoupper($o['status']) ?></span>
                         </div>
                         <div class="card-body">
-                            <h5 class="card-title text-white mb-3"><?= htmlspecialchars($o['shipping_address']) ?></h5>
+                            <?php 
+                            // Priorizar el nombre del cliente guardado en la nota (nombre real) sobre el nombre de usuario
+                            $displayName = !empty($o['customer_note']) ? $o['customer_note'] : $o['customer_name'];
+                            ?>
+                            <h5 class="card-title text-white mb-2"><?= htmlspecialchars($displayName) ?></h5>
+                            <p class="text-info small mb-3"><i class="fa fa-map-marker-alt me-1"></i> <?= htmlspecialchars($o['shipping_address']) ?></p>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-muted small">Total Orden:</span>
+                                <span class="fw-bold">$<?= number_format($o['total_price'], 2) ?></span>
+                            </div>
+                            <?php 
+                            $paid = $transactionManager->getTotalPaidByOrder($o['id']);
+                            $remaining = max(0, $o['total_price'] - $paid);
+                            ?>
+                            <?php if ($paid > 0): ?>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small">Ya Pagado (Abonos):</span>
+                                    <span class="text-info">$<?= number_format($paid, 2) ?></span>
+                                </div>
+                            <?php endif; ?>
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <span class="text-muted small">Total a Cobrar:</span>
-                                <span
-                                    class="h4 mb-0 text-success fw-bold text-shadow">$<?= number_format($o['total_price'], 2) ?></span>
+                                <span class="text-muted small fw-bold">Saldo Pendiente:</span>
+                                <span class="h4 mb-0 text-success fw-bold text-shadow">$<?= number_format($remaining, 2) ?></span>
                             </div>
                             <p class="card-text small text-muted"><i class="fa fa-clock me-1"></i>
                                 <?= date('d/m/Y H:i', strtotime($o['created_at'])) ?></p>
 
                             <hr class="opacity-10">
                             <div class="d-grid gap-2">
-                                <a href="checkout.php?order_id=<?= $o['id'] ?>" class="btn btn-primary fw-bold">
-                                    <i class="fa fa-cash-register me-2"></i> Procesar Pago
-                                </a>
+                                <?php if ($remaining > 0): ?>
+                                    <a href="checkout.php?order_id=<?= $o['id'] ?>" class="btn btn-primary fw-bold">
+                                        <i class="fa fa-cash-register me-2"></i> Procesar Pago
+                                    </a>
+                                <?php else: ?>
+                                    <button onclick="orderAction(<?= $o['id'] ?>, 'deliver')" class="btn btn-success fw-bold">
+                                        <i class="fa fa-check-double me-2"></i> Finalizar Entrega
+                                    </button>
+                                <?php endif; ?>
                                 <a href="ticket.php?id=<?= $o['id'] ?>" target="_blank" class="btn btn-outline-info btn-sm">
                                     <i class="fa fa-print me-1"></i> Ver Ticket
                                 </a>
@@ -94,13 +118,30 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <!-- Script de Acciones de Orden -->
 <script>
 function orderAction(orderId, action) {
-    const actionText = action === 'modify' ? 'modificar' : 'cancelar';
-    const actionColor = action === 'modify' ? '#3085d6' : '#d33';
-    const confirmButtonText = action === 'modify' ? 'Sí, modificar' : 'Sí, cancelar';
+    let actionText = 'procesar';
+    let actionColor = '#3085d6';
+    let confirmButtonText = 'Confirmar';
+    let text = '¿Deseas realizar esta acción?';
 
+    if (action === 'modify') {
+        actionText = 'modificar';
+        text = 'La orden actual se cancelará y los productos se cargarán en tu carrito para editarlos.';
+        confirmButtonText = 'Sí, modificar';
+    } else if (action === 'cancel') {
+        actionText = 'cancelar';
+        actionColor = '#d33';
+        text = 'Esta acción revertirá el stock y cancelará la orden permanentemente.';
+        confirmButtonText = 'Sí, cancelar';
+    } else if (action === 'deliver') {
+        actionText = 'finalizar entrega';
+        actionColor = '#198754';
+        text = '¿Confirmas que el pedido ha sido entregado al cliente?';
+        confirmButtonText = 'Sí, Entregado';
+    }
+    
     Swal.fire({
         title: `¿Estás seguro de ${actionText} la orden #${orderId}?`,
-        text: action === 'modify' ? 'La orden actual se cancelará y los productos se cargarán en tu carrito para editarlos.' : 'Esta acción revertirá el stock y cancelará la orden permanentemente.',
+        text: text,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: actionColor,
@@ -123,7 +164,7 @@ function orderAction(orderId, action) {
                     if (response.success) {
                         Swal.fire('¡Éxito!', response.message, 'success').then(() => {
                             if (action === 'modify') {
-                                window.location.href = 'tienda.php';
+                                window.location.href = 'tienda.php?order_id=' + orderId;
                             } else {
                                 location.reload();
                             }

@@ -104,4 +104,9 @@ class GlobalConfig
 
 $config = new GlobalConfig();
 $config->setGlobals();
+
+// Definir constante SITE_NAME para compatibilidad con vistas que no usan $GLOBALS
+if (!defined('SITE_NAME')) {
+    define('SITE_NAME', $config->get('site_name', 'Minimarcket'));
+}
 ?>

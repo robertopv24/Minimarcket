@@ -29,6 +29,37 @@ if ($userId) {
     }
 }
 // ----------------------------------
+// LOGICA PARA CARGAR ORDEN AL EDITAR
+$orderId = $_GET['order_id'] ?? null;
+if ($orderId) {
+    $orderData = $orderManager->getOrderById($orderId);
+    if ($orderData) {
+        // 1. Sincronizar Cliente/Empleado en Sesión con nombre real de la BD
+        if (!empty($orderData['client_id'])) {
+            $stmtC = $db->prepare("SELECT name FROM clients WHERE id = ?");
+            $stmtC->execute([$orderData['client_id']]);
+            $clientName = $stmtC->fetchColumn() ?: ("Cliente #" . $orderData['client_id']);
+            $_SESSION['pos_client_id']   = $orderData['client_id'];
+            $_SESSION['pos_client_name'] = $clientName;
+            unset($_SESSION['pos_employee_id']);
+            unset($_SESSION['pos_employee_name']);
+        } elseif (!empty($orderData['employee_id'])) {
+            $stmtE = $db->prepare("SELECT name FROM users WHERE id = ?");
+            $stmtE->execute([$orderData['employee_id']]);
+            $empName = $stmtE->fetchColumn() ?: ("Empleado #" . $orderData['employee_id']);
+            $_SESSION['pos_employee_id']   = $orderData['employee_id'];
+            $_SESSION['pos_employee_name'] = $empName;
+            unset($_SESSION['pos_client_id']);
+            unset($_SESSION['pos_client_name']);
+        }
+
+        // 2. Los ítems ya fueron cargados por order_actions.php antes de redirigir,
+        //    solo cargamos si el carrito está vacío (por si el usuario llega directamente)
+        if (empty($cartManager->getCart($userId))) {
+            $cartManager->loadOrderIntoCart($userId, $orderId);
+        }
+    }
+}
 
 // Procesar "Agregar al Carrito"
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {

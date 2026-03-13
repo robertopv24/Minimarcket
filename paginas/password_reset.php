@@ -1,14 +1,14 @@
 <?php
 session_start();
+require_once '../templates/autoload.php';
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
-require_once '../clases/conexion.php';
 
 $mensaje = "";
 
 // Verificar si se envió el formulario
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $conexion = conectar();
+    $conexion = Database::getConnection();
     $email = trim($_POST['email']);
 
     // Verificar si el correo existe en la base de datos

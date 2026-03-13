@@ -169,7 +169,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) {
                 die("Error al procesar pago de deuda: " . $e->getMessage());
             }
-            break;
 
         case 'revert_receipt':
             try {
@@ -183,7 +182,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) {
                 die("Error al revertir recepción: " . $e->getMessage());
             }
-            break;
 
         default:
             echo "Acción no válida.";

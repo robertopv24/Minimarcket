@@ -22,9 +22,9 @@ require_once '../templates/menu.php';
 <main>
     <section>
         <h2>Perfil de Usuario</h2>
-        <p><strong>Nombre:</strong> <?= $user; ?></p>
-        <p><strong>Email:</strong> <?= $email; ?></p>
-        <p><strong>Rol:</strong> <?= $user_role; ?></p>
+        <p><strong>Nombre:</strong> <?= $user ?? 'Usuario'; ?></p>
+        <p><strong>Email:</strong> <?= $email ?? 'N/A'; ?></p>
+        <p><strong>Rol:</strong> <?= $user_role ?? 'Visitante'; ?></p>
 
         <h3>Actualizar Información</h3>
         <form action="actualizar_perfil.php" method="POST">

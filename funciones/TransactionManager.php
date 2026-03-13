@@ -134,19 +134,20 @@ class TransactionManager
     /**
      * Registrar Transacción Manual (Ingreso/Egreso genérico)
      */
-    public function registerTransaction($type, $amount, $description, $userId, $referenceType = 'manual', $referenceId = 0, $currency = 'USD')
+    public function registerTransaction($type, $amount, $description, $userId, $referenceType = 'manual', $referenceId = 0, $currency = 'USD', $paymentMethodId = null)
     {
         try {
             // Asumimos Metodo "Efectivo USD" o "Efectivo VES" por defecto para manuales si no se especifica
-            // Para simplificar, buscamos 'Efectivo USD' si currency es USD
-            $methodName = ($currency === 'USD') ? 'Efectivo USD' : 'Efectivo VES';
-            $methodId = $this->getMethodIdByName($methodName);
+            if (!$paymentMethodId) {
+                $methodName = ($currency === 'USD') ? 'Efectivo USD' : 'Efectivo VES';
+                $paymentMethodId = $this->getMethodIdByName($methodName);
+            }
 
-            if (!$methodId) {
+            if (!$paymentMethodId) {
                 // Fallback a cualquier metodo activo si no encuentra el especifico
                 $methods = $this->getPaymentMethods();
                 if (!empty($methods))
-                    $methodId = $methods[0]['id'];
+                    $paymentMethodId = $methods[0]['id'];
                 else
                     return false;
             }
@@ -160,7 +161,7 @@ class TransactionManager
                 $type,
                 $amount,
                 $currency,
-                $methodId,
+                $paymentMethodId,
                 $referenceType,
                 $referenceId,
                 $description,
@@ -242,6 +243,21 @@ class TransactionManager
         $stmt = $this->db->prepare("SELECT id FROM payment_methods WHERE name = ?");
         $stmt->execute([$name]);
         return $stmt->fetchColumn();
+    }
+
+    /**
+     * Obtener el total neto pagado en USD para una orden específica
+     */
+    public function getTotalPaidByOrder($orderId)
+    {
+        $sql = "SELECT 
+                    SUM(CASE WHEN type = 'income' THEN amount_usd_ref ELSE 0 END) - 
+                    SUM(CASE WHEN type = 'expense' THEN amount_usd_ref ELSE 0 END) as total_paid
+                FROM transactions 
+                WHERE reference_type = 'order' AND reference_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$orderId]);
+        return floatval($stmt->fetchColumn() ?: 0);
     }
 }
 ?>

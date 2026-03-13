@@ -641,6 +641,24 @@ require_once '../templates/header.php';
 
             if (!tier) return;
             deliveryTier = tier;
+
+            // NUEVO: Sincronizar el ítem de delivery en la base de datos (Tabla cart)
+            // para que sea persistente y visible.
+            const syncRes = await fetch('ajax/sync_delivery.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ delivery_tier: deliveryTier })
+            }).then(r => r.json());
+
+            if (!syncRes.success) {
+                Swal.fire({ icon: 'error', title: 'Error', text: syncRes.message || 'No se pudo sincronizar el cargo de delivery.' });
+                return;
+            }
+            
+            // Recargar la página para que el ítem aparezca en la lista
+            // Esto cumple con el requerimiento de que se vea en carrito.php
+            window.location.reload();
+            return; // Detenemos aquí para que el usuario vea su carrito actualizado
         } else {
             // Para Dine-in, confirmar envío a cocina
             const confirm = await Swal.fire({

@@ -1,0 +1,6 @@
+1:Efectivo USD
+2:Efectivo VES
+3:Zelle
+4:Pago Móvil
+5:Punto de Venta
+6:Binance USDT

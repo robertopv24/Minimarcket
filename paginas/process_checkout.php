@@ -15,75 +15,80 @@ if (!$userId || !$sessionId) {
     die("Error: No tienes una caja abierta. <a href='apertura_caja.php'>Abrir Caja</a>");
 }
 
-$orderId = $_POST['order_id'] ?: null;
+$orderId = $_POST['order_id'] ?: ($_SESSION['pos_editing_order_id'] ?? null);
+$consumptionType = $_POST['consumption_type'] ?? 'dine_in';
+$deliveryTier = $_POST['delivery_tier'] ?? 'A';
 $cartItems = [];
 
-if ($orderId) {
-    // Si es una orden existente, cargamos sus ítems
+// Siempre usamos el carrito; si hay orden de referencia, actualizaremos esa.
+$cartItems = $cartManager->getCart($userId);
+if (empty($cartItems) && $orderId) {
+    // Fallback: si el carrito está vacío, cargar ítems de la orden
     $cartItems = $orderManager->getOrderItems($orderId);
-} else {
-    // Si no, usamos el carrito
-    $cartItems = $cartManager->getCart($userId);
 }
 
 if (empty($cartItems)) {
     die("Error: El carrito o la orden están vacíos. <a href='tienda.php'>Volver</a>");
 }
 
-// NUEVO: Manejo de Delivery para Venta Directa (desde Carrito)
-$deliveryTier = $_POST['delivery_tier'] ?? null;
-$consumptionType = $_POST['consumption_type'] ?? 'dine_in';
+// 1. Manejo de Delivery (Cálculo inicial)
+$stmtD = $db->prepare("SELECT id FROM products WHERE name = 'Servicio Delivery' LIMIT 1");
+$stmtD->execute();
+$dId = $stmtD->fetchColumn();
 
-if (!$orderId && $consumptionType === 'delivery') {
-    // 1. Aplicar Etiquetas de Delivery a los ítems
-    foreach ($cartItems as &$item) {
-        $item['is_takeaway'] = 1;
-        $item['consumption_type'] = 'delivery';
+if ($consumptionType === 'delivery') {
+    // Aplicar Etiquetas de Delivery a los ítems del carrito (si es nueva)
+    if (!$orderId) {
+        foreach ($cartItems as &$item) {
+            $item['is_takeaway'] = 1;
+            $item['consumption_type'] = 'delivery';
+        }
     }
 
-    // 2. Calcular y Añadir Cargo por Servicio si corresponde
-    if ($deliveryTier === 'B' || $deliveryTier === 'C') {
-        $base = floatval($config->get('delivery_base_cost', 0));
-        $fee = ($deliveryTier === 'C') ? ($base * 2) : $base;
+    // Calcular Cargo por Servicio
+    $base = floatval($config->get('delivery_base_cost', 0));
+    $fee = ($deliveryTier === 'C') ? ($base * 2) : ($deliveryTier === 'B' ? $base : 0);
 
-        if ($fee > 0) {
-            // Asegurar Categoría 'DOMICILIO'
-            $stmtCat = $db->prepare("SELECT id FROM categories WHERE name = 'DOMICILIO' LIMIT 1");
-            $stmtCat->execute();
-            $catId = $stmtCat->fetchColumn();
-            if (!$catId) {
-                $db->prepare("INSERT INTO categories (name, kitchen_station, icon, description) VALUES ('DOMICILIO', 'none', 'fa-truck', 'Gastos de envío')")->execute();
-                $catId = $db->lastInsertId();
-            }
+    if ($fee > 0) {
+        // Asegurar Categoría 'DOMICILIO'
+        $stmtCat = $db->prepare("SELECT id FROM categories WHERE name = 'DOMICILIO' LIMIT 1");
+        $stmtCat->execute();
+        $catId = $stmtCat->fetchColumn();
+        if (!$catId) {
+            $db->prepare("INSERT INTO categories (name, kitchen_station, icon, description) VALUES ('DOMICILIO', 'none', 'fa-truck', 'Gastos de envío')")->execute();
+            $catId = $db->lastInsertId();
+        }
 
-            // Buscar/Crear Producto 'Servicio Delivery'
-            $stmtD = $db->prepare("SELECT id FROM products WHERE name = 'Servicio Delivery' LIMIT 1");
-            $stmtD->execute();
-            $dId = $stmtD->fetchColumn();
-            if (!$dId) {
-                $db->prepare("INSERT INTO products (name, description, price_usd, price_ves, product_type, category_id, stock, is_visible, kitchen_station, created_at) 
-                             VALUES ('Servicio Delivery', 'Servicio de entrega a domicilio', 0, 0, 'simple', ?, 9999, 0, '', NOW())")->execute([$catId]);
-                $dId = $db->lastInsertId();
-            }
+        // Crear Producto 'Servicio Delivery' si no existe
+        if (!$dId) {
+            $db->prepare("INSERT INTO products (name, description, price_usd, price_ves, product_type, category_id, stock, is_visible, kitchen_station, created_at) 
+                         VALUES ('Servicio Delivery', 'Servicio de entrega a domicilio', 0, 0, 'simple', ?, 9999, 0, '', NOW())")->execute([$catId]);
+            $dId = $db->lastInsertId();
+        }
 
+        if (!$orderId) {
+            // Nueva venta: añadir ítem al array del carrito para totalizar abajo
             $cartItems[] = [
                 'product_id' => $dId,
                 'quantity' => 1,
                 'price' => $fee,
                 'unit_price_final' => $fee,
                 'consumption_type' => 'delivery',
-                'name' => 'Servicio Delivery', // Para calculateTotal si no re-leemos
+                'name' => 'Servicio Delivery',
                 'product_type' => 'simple',
                 'total_price' => $fee
             ];
         }
+        // Nota: Si es $orderId, la persistencia se hace después de la limpieza de ítems abajo
     }
 }
 
 // 2. Preparar Datos
+$alreadyPaid = 0;
 if ($orderId) {
     $orderData = $orderManager->getOrderById($orderId);
     $totalOrderAmount = $orderData['total_price'];
+    $alreadyPaid = 0; // Se calculará después de la limpieza
 } else {
     $totals = $cartManager->calculateTotal($cartItems);
     $totalOrderAmount = $totals['total_usd'];
@@ -128,6 +133,37 @@ try {
     // --- INICIO TRANSACCIÓN MAESTRA ---
     $db->beginTransaction();
 
+    // B. IDENTIFICACIÓN Y LIMPIEZA DE AJUSTES PREVIOS
+    // Si estamos editando, buscamos al cliente y reversamos ajustes de saldo automáticos previos.
+    // Esto es CRÍTICO para que alreadyPaid solo incluya pagos REALES (Efectivo, etc) y no saldos "fantasma".
+    $clientId = ($_POST['credit_client_id'] ?? null) ?: (($_POST['pos_client_id'] ?? null) ?: ($_SESSION['pos_client_id'] ?? null));
+    if (!$clientId && $orderId) {
+        $orderInfo = $orderManager->getOrderById($orderId);
+        $clientId = $orderInfo['client_id'] ?? null;
+    }
+
+    if ($orderId > 0 && $clientId) {
+        $stmtAdjust = $db->prepare("SELECT id, amount, type FROM transactions 
+                                    WHERE reference_id = ? AND reference_type = 'order' 
+                                    AND (payment_method_id = 7 OR (type = 'expense' AND (description LIKE '%Saldo%' OR reference_type = 'order_credit'))) ");
+        $stmtAdjust->execute([$orderId]);
+        $adjustments = $stmtAdjust->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($adjustments as $adj) {
+            if ($adj['type'] === 'income') {
+                $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?")->execute([$adj['amount'], $clientId]);
+            } else {
+                $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?")->execute([$adj['amount'], $clientId]);
+            }
+            $db->prepare("DELETE FROM transactions WHERE id = ?")->execute([$adj['id']]);
+        }
+    }
+
+    // AHORA SÍ: Calcular lo pagado REALMENTE antes de esta sesión
+    if ($orderId) {
+        $alreadyPaid = $transactionManager->getTotalPaidByOrder($orderId);
+    }
+
     // A. VALIDAR CRÉDITO/BENEFICIO
     $isCredit = isset($_POST['is_credit']) && $_POST['is_credit'] === '1';
 
@@ -138,9 +174,14 @@ try {
             throw new Exception("⛔ Contraseña de Administrador Incorrecta.");
         }
 
+        // 3. Procesar según Tipo
+        $creditType = $_POST['credit_type'] ?? ''; // client_credit, employee_credit, benefit
+        $clientId = $_POST['credit_client_id'] ?: null;
+        $empId = $_POST['credit_employee_id'] ?: null;
+
         // 2. Crear o Obtener Orden
         if (!$orderId) {
-            // Enriquecer cartItems con nombres de productos si faltan y asinar IDs de crédito
+            // Enriquecer cartItems con nombres de productos si faltan y asignar IDs de crédito
             foreach ($cartItems as &$item) {
                 if (empty($item['name'])) {
                     $pData = $productManager->getProductById($item['product_id']);
@@ -152,66 +193,72 @@ try {
             }
             unset($item);
 
-            $orderId = $orderManager->createOrder($userId, $cartItems, $address);
+            $orderId = $orderManager->createOrder($userId, $cartItems, $address, null, $_POST['delivery_tier'] ?? null, $customerName);
             if (!$orderId)
                 throw new Exception("Error al crear la orden.");
             // Inventario solo se descuenta si la orden es NUEVA
             $orderManager->deductStockFromSale($orderId);
         }
 
-        // 3. Procesar según Tipo
-        $creditType = $_POST['credit_type'] ?? ''; // client_credit, employee_credit, benefit
-        $clientId = $_POST['credit_client_id'] ?: null;
-        $empId = $_POST['credit_employee_id'] ?: null;
+        // ACTUALIZAR CABECERA (Por si cambió delivery o nombre durante el checkout)
+        if ($orderId) {
+            $newItems = $orderManager->getOrderItems($orderId);
+            $newTotal = 0;
+            foreach ($newItems as $ni) {
+                $newTotal += ($ni['price'] * $ni['quantity']);
+            }
+            $totalOrderAmount = $newTotal;
+
+            $stmtUpd = $db->prepare("UPDATE orders SET total_price = ?, consumption_type = ?, delivery_tier = ?, customer_note = ?, shipping_address = ? WHERE id = ?");
+            $stmtUpd->execute([$newTotal, $consumptionType, $deliveryTier, $customerName, $address, $orderId]);
+        }
 
         $notes = "Autorizado por Admin. Ref: " . date('Y-m-d H:i');
 
         if ($creditType === 'benefit') {
-            // BENEFICIO: Gasto de la empresa (No deuda)
-            // Marcamos orden como 'delivered' pero agregamos una nota interna de que fue beneficio.
-            // Opcional: Registrar transacción 'expense' ficticia para cuadrar inventario vs gasto?
-            // Por ahora, solo descontamos stock y marcamos pagado sin flujo de caja.
-            $orderManager->updateOrderStatus($orderId, 'paid'); // Enviar a KDS/Despacho
-            // TODO: Podríamos agregar columna 'payment_type' en orders.
-
+            // Registrar como Gasto de la empresa (Ingreso para la orden para cuadrar ticket)
+            $transactionManager->registerTransaction('income', $totalOrderAmount, "Beneficio Empresa (Cortesía)", $userId, 'order', $orderId, 'USD', 7);
+            $orderManager->updateOrderStatus($orderId, 'paid');
         } elseif ($creditType === 'client_credit') {
-            if (!$clientId)
-                throw new Exception("Falta ID de Cliente para Crédito.");
-            // Registrar Deuda (sin iniciar nueva transacción)
+            if (!$clientId) throw new Exception("Falta ID de Cliente para Crédito.");
             $res = $creditManager->registerDebt($orderId, $totalOrderAmount, $clientId, null, null, $notes, false);
-            if (strpos($res, 'Error') !== false)
-                throw new Exception($res); // Retorna string error si límite excedido
-
+            if (strpos($res, 'Error') !== false) throw new Exception($res);
+            
+            // Registrar Transacción para aparecer en Ticket
+            $transactionManager->registerTransaction('income', $totalOrderAmount, "Venta a Crédito Autorizada", $userId, 'order', $orderId, 'USD', 7);
+            
             $orderManager->updateOrderStatus($orderId, 'paid');
         } elseif ($creditType === 'employee_credit') {
-            if (!$empId)
-                throw new Exception("Falta ID de Empleado para Crédito.");
-
-            $userManager->getUserById($empId); // Validar existencia
-            // Registrar Deuda a Empleado (sin iniciar nueva transacción)
+            if (!$empId) throw new Exception("Falta ID de Empleado para Crédito.");
+            $userManager->getUserById($empId);
             $creditManager->registerDebt($orderId, $totalOrderAmount, null, $empId, null, $notes, false);
-
+            
+            // Registrar Transacción para aparecer en Ticket
+            $transactionManager->registerTransaction('income', $totalOrderAmount, "Venta a Crédito Emp. Autorizada", $userId, 'order', $orderId, 'USD', 7);
+            
             $orderManager->updateOrderStatus($orderId, 'paid');
         } else {
             throw new Exception("Tipo de operación inválida.");
         }
 
-        // 4. Limpieza (Solo si venía de carrito)
-        if (!$_POST['order_id']) {
-            $cartManager->emptyCart($userId);
-        }
-
-        // Limpiar cliente de la sesión tras completar la venta
-        unset($_SESSION['pos_client_id']);
-        unset($_SESSION['pos_client_name']);
-
+        // ...
         $db->commit();
-        header("Location: ticket.php?id=" . $orderId . "&print=true");
+        // Enviar total como pagado hoy
+        header("Location: ticket.php?id=" . $orderId . "&print=true&new_paid_usd=" . $totalOrderAmount);
         exit;
     }
 
     // A. OBTENER O CREAR LA ORDEN
     if (!$orderId) {
+        // Vincular cliente/empleado desde sesión si no está en los ítems
+        $sessionClientId  = $_SESSION['pos_client_id']  ?? null;
+        $sessionEmployeeId = $_SESSION['pos_employee_id'] ?? null;
+        foreach ($cartItems as &$item) {
+            if (empty($item['client_id']))   $item['client_id']   = $sessionClientId;
+            if (empty($item['employee_id'])) $item['employee_id'] = $sessionEmployeeId;
+        }
+        unset($item);
+
         $orderId = $orderManager->createOrder($userId, $cartItems, $address, null, $_POST['delivery_tier'] ?? null, $customerName);
         if (!$orderId)
             throw new Exception("Error al crear la orden.");
@@ -226,16 +273,53 @@ try {
             header("Location: ticket.php?id=" . $orderId . "&print=true");
             exit;
         }
-        // Si ya existía (estaba en preparando/lista), la marcamos como pagada/entregada ahora
-        $orderManager->updateOrderStatus($orderId, 'delivered');
+
+        // RECALCULAR TOTAL Y ACTUALIZAR CABECERA
+        // Si venimos del flujo de edición (carrito), reemplazamos los ítems de la orden
+        $isEditFlow = !empty($_SESSION['pos_editing_order_id']);
+        if ($isEditFlow) {
+            // Eliminar ítems viejos de la orden
+            $db->prepare("DELETE FROM order_items WHERE order_id = ?")->execute([$orderId]);
+            // Insertar los ítems nuevos (del carrito)
+            $stmtItem = $db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, cost_at_sale, consumption_type) VALUES (?, ?, ?, ?, ?, ?)");
+            $productManager2 = new ProductManager($db);
+            foreach ($cartItems as $ci) {
+                // Saltar ítems huérfanos
+                if (empty($ci['product_id'])) continue;
+                // EVITAR DUPLICACIÓN: Saltar el ítem de delivery del carrito, ya que se inserta por separado abajo
+                if ($dId && $ci['product_id'] == $dId) continue;
+
+                // ESTANDARIZACIÓN DE PRECIO: unit_price_final (Carrito) > price (Manual) > price_usd (Fijo)
+                $pr = $ci['unit_price_final'] ?? $ci['price'] ?? $ci['price_usd'] ?? 0;
+                $cost = $productManager2->calculateProductCost($ci['product_id']);
+                $stmtItem->execute([$orderId, $ci['product_id'], $ci['quantity'], $pr, $cost, $ci['consumption_type'] ?? 'dine_in']);
+            }
+
+            // PERSISTENCIA DEL CARGO DE DELIVERY TRAS LA LIMPIEZA (Solo si es flujo edición)
+            if ($consumptionType === 'delivery' && isset($fee) && $fee > 0 && $dId) {
+                $costD = $productManager2->calculateProductCost($dId);
+                $db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, cost_at_sale, consumption_type) VALUES (?, ?, 1, ?, ?, 'delivery')")
+                   ->execute([$orderId, $dId, $fee, $costD]);
+            }
+        }
+
+        $newItems = $orderManager->getOrderItems($orderId);
+        $newTotal = 0;
+        foreach ($newItems as $ni) {
+            $newTotal += ($ni['price'] * $ni['quantity']);
+        }
+        $totalOrderAmount = $newTotal; // Para el registro de transacciones más abajo
+
+        $newStatus = ($consumptionType === 'delivery') ? 'paid' : 'delivered';
+        $stmtUpd = $db->prepare("UPDATE orders SET total_price = ?, consumption_type = ?, delivery_tier = ?, customer_note = ?, shipping_address = ?, status = ? WHERE id = ?");
+        $stmtUpd->execute([$newTotal, $consumptionType, $deliveryTier, $customerName, $address, $newStatus, $orderId]);
     }
 
-    // B. REGISTRAR PAGOS (INGRESOS)
+    // C. CALCULAR Y REGISTRAR VUELTO (MANUAL)
     // El Manager ya no calcula vueltos, solo registra lo que entró.
     $transactionManager->processOrderPayments($orderId, $processedPayments, $userId, $sessionId);
 
-    // C. CALCULAR Y REGISTRAR VUELTO (MANUAL)
-    // 1. Calcular cuánto pagó realmente en USD
+    // 1. Calcular cuánto pagó realmente en USD en ESTA sesión
     $realPaidUsd = 0;
     foreach ($processedPayments as $p) {
         if ($p['currency'] == 'VES')
@@ -244,42 +328,96 @@ try {
             $realPaidUsd += $p['amount'];
     }
 
-    $changeDue = $realPaidUsd - $totalOrderAmount;
+    // 2. Calcular Vuelto Total (Pagos Previos + Pagos Hoy - Total Nueva Orden)
+    $totalPaymentsSoFar = $alreadyPaid + $realPaidUsd;
+    $changeDue = $totalPaymentsSoFar - $totalOrderAmount;
 
-    // 2. Si hay vuelto y se seleccionó método, llamar al Manager
-    if ($changeDue > 0.01 && !empty($_POST['change_method_id'])) {
-        $changeMethodId = $_POST['change_method_id'];
+    // 3. Manejo de Diferencia de Pago (Saldos y Vueltos)
+    if (abs($changeDue) > 0.005) {
+        $changeMethodId = $_POST['change_method_id'] ?? null;
+        
+        // Identificar Cliente (desde la orden o la sesión)
+        $orderInfo = $orderManager->getOrderById($orderId);
+        $clientId = $orderInfo['client_id'] ?? $_SESSION['pos_client_id'] ?? null;
 
-        // Obtener moneda del método de vuelto
-        $stmtM = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
-        $stmtM->execute([$changeMethodId]);
-        $changeCurrency = $stmtM->fetchColumn();
+        // CASO A: EXCEDENTE (Vuelto) convertido a Saldo a Favor
+        if ($changeDue > 0.005 && $changeMethodId === 'store_credit' && $clientId) {
+            $stmtCredit = $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?");
+            $stmtCredit->execute([$changeDue, $clientId]);
+            
+            $transactionManager->registerTransaction(
+                'expense', 
+                $changeDue, 
+                "Saldo a favor Order #$orderId (Excedente)", 
+                $userId, 
+                'order', 
+                $orderId, 
+                'USD'
+            );
+        } 
+        // CASO B: DÉFICIT (Consumo de Saldo o Saldo Deudor)
+        // Si falta dinero y hay un cliente vinculado, lo cargamos a su cuenta automáticamente
+        // El usuario indica que esto debería ser automático si hay "crédito disponible".
+        elseif ($changeDue < -0.005 && $clientId) {
+            $deficit = abs($changeDue);
+            
+            // Actualizar saldo del cliente (Esto consume balance si es negativo, o aumenta deuda si es positivo)
+            $stmtDebt = $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?");
+            $stmtDebt->execute([$deficit, $clientId]);
 
-        // Calcular monto nominal (Ej: $1 vuelto en Bs = 60 Bs)
-        $changeAmountNominal = ($changeCurrency == 'VES') ? ($changeDue * $rate) : $changeDue;
+            $transactionManager->registerTransaction(
+                'income', 
+                $deficit, 
+                "Abono por Consumo de Saldo (Order #$orderId)", 
+                $userId, 
+                'order', 
+                $orderId, 
+                'USD',
+                7 // ID del método de pago 'Consumo de Saldo'
+            );
+        }
+        // CASO C: VUELTO EN EFECTIVO / OTROS (Solo si changeDue > 0)
+        elseif ($changeDue > 0.005 && !empty($changeMethodId)) {
+            // REGISTRAR COMO EGRESO DE CAJA
+            // Obtener moneda del método de vuelto
+            $stmtM = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
+            $stmtM->execute([$changeMethodId]);
+            $changeCurrency = $stmtM->fetchColumn();
 
-        // LLAMADA LIMPIA AL MANAGER
-        $transactionManager->registerOrderChange(
-            $orderId,
-            $changeAmountNominal,
-            $changeCurrency,
-            $changeMethodId,
-            $userId,
-            $sessionId
-        );
+            // Calcular monto nominal (Ej: $1 vuelto en Bs = 60 Bs)
+            $changeAmountNominal = ($changeCurrency == 'VES') ? ($changeDue * $rate) : $changeDue;
+
+            // LLAMADA LIMPIA AL MANAGER
+            $transactionManager->registerOrderChange(
+                $orderId,
+                $changeAmountNominal, // Monto en moneda nominal
+                $changeCurrency,
+                $changeMethodId,
+                $userId,
+                $sessionId
+            );
+        }
     }
 
     // D. LIMPIEZA
-    if (!$_POST['order_id']) {
-        $cartManager->emptyCart($userId);
-    }
+    $cartManager->emptyCart($userId);
 
-    // Limpiar cliente de la sesión tras completar la venta
+    // Limpiar variables de sesión del POS tras completar la venta
     unset($_SESSION['pos_client_id']);
     unset($_SESSION['pos_client_name']);
+    unset($_SESSION['pos_editing_order_id']);
+
+    // 4. Finalizar Transacción y Redirigir
+    // El pago de hoy es lo pagado manualmente + lo descontado automáticamente del saldo
+    $netPaidToday = $realPaidUsd;
+    if ($changeDue < -0.005 && $clientId) {
+        $netPaidToday += abs($changeDue);
+    } elseif ($changeDue > 0.005) {
+        $netPaidToday -= $changeDue;
+    }
 
     $db->commit();
-    header("Location: ticket.php?id=" . $orderId . "&print=true");
+    header("Location: ticket.php?id=" . $orderId . "&print=true&new_paid_usd=" . max(0, $netPaidToday));
     exit;
 
 } catch (Exception $e) {

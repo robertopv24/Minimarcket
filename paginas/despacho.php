@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $sql = "SELECT o.*, o.delivery_tier, u.name as cliente
         FROM orders o
         JOIN users u ON o.user_id = u.id
-        WHERE o.status IN ('ready')
+        WHERE o.status IN ('ready', 'paid')
         ORDER BY o.id ASC";
 $stmt = $db->query($sql);
 $ordenes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -440,11 +440,15 @@ function renderDispatchCard($o)
                 <h6 class="card-title fw-bold border-bottom border-secondary pb-1 mb-1" style="font-size: 0.85rem;">
                     <i class="fa fa-user-circle me-1"></i>
                     <?php
-                    $displayClient = (!empty($o['shipping_address']) && $o['shipping_address'] !== 'Tienda Física')
-                        ? $o['shipping_address']
-                        : $o['cliente'];
+                    $displayClient = !empty($o['customer_note']) ? $o['customer_note'] : $o['cliente'];
                     echo htmlspecialchars(strtoupper($displayClient));
-                    ?>
+                    
+                    if (($o['consumption_type'] ?? '') === 'delivery'): ?>
+                        <div class="small text-warning mt-1" style="font-size: 0.75rem; font-weight: bold; line-height: 1.2;">
+                            <i class="fa fa-map-marker-alt me-1"></i><?= htmlspecialchars($o['shipping_address']) ?>
+                            <div class="text-info mt-1"><i class="fa fa-truck me-1"></i>ZONA: <?= strtoupper($o['delivery_tier'] ?? 'A') ?></div>
+                        </div>
+                    <?php endif; ?>
                 </h6>
 
                 <div style="max-height: 250px; overflow-y: auto;">

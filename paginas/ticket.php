@@ -29,16 +29,30 @@ $stmtPay = $db->prepare($sqlPay);
 $stmtPay->execute([$orderId]);
 $payments = $stmtPay->fetchAll(PDO::FETCH_ASSOC);
 
-// 2. Vuelto Real
-$sqlChange = "SELECT amount, currency
+// 2. Vuelto Real (o Saldo a Favor)
+$sqlChange = "SELECT amount, currency, reference_type, description
               FROM transactions
-              WHERE reference_type = 'order'
+              WHERE reference_type IN ('order', 'order_credit')
               AND reference_id = ?
               AND type = 'expense'
-              LIMIT 1";
+              ORDER BY id DESC LIMIT 1";
 $stmtChange = $db->prepare($sqlChange);
 $stmtChange->execute([$orderId]);
 $changeTx = $stmtChange->fetch(PDO::FETCH_ASSOC);
+
+// 3. Pago Real en esta transacción (pasado por process_checkout)
+$newPaidUsd = floatval($_GET['new_paid_usd'] ?? 0);
+
+// 4. Calcular Pago Total en USD (acumulado en la DB hasta ahora)
+$realPaidUsd = 0;
+foreach ($payments as $p) {
+    if ($p['currency'] == 'VES') {
+        $rate = $config->get('exchange_rate');
+        $realPaidUsd += ($p['amount'] / $rate);
+    } else {
+        $realPaidUsd += $p['amount'];
+    }
+}
 
 // --- GENERADOR DE TEXTO (58mm - 32 CHARS) ---
 define('WIDTH', 32);
@@ -94,10 +108,16 @@ $customerTicket .= center("ORDEN #" . str_pad($orderId, 6, '0', STR_PAD_LEFT)) .
 $customerTicket .= center(date('d/m/Y h:i A', strtotime($order['created_at']))) . EOL;
 $customerTicket .= EOL;
 $customerTicket .= "CAJERO : " . clean(substr($order['customer_name'], 0, 20)) . EOL;
-$displayClient = (!empty($order['shipping_address']) && $order['shipping_address'] !== 'Tienda Física')
-    ? preg_replace('/DELIVERY \([A-Z]\): /i', '', $order['shipping_address'])
-    : 'MOSTRADOR';
-$customerTicket .= "CLIENTE: " . clean(substr($displayClient, 0, 20)) . EOL;
+$displayClient = 'MOSTRADOR';
+if (!empty($order['client_id'])) {
+    $stmtCl = $db->prepare("SELECT name FROM clients WHERE id = ?");
+    $stmtCl->execute([$order['client_id']]);
+    $clientName = $stmtCl->fetchColumn();
+    if ($clientName) $displayClient = $clientName;
+} elseif (!empty($order['customer_note'])) {
+    $displayClient = $order['customer_note'];
+}
+$customerTicket .= "CLIENTE: " . clean(substr($displayClient, 0, 24)) . EOL;
 if (($order['consumption_type'] ?? '') === 'delivery' && !empty($order['delivery_tier'])) {
     $customerTicket .= "SERVICIO: DELIVERY (" . $order['delivery_tier'] . ")" . EOL;
 }
@@ -110,7 +130,15 @@ foreach ($items as $item) {
     $totalItem = $item['price'] * $item['quantity'];
     $mods = $orderManager->getItemModifiers($item['id']);
 
-    $qtyName = str_pad($item['quantity'], 2, ' ', STR_PAD_LEFT) . " " . clean($item['name']);
+    // Mostrar el cargo de delivery de forma destacada
+    if ($item['name'] === 'Servicio Delivery') {
+        $customerTicket .= line();
+        $customerTicket .= row("  CARGO DELIVERY:", "$" . number_format($totalItem, 2)) . EOL;
+        $customerTicket .= line();
+        continue;
+    }
+
+    $qtyName = str_pad($item['quantity'], 2, ' ', STR_PAD_LEFT) . " " . clean($item['name'] ?? 'PRODUCTO');
     $priceTxt = number_format($totalItem, 2);
     $customerTicket .= row($qtyName, $priceTxt) . EOL;
 
@@ -152,7 +180,16 @@ foreach ($items as $item) {
 }
 
 $customerTicket .= line();
-$customerTicket .= row("TOTAL:", "$" . number_format($order['total_price'], 2)) . EOL;
+$customerTicket .= row("TOTAL ORDEN:", "$" . number_format($order['total_price'], 2)) . EOL;
+
+$alreadyPaid = $transactionManager->getTotalPaidByOrder($orderId);
+// Abonos previos = Todo lo pagado menos lo que se acaba de pagar en esta sesión
+$abonosPrevios = $alreadyPaid - $newPaidUsd;
+$saldoRestante = $order['total_price'] - $abonosPrevios;
+
+$customerTicket .= row("ABONOS PREVIOS:", "$" . number_format($abonosPrevios, 2)) . EOL;
+$customerTicket .= row("SALDO A COBRAR:", "$" . number_format(max(0, $saldoRestante), 2)) . EOL;
+$customerTicket .= line();
 
 foreach ($payments as $pay) {
     $sym = ($pay['currency'] == 'USD') ? '$' : 'Bs ';
@@ -161,9 +198,16 @@ foreach ($payments as $pay) {
 
 if ($changeTx) {
     $sym = ($changeTx['currency'] == 'USD') ? '$' : 'Bs ';
-    $customerTicket .= row("SU CAMBIO:", $sym . number_format($changeTx['amount'], 2)) . EOL;
+    // Detectar si es saldo a favor por descripción o tipo de referencia antiguo
+    $isBalance = (stripos($changeTx['description'] ?? '', 'Saldo') !== false || $changeTx['reference_type'] === 'order_credit');
+    $label = $isBalance ? "SALDO A FAVOR:" : "SU CAMBIO:";
+    $customerTicket .= row($label, $sym . number_format($changeTx['amount'], 2)) . EOL;
 } else {
-    $customerTicket .= row("SU CAMBIO:", "$0.00") . EOL;
+    // Calcular vuelto dinámicamente si no hay transacción de vuelto registrada
+    $calculatedChange = $newPaidUsd - $saldoRestante;
+    if ($calculatedChange > 0.005) {
+        $customerTicket .= row("SU CAMBIO:", "$" . number_format($calculatedChange, 2)) . EOL;
+    }
 }
 
 if (!empty($order['customer_note'])) {
@@ -205,10 +249,8 @@ $kitchenTicket .= EOL;
 $kitchenTicket .= center("- - - CORTE COCINA - - -") . EOL;
 $kitchenTicket .= EOL;
 $kitchenTicket .= center("ORDEN #" . $orderId) . EOL;
-$displayClientKitchen = (!empty($order['shipping_address']) && $order['shipping_address'] !== 'Tienda Física')
-    ? preg_replace('/DELIVERY \([A-Z]\): /i', '', $order['shipping_address'])
-    : 'MOSTRADOR';
-$kitchenTicket .= center(clean(substr($displayClientKitchen, 0, 30))) . EOL;
+// Reutilizar el mismo nombre que ya calculamos para el recibo cliente
+$kitchenTicket .= center(clean(substr($displayClient, 0, 30))) . EOL;
 
 if (($order['consumption_type'] ?? '') === 'delivery' && !empty($order['delivery_tier'])) {
     $kitchenTicket .= center("DELIVERY (" . $order['delivery_tier'] . ")") . EOL;
@@ -276,7 +318,8 @@ foreach ($items as $item) {
         $loopCount = count($subNames);
     }
 
-    $kitchenTicket .= ">> " . $item['quantity'] . " X " . clean(($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $item['name']) . EOL;
+    $nameToPrint = $item['name'] ?? 'PRODUCTO';
+    $kitchenTicket .= ">> " . $item['quantity'] . " X " . clean(($useShortCodes && !empty($item['short_code'])) ? $item['short_code'] : $nameToPrint) . EOL;
 
     for ($i = 0; $i < $loopCount; $i++) {
         $currentMods = $groupedMods[$i] ?? [];
