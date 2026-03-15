@@ -199,11 +199,27 @@ $customerTicket .= row("TOTAL ORDEN:", "$" . number_format($order['total_price']
 
 // Lógica de Abonos y Saldo
 if ($sessionId > 0) {
-    $customerTicket .= row("ABONOS ANTERIORES:", "$" . number_format($alreadyPaidNetPrev, 2)) . EOL;
+    // Si venimos del checkout, mostramos el balance anterior
+    if ($alreadyPaidNetPrev < 0) {
+        $customerTicket .= row("VUELTOS/RET. ANT:", "$" . number_format(abs($alreadyPaidNetPrev), 2)) . EOL;
+    } else {
+        $customerTicket .= row("ABONOS ANTERIORES:", "$" . number_format($alreadyPaidNetPrev, 2)) . EOL;
+    }
+    
     $saldoHoy = $order['total_price'] - $alreadyPaidNetPrev;
     $customerTicket .= row("SALDO A COBRAR:", "$" . number_format(max(0, $saldoHoy), 2)) . EOL;
 } else {
-    $customerTicket .= row("PAGADO TOTAL:", "$" . number_format($totalIncomeGross, 2)) . EOL;
+    // Modo ver historial: mostrar el NETO real histórico (Ingresos - Egresos)
+    $sqlHistory = "SELECT 
+                        SUM(CASE WHEN type = 'income' THEN amount_usd_ref ELSE 0 END) - 
+                        SUM(CASE WHEN type = 'expense' THEN amount_usd_ref ELSE 0 END) as total_net
+                    FROM transactions 
+                    WHERE reference_type = 'order' AND reference_id = ?";
+    $stmtHistory = $db->prepare($sqlHistory);
+    $stmtHistory->execute([$orderId]);
+    $totalPaidNet = floatval($stmtHistory->fetchColumn() ?: 0);
+    
+    $customerTicket .= row("PAGADO TOTAL:", "$" . number_format($totalPaidNet, 2)) . EOL;
 }
 
 $customerTicket .= line();

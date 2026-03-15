@@ -134,7 +134,7 @@ class TransactionManager
     /**
      * Registrar Transacción Manual (Ingreso/Egreso genérico)
      */
-    public function registerTransaction($type, $amount, $description, $userId, $referenceType = 'manual', $referenceId = 0, $currency = 'USD', $paymentMethodId = null)
+    public function registerTransaction($type, $amount, $description, $userId, $referenceType = 'manual', $referenceId = 0, $currency = 'USD', $paymentMethodId = null, $sessionId = 0)
     {
         try {
             // Asumimos Metodo "Efectivo USD" o "Efectivo VES" por defecto para manuales si no se especifica
@@ -152,10 +152,7 @@ class TransactionManager
                     return false;
             }
 
-            // Las manuales podrían no estar ligadas a sesión de caja si son administrativas,
-            // pero si son de caja, deberían. Por ahora session_id = 0 para administrativas/generales.
-            $sessionId = 0;
-
+            // Si no se pasa sesión, por defecto 0 (administrativo/fuera de turno)
             $this->logTransaction(
                 $sessionId,
                 $type,

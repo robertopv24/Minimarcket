@@ -369,12 +369,12 @@ try {
                     $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?")->execute([$netToChargeToAccount, $clientId]);
                     
                     $desc = ($physicalChangeGiven > 0) ? "Retiro Efectivo de Saldo (Vuelto Orden #$orderId)" : "Consumo de Saldo (Orden #$orderId)";
-                    $transactionManager->registerTransaction('income', $netToChargeToAccount, $desc, $userId, 'order', $orderId, 'USD', 7);
+                    $transactionManager->registerTransaction('income', $netToChargeToAccount, $desc, $userId, 'order', $orderId, 'USD', 7, $sessionId);
                 } else {
                     // CASO: EXCEDENTE (Abonar a cuenta / Saldo a Favor)
                     $excess = abs($netToChargeToAccount);
                     $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?")->execute([$excess, $clientId]);
-                    $transactionManager->registerTransaction('expense', $excess, "Saldo a favor Orden #$orderId (Excedente)", $userId, 'order', $orderId, 'USD');
+                    $transactionManager->registerTransaction('expense', $excess, "Saldo a favor Orden #$orderId (Excedente)", $userId, 'order', $orderId, 'USD', 7, $sessionId);
                 }
             } elseif ($netToChargeToAccount > 0.005) {
                 // Bloqueo de seguridad si falta dinero y no hay cliente
