@@ -52,36 +52,76 @@ try {
         }
     }
 
+    // --- INYECCIÓN DE CLIENTE/EMPLEADO A LA ORDEN ---
+    // Asegurar que los ítems del carrito lleven el ID del cliente o empleado seleccionado en la sesión
+    // Esto es crucial para que OrderManager::createOrder() asocie la orden al cliente en la base de datos
+    $sessionClientId  = $_SESSION['pos_client_id']  ?? null;
+    $sessionEmployeeId = $_SESSION['pos_employee_id'] ?? null;
+    foreach ($cartItems as &$item) {
+        if (empty($item['client_id']))   $item['client_id']   = $sessionClientId;
+        if (empty($item['employee_id'])) $item['employee_id'] = $sessionEmployeeId;
+    }
+    unset($item);
+
     // Iniciar Transacción
     $db->beginTransaction();
 
-    // 1. Buscar si ya existe una orden ABIERTA para esta mesa/cliente (Solo Dine-in)
+    // 1. Determinar si es una EDICIÓN o una NUEVA ORDEN
     $orderId = null;
-    if ($type === 'dine_in') {
-        $stmtExisting = $db->prepare("SELECT id FROM orders WHERE user_id = ? AND shipping_address = ? AND status IN ('preparing', 'ready') AND consumption_type = 'dine_in' ORDER BY created_at DESC LIMIT 1");
-        $stmtExisting->execute([$userId, $address]);
-        $orderId = $stmtExisting->fetchColumn();
-    }
+    $editingOrderId = $_SESSION['pos_editing_order_id'] ?? null;
 
-    if ($orderId) {
-        // CONSOLIDAR: Añadir a orden existente
-        $orderManager->addItemsToOrder($orderId, $cartItems);
-        $message = 'Pedido añadido a la cuenta existente.';
+    if ($editingOrderId) {
+        // --- MODO EDICIÓN ---
+        $orderId = $editingOrderId;
+        
+        // Reemplazar los ítems de la orden existente con los del carrito actual
+        // replaceOrderItems ya maneja la eliminación de items viejos y la inserción de nuevos,
+        // restaurando y descontando inventario según sea necesario.
+        $orderManager->replaceOrderItems($orderId, $cartItems);
+        
+        // Actualizar el estado a 'preparing' para que vuelva a salir en cocina si es necesario,
+        // y asegurar que el tipo de consumo y dirección se actualizan por si el usuario los cambió en el carrito.
+        $stmtUpdate = $db->prepare("UPDATE orders SET status = 'preparing', consumption_type = ?, shipping_address = ?, updated_at = NOW() WHERE id = ?");
+        $stmtUpdate->execute([$type, $address, $orderId]);
+        
+        $message = 'Pedido modificado y reenviado a preparación con éxito.';
+        
+        // Limpiar la sesión de edición
+        unset($_SESSION['pos_editing_order_id']);
+
     } else {
-        // NUEVA: Crear la Orden con estado 'preparing'
-        $orderId = $orderManager->createOrder($userId, $cartItems, $address, null, $deliveryTier);
-        if (!$orderId) {
-            throw new Exception("Falló la creación de la orden.");
+        // --- MODO NUEVA ORDEN O CONSOLIDAR (Dine-in) ---
+        if ($type === 'dine_in') {
+            $stmtExisting = $db->prepare("SELECT id FROM orders WHERE user_id = ? AND shipping_address = ? AND status IN ('preparing', 'ready') AND consumption_type = 'dine_in' ORDER BY created_at DESC LIMIT 1");
+            $stmtExisting->execute([$userId, $address]);
+            $orderId = $stmtExisting->fetchColumn();
         }
 
-        // Actualizar estado a 'preparing' (para que salga en KDS) y setear el tipo de consumo
-        $stmt = $db->prepare("UPDATE orders SET status = 'preparing', consumption_type = ? WHERE id = ?");
-        $stmt->execute([$type, $orderId]);
-        $message = 'Pedido enviado a preparación con éxito.';
-    }
+        if ($orderId) {
+            // CONSOLIDAR: Añadir a orden existente
+            $orderManager->addItemsToOrder($orderId, $cartItems);
+            
+            // Re-evaluar stock de la orden completa después de añadir
+            $orderManager->deductStockFromSale($orderId);
+            
+            $message = 'Pedido añadido a la cuenta existente.';
+        } else {
+            // NUEVA: Crear la Orden con estado 'preparing'
+            $orderId = $orderManager->createOrder($userId, $cartItems, $address, null, $deliveryTier);
+            if (!$orderId) {
+                throw new Exception("Falló la creación de la orden.");
+            }
 
-    // 2. Descontar Stock (Ya que el pedido se va a preparar)
-    $orderManager->deductStockFromSale($orderId);
+            // Actualizar estado a 'preparing' (para que salga en KDS) y setear el tipo de consumo
+            $stmt = $db->prepare("UPDATE orders SET status = 'preparing', consumption_type = ? WHERE id = ?");
+            $stmt->execute([$type, $orderId]);
+            
+            // Descontar Stock (Ya que el pedido se va a preparar)
+            $orderManager->deductStockFromSale($orderId);
+            
+            $message = 'Pedido enviado a preparación con éxito.';
+        }
+    }
 
     // 3. Vaciar Carrito
     $cartManager->emptyCart($userId);

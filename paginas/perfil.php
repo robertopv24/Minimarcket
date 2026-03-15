@@ -30,11 +30,11 @@ require_once '../templates/menu.php';
         <form action="actualizar_perfil.php" method="POST">
             <div class="form-group">
                 <label for="name">Nombre Completo</label>
-                <input type="text" id="name" name="name" class="form-control" value="<?= $user; ?>" required>
+                <input type="text" id="name" name="name" class="form-control" value="<?= $user ?? ''; ?>" required>
             </div>
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
-                <input type="email" id="email" name="email" class="form-control" value="<?= $email; ?>" required>
+                <input type="email" id="email" name="email" class="form-control" value="<?= $email ?? ''; ?>" required>
             </div>
 
             <div  align="center" class="align-items-center justify-content-center ">

@@ -655,10 +655,7 @@ require_once '../templates/header.php';
                 return;
             }
             
-            // Recargar la página para que el ítem aparezca en la lista
-            // Esto cumple con el requerimiento de que se vea en carrito.php
-            window.location.reload();
-            return; // Detenemos aquí para que el usuario vea su carrito actualizado
+            // Proceed to process the order without reloading manually so it completes the flow
         } else {
             // Para Dine-in, confirmar envío a cocina
             const confirm = await Swal.fire({

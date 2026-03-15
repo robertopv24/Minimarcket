@@ -18,39 +18,58 @@ $companyName = $GLOBALS['config']->get('site_name');
 // DATOS FINANCIEROS
 // ---------------------------------------------------------
 
-// 1. Pagos Recibidos
+$sessionId = $_GET['session_id'] ?? 0;
+$sessionFilter = ($sessionId > 0) ? " AND t.cash_session_id = ? " : "";
+$params = ($sessionId > 0) ? [$orderId, $sessionId] : [$orderId];
+
+// 1. Pagos Recibidos (Filtrar por sesión si existe)
 $sqlPay = "SELECT pm.name as method, t.amount, t.currency
            FROM transactions t
            JOIN payment_methods pm ON t.payment_method_id = pm.id
-           WHERE t.reference_type = 'order'
-           AND t.reference_id = ?
-           AND t.type = 'income'";
+           WHERE t.reference_type = 'order' AND t.reference_id = ?
+           AND t.type = 'income' $sessionFilter";
 $stmtPay = $db->prepare($sqlPay);
-$stmtPay->execute([$orderId]);
+$stmtPay->execute($params);
 $payments = $stmtPay->fetchAll(PDO::FETCH_ASSOC);
 
-// 2. Vuelto Real (o Saldo a Favor)
-$sqlChange = "SELECT amount, currency, reference_type, description
-              FROM transactions
-              WHERE reference_type IN ('order', 'order_credit')
-              AND reference_id = ?
-              AND type = 'expense'
-              ORDER BY id DESC LIMIT 1";
+// 2. Vuelto Real o Saldo a Favor (Filtrar por sesión si existe)
+$sqlChange = "SELECT t.amount, t.currency, t.reference_type, t.description, pm.name as method
+              FROM transactions t
+              LEFT JOIN payment_methods pm ON t.payment_method_id = pm.id
+              WHERE t.reference_id = ? AND t.reference_type = 'order'
+              AND t.type = 'expense' $sessionFilter
+              ORDER BY t.id ASC";
 $stmtChange = $db->prepare($sqlChange);
-$stmtChange->execute([$orderId]);
-$changeTx = $stmtChange->fetch(PDO::FETCH_ASSOC);
+$stmtChange->execute($params);
+$changeTxs = $stmtChange->fetchAll(PDO::FETCH_ASSOC);
 
 // 3. Pago Real en esta transacción (pasado por process_checkout)
 $newPaidUsd = floatval($_GET['new_paid_usd'] ?? 0);
 
-// 4. Calcular Pago Total en USD (acumulado en la DB hasta ahora)
-$realPaidUsd = 0;
-foreach ($payments as $p) {
-    if ($p['currency'] == 'VES') {
+// 4. Calcular "Abonos Previos" (Todo lo neto ANTES de esta sesión)
+$alreadyPaidNetPrev = 0;
+if ($sessionId > 0) {
+    $sqlPrev = "SELECT 
+                    SUM(CASE WHEN type = 'income' THEN amount_usd_ref ELSE 0 END) - 
+                    SUM(CASE WHEN type = 'expense' THEN amount_usd_ref ELSE 0 END) as net_prev
+                FROM transactions 
+                WHERE reference_type = 'order' AND reference_id = ? AND cash_session_id != ?";
+    $stmtPrev = $db->prepare($sqlPrev);
+    $stmtPrev->execute([$orderId, $sessionId]);
+    $alreadyPaidNetPrev = floatval($stmtPrev->fetchColumn() ?: 0);
+}
+
+// 5. Calcular Pago Bruto Acumulado (Para lógica legacy si falla lo anterior)
+$totalIncomeGross = 0;
+$allIncomeSql = "SELECT amount, currency FROM transactions WHERE reference_type = 'order' AND reference_id = ? AND type = 'income'";
+$stmtAll = $db->prepare($allIncomeSql);
+$stmtAll->execute([$orderId]);
+foreach ($stmtAll->fetchAll() as $inc) {
+    if ($inc['currency'] == 'VES') {
         $rate = $config->get('exchange_rate');
-        $realPaidUsd += ($p['amount'] / $rate);
+        $totalIncomeGross += ($inc['amount'] / $rate);
     } else {
-        $realPaidUsd += $p['amount'];
+        $totalIncomeGross += $inc['amount'];
     }
 }
 
@@ -97,9 +116,6 @@ function line()
 }
 
 // ---------------------------------------------------------
-// CONSTRUCCIÓN DEL TICKET
-// ---------------------------------------------------------
-// ---------------------------------------------------------
 // CONSTRUCCIÓN DEL TICKET CLIENTE
 // ---------------------------------------------------------
 $customerTicket = "";
@@ -130,7 +146,6 @@ foreach ($items as $item) {
     $totalItem = $item['price'] * $item['quantity'];
     $mods = $orderManager->getItemModifiers($item['id']);
 
-    // Mostrar el cargo de delivery de forma destacada
     if ($item['name'] === 'Servicio Delivery') {
         $customerTicket .= line();
         $customerTicket .= row("  CARGO DELIVERY:", "$" . number_format($totalItem, 2)) . EOL;
@@ -182,13 +197,15 @@ foreach ($items as $item) {
 $customerTicket .= line();
 $customerTicket .= row("TOTAL ORDEN:", "$" . number_format($order['total_price'], 2)) . EOL;
 
-$alreadyPaid = $transactionManager->getTotalPaidByOrder($orderId);
-// Abonos previos = Todo lo pagado menos lo que se acaba de pagar en esta sesión
-$abonosPrevios = $alreadyPaid - $newPaidUsd;
-$saldoRestante = $order['total_price'] - $abonosPrevios;
+// Lógica de Abonos y Saldo
+if ($sessionId > 0) {
+    $customerTicket .= row("ABONOS ANTERIORES:", "$" . number_format($alreadyPaidNetPrev, 2)) . EOL;
+    $saldoHoy = $order['total_price'] - $alreadyPaidNetPrev;
+    $customerTicket .= row("SALDO A COBRAR:", "$" . number_format(max(0, $saldoHoy), 2)) . EOL;
+} else {
+    $customerTicket .= row("PAGADO TOTAL:", "$" . number_format($totalIncomeGross, 2)) . EOL;
+}
 
-$customerTicket .= row("ABONOS PREVIOS:", "$" . number_format($abonosPrevios, 2)) . EOL;
-$customerTicket .= row("SALDO A COBRAR:", "$" . number_format(max(0, $saldoRestante), 2)) . EOL;
 $customerTicket .= line();
 
 foreach ($payments as $pay) {
@@ -196,16 +213,17 @@ foreach ($payments as $pay) {
     $customerTicket .= row(substr($pay['method'], 0, 18) . ":", $sym . number_format($pay['amount'], 2)) . EOL;
 }
 
-if ($changeTx) {
-    $sym = ($changeTx['currency'] == 'USD') ? '$' : 'Bs ';
-    // Detectar si es saldo a favor por descripción o tipo de referencia antiguo
-    $isBalance = (stripos($changeTx['description'] ?? '', 'Saldo') !== false || $changeTx['reference_type'] === 'order_credit');
-    $label = $isBalance ? "SALDO A FAVOR:" : "SU CAMBIO:";
-    $customerTicket .= row($label, $sym . number_format($changeTx['amount'], 2)) . EOL;
+if (!empty($changeTxs)) {
+    foreach ($changeTxs as $ctx) {
+        $sym = ($ctx['currency'] == 'USD') ? '$' : 'Bs ';
+        $isBalance = (stripos($ctx['description'] ?? '', 'Saldo') !== false);
+        $methodLabel = !empty($ctx['method']) ? " " . $ctx['method'] : "";
+        $label = $isBalance ? "ABONO CUENTA:" : "VUELTO" . $methodLabel . ":";
+        $customerTicket .= row($label, $sym . number_format($ctx['amount'], 2)) . EOL;
+    }
 } else {
-    // Calcular vuelto dinámicamente si no hay transacción de vuelto registrada
-    $calculatedChange = $newPaidUsd - $saldoRestante;
-    if ($calculatedChange > 0.005) {
+    $calculatedChange = $totalIncomeGross - $order['total_price'];
+    if ($calculatedChange > 0.005 && $newPaidUsd > 0) {
         $customerTicket .= row("SU CAMBIO:", "$" . number_format($calculatedChange, 2)) . EOL;
     }
 }
@@ -218,10 +236,6 @@ if (!empty($order['customer_note'])) {
 $customerTicket .= EOL;
 $customerTicket .= center("*** GRACIAS POR SU COMPRA ***") . EOL;
 $customerTicket .= EOL . EOL;
-$customerTicket .= EOL;
-$customerTicket .= EOL;
-$customerTicket .= EOL;
-$customerTicket .= EOL . EOL;
 $customerTicket .= line();
 
 
@@ -230,26 +244,9 @@ $customerTicket .= line();
 // ---------------------------------------------------------
 $kitchenTicket = "";
 $kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
 $kitchenTicket .= center("- - - CORTE COCINA - - -") . EOL;
 $kitchenTicket .= EOL;
 $kitchenTicket .= center("ORDEN #" . $orderId) . EOL;
-// Reutilizar el mismo nombre que ya calculamos para el recibo cliente
 $kitchenTicket .= center(clean(substr($displayClient, 0, 30))) . EOL;
 
 if (($order['consumption_type'] ?? '') === 'delivery' && !empty($order['delivery_tier'])) {
@@ -269,23 +266,13 @@ foreach ($items as $item) {
         $groupedMods[$m['sub_item_index']][] = $m;
     }
 
-    // Ordenar modificadores por grupo para impresión correcta
     foreach ($groupedMods as &$gMods) {
         usort($gMods, function ($a, $b) {
             $order = ['side' => 1, 'add' => 2, 'remove' => 3];
             $ta = strtolower($a['modifier_type'] ?? '');
             $tb = strtolower($b['modifier_type'] ?? '');
-
-            if ($ta != 'add' && $ta != 'remove' && $ta != 'side')
-                $va = ($ta == 'info') ? 99 : 1;
-            else
-                $va = $order[$ta] ?? 99;
-
-            if ($tb != 'add' && $tb != 'remove' && $tb != 'side')
-                $vb = ($tb == 'info') ? 99 : 1;
-            else
-                $vb = $order[$tb] ?? 99;
-
+            $va = ($ta != 'add' && $ta != 'remove' && $ta != 'side') ? (($ta == 'info') ? 99 : 1) : ($order[$ta] ?? 99);
+            $vb = ($tb != 'add' && $tb != 'remove' && $tb != 'side') ? (($tb == 'info') ? 99 : 1) : ($order[$tb] ?? 99);
             return $va <=> $vb;
         });
     }
@@ -331,7 +318,6 @@ foreach ($items as $item) {
 
         $orderType = $order['consumption_type'] ?? 'dine_in';
         $cTypeItem = $item['consumption_type'] ?? 'dine_in';
-
         $tag = '[LOCAL]';
         if ($orderType === 'delivery' || $cTypeItem === 'delivery') {
             $tag = '[DELIVERY]';
@@ -342,7 +328,6 @@ foreach ($items as $item) {
         $componentLabel = isset($subNames[$i]) ? " ** (" . clean($subNames[$i]) . ")" : '';
         $kitchenTicket .= "   $tag #" . ($i + 1) . $componentLabel . EOL;
 
-        // IMPRIMIR NOTA INDEPENDIENTE SI EXISTE
         foreach ($currentMods as $m) {
             if ($m['modifier_type'] == 'info' && !empty($m['note'])) {
                 $kitchenTicket .= "    ! " . clean($m['note']) . EOL;
@@ -350,25 +335,20 @@ foreach ($items as $item) {
         }
 
         foreach ($currentMods as $m) {
-            // Saltamos modificadores de información de delivery que ya están en el tag
-            if ($m['modifier_type'] == 'info' && preg_match('/^\[[A-Z]\]$/', $m['ingredient_name'] ?? '')) {
+            if ($m['modifier_type'] == 'info' && preg_match('/^\[[A-Z]\]$/', $m['ingredient_name'] ?? ''))
                 continue;
-            }
 
             $prefix = match ($m['modifier_type']) {
                 'remove' => '     -- ',
-                'side' => '     ** ',
+                'side' => '     ** ' ,
                 'add' => '     ++ ',
                 default => '     >> '
             };
-
             if ($m['modifier_type'] !== 'info') {
                 $mName = ($useShortCodes && !empty($m['short_code'])) ? $m['short_code'] : $m['ingredient_name'];
                 $kitchenTicket .= $prefix . clean($mName) . EOL;
             }
         }
-
-        // Notas específicas del ítem
         if ($i == 0) {
             foreach ($mods as $gm) {
                 if ($gm['sub_item_index'] == -1 && $gm['modifier_type'] == 'info' && !empty($gm['note'])) {
@@ -380,205 +360,53 @@ foreach ($items as $item) {
     $kitchenTicket .= str_repeat("-", WIDTH) . EOL;
 }
 $kitchenTicket .= ".";
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
-$kitchenTicket .= EOL;
+$kitchenTicket .= EOL . EOL;
 $kitchenTicket .= line();
-?>
-
-<?php
-// ... (PHP Logic from lines 1-231 remains unchanged, handled by startLine below)
 
 require_once '../templates/header.php';
 require_once '../templates/menu.php';
 ?>
 
 <style>
-    /* Estilos específicos para la visualización del Ticket */
-    .ticket-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        min-height: 80vh;
-        padding-top: 2rem;
-    }
-
-    .ticket-wrapper {
-        background: white;
-        /* Siempre blanco para simular papel */
-        color: black;
-        /* Siempre negro para simular tinta */
-        width: 80mm;
-        /* Ancho estándar de ticket */
-        padding: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-        /* Sombra elegante */
-        border-radius: 2px;
-        /* Bordes casi rectos */
-        margin-bottom: 2rem;
-        transform: rotate(-0.5deg);
-        /* Efecto sutil de imperfección */
-    }
-
-    pre.ticket-content {
-        font-family: 'Courier New', Courier, monospace;
-        font-size: 14px;
-        font-weight: bold;
-        line-height: 1.2;
-        white-space: pre;
-        margin: 0 auto;
-        display: block;
-        width: fit-content;
-        text-align: left;
-    }
-
-    /* Acciones flotantes o estáticas */
-    .ticket-actions {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        justify-content: center;
-        margin-bottom: 3rem;
-    }
-
-    /* Print Styles */
-    @media print {
-
-        .no-print,
-        header,
-        nav,
-        footer {
-            display: none !important;
-        }
-
-        body,
-        .container,
-        .ticket-container {
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: auto !important;
-            width: auto !important;
-        }
-
-        .ticket-wrapper {
-            width: 100% !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            transform: none !important;
-        }
-
-        pre.ticket-content {
-            font-size: 12px;
-            /* Ajuste para impresora térmica */
-            text-align: left;
-            /* Alineación natural impresora */
-        }
-    }
+    .ticket-container { display: flex; flex-direction: column; align-items: center; min-height: 80vh; padding-top: 2rem; }
+    .ticket-wrapper { background: white; color: black; width: 80mm; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border-radius: 2px; margin-bottom: 2rem; }
+    pre.ticket-content { font-family: 'Courier New', Courier, monospace; font-size: 14px; font-weight: bold; line-height: 1.2; white-space: pre; margin: 0 auto; display: block; width: fit-content; text-align: left; }
+    .ticket-actions { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-bottom: 3rem; }
+    @media print { .no-print, header, nav, footer { display: none !important; } .ticket-wrapper { width: 100% !important; box-shadow: none !important; margin: 0 !important; } }
 </style>
 
 <div class="container py-4">
     <div class="row">
-        <!-- TICKET CLIENTE -->
         <div class="col-md-6 ticket-container">
             <h4 class="text-white mb-3"><i class="fa fa-user me-2"></i>RECIBO CLIENTE</h4>
             <div class="ticket-wrapper" id="customerTicketWrapper">
                 <pre class="ticket-content"><?= $customerTicket ?></pre>
             </div>
             <div class="ticket-actions no-print">
-                <button onclick="printSelect('customer')" class="btn btn-primary btn-lg w-100 mb-2">
-                    <i class="fa fa-print"></i> Imprimir (Windows)
-                </button>
-
+                <button onclick="printSelect('customer')" class="btn btn-primary btn-lg w-100"><i class="fa fa-print"></i> Imprimir (Windows)</button>
             </div>
         </div>
-
-        <!-- TICKET COCINA -->
         <div class="col-md-6 ticket-container">
             <h4 class="text-white mb-3"><i class="fa fa-fire me-2"></i>COMANDA COCINA</h4>
             <div class="ticket-wrapper" id="kitchenTicketWrapper">
                 <pre class="ticket-content"><?= $kitchenTicket ?></pre>
             </div>
             <div class="ticket-actions no-print">
-                <button onclick="printSelect('kitchen')" class="btn btn-primary btn-lg w-100 mb-2">
-                    <i class="fa fa-print"></i> Imprimir (Windows)
-                </button>
-
+                <button onclick="printSelect('kitchen')" class="btn btn-primary btn-lg w-100"><i class="fa fa-print"></i> Imprimir (Windows)</button>
             </div>
         </div>
     </div>
-
-    <!-- BOTÓN VOLVER -->
     <div class="text-center mt-4 no-print">
-        <hr class="border-secondary">
-        <a href="tienda.php" class="btn btn-lg btn-secondary hover-scale px-5">
-            <i class="fa fa-arrow-left me-2"></i> Volver a Tienda
-        </a>
+        <a href="tienda.php" class="btn btn-lg btn-secondary px-5"><i class="fa fa-arrow-left me-2"></i> Volver a Tienda</a>
     </div>
 </div>
 
-<style>
-    /* Estilos específicos para Impresión Selectiva */
-    @media print {
-        .ticket-container {
-            display: none !important;
-        }
-
-        .print-only {
-            display: block !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        .ticket-wrapper.print-only {
-            box-shadow: none !important;
-            transform: none !important;
-        }
-    }
-</style>
-
 <script>
     function printSelect(type) {
-        // Marcamos el que queremos imprimir
         $('.ticket-container').removeClass('print-only');
-        if (type === 'customer') {
-            $('#customerTicketWrapper').closest('.ticket-container').addClass('print-only');
-        } else {
-            $('#kitchenTicketWrapper').closest('.ticket-container').addClass('print-only');
-        }
+        if (type === 'customer') $('#customerTicketWrapper').closest('.ticket-container').addClass('print-only');
+        else $('#kitchenTicketWrapper').closest('.ticket-container').addClass('print-only');
         window.print();
-    }
-
-    function printServer(type, btn) {
-        const jBtn = $(btn);
-        const originalText = jBtn.html();
-
-        jBtn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Enviando...');
-
-        $.post('../ajax/imprimir_ticket.php', {
-            order_id: <?= $orderId ?>,
-            type: type
-        }, function (res) {
-            if (res.status === 'ok') {
-                jBtn.removeClass('btn-warning').addClass('btn-success').html('<i class="fa fa-check"></i> ¡Impreso!');
-                setTimeout(() => {
-                    jBtn.removeClass('btn-success').addClass('btn-warning').html(originalText).prop('disabled', false);
-                }, 3000);
-            } else {
-                alert("❌ Error: " + res.message);
-                jBtn.prop('disabled', false).html(originalText);
-            }
-        }, 'json').fail(function () {
-            alert("Error de conexión con el servidor.");
-            jBtn.prop('disabled', false).html(originalText);
-        });
     }
 </script>
 

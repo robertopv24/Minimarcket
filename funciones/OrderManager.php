@@ -183,6 +183,76 @@ class OrderManager
     }
 
     /**
+     * 1c. REEMPLAZAR ÍTEMS DE UNA ORDEN EXISTENTE
+     * Útil al editar una orden desde el carrito, asegurando que se limpia la orden previa.
+     */
+    public function replaceOrderItems($orderId, $cartItems)
+    {
+        $inTransaction = $this->db->inTransaction();
+        try {
+            if (!$inTransaction)
+                $this->db->beginTransaction();
+
+            // 1. Revertir el stock de los ítems actuales antes de borrarlos
+            $this->revertStockFromSale($orderId);
+
+            // 2. Eliminar los ítems viejos de la orden
+            $this->db->prepare("DELETE FROM order_items WHERE order_id = ?")->execute([$orderId]);
+            // Los modificadores se borran en cascada por la foreign key (ON DELETE CASCADE)
+
+            // 3. Insertar los ítems nuevos (del carrito)
+            $newItemsTotal = 0;
+            $stmtItem = $this->db->prepare("INSERT INTO order_items (order_id, product_id, quantity, price, cost_at_sale, consumption_type) VALUES (?, ?, ?, ?, ?, ?)");
+            $sqlCopyMods = "INSERT INTO order_item_modifiers
+                            (order_item_id, modifier_type, component_id, component_type, quantity_adjustment, price_adjustment_usd, note, sub_item_index, is_takeaway)
+                            SELECT ?, modifier_type, component_id, component_type, quantity_adjustment, price_adjustment, note, sub_item_index, is_takeaway
+                            FROM cart_item_modifiers
+                            WHERE cart_id = ?";
+            $stmtCopy = $this->db->prepare($sqlCopyMods);
+            $productManager = new ProductManager($this->db);
+
+            foreach ($cartItems as $item) {
+                // Saltar ítems inválidos o el cargo de delivery si se maneja aparte
+                if (empty($item['product_id'])) continue;
+                
+                // Si el item tiene nombre "Servicio Delivery", no lo insertamos aquí
+                // ya que process_checkout lo hace por su cuenta en algunos flujos, 
+                // PERO en process_pending_order se necesita. Lo dejamos pasar,
+                // asegurándonos de que si process_checkout lo inyecta después, no se duplique.
+                // Sin embargo, process_pending_order NO lo inyecta por defecto si no está en el carrito,
+                // así que está bien dejarlo aquí tal como viene del carrito.
+
+                $price = $item['unit_price_final'] ?? $item['price'] ?? $item['price_usd'] ?? 0;
+                $cost_at_sale = $productManager->calculateProductCost($item['product_id']);
+                $cType = $item['consumption_type'] ?? 'dine_in';
+
+                $stmtItem->execute([$orderId, $item['product_id'], $item['quantity'], $price, $cost_at_sale, $cType]);
+                $order_item_id = $this->db->lastInsertId();
+
+                if (isset($item['id'])) {
+                    $stmtCopy->execute([$order_item_id, $item['id']]);
+                }
+                $newItemsTotal += $price * $item['quantity'];
+            }
+
+            // 4. Actualizar total de la orden
+            $stmtUpdate = $this->db->prepare("UPDATE orders SET total_price = ? WHERE id = ?");
+            $stmtUpdate->execute([$newItemsTotal, $orderId]);
+
+            // 5. Descontar stock para los nuevos ítems
+            $this->deductStockFromSale($orderId);
+
+            if (!$inTransaction)
+                $this->db->commit();
+            return true;
+        } catch (Exception $e) {
+            if (!$inTransaction)
+                $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * 2. DESCUENTO DE INVENTARIO INTELIGENTE (RECURSIVO)
      * Maneja:
      * - Productos Simples (Link Directo o Tabla Ventas)

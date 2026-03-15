@@ -94,13 +94,33 @@ foreach ($cartItems as $item) {
 
 if ($orderId) {
     $alreadyPaid = $transactionManager->getTotalPaidByOrder($orderId);
+    
+    // --- INICIO REVERSIÓN SIMULADA ---
+    $adjustments = $transactionManager->getOrderAdjustments($orderId);
+    
+    // Si estamos editando y hay un cliente, simulamos la reversión de saldos manuales/vueltos
+    // tal como lo hace process_checkout.php
+    if ($sessionClientId && $sessionClientData) {
+        foreach ($adjustments as $adj) {
+            if ($adj['type'] === 'income') {
+                // Fue un consumo de saldo. Revertir: Quitar de alreadyPaid, aumentar clientBalance temporalmente (deuda se hace más negativa)
+                $alreadyPaid -= $adj['amount'];
+                $sessionClientData['current_debt'] -= $adj['amount'];
+            } else {
+                // Fue un saldo a favor otorgado. Revertir: Sumar a alreadyPaid (porque entregó billetes físicos en su momento), reducir clientBalance temporalmente
+                $alreadyPaid += $adj['amount'];
+                $sessionClientData['current_debt'] += $adj['amount'];
+            }
+        }
+    }
+    // --- FIN REVERSIÓN SIMULADA ---
 }
 
 // El Total Base es el total sin el cargo de delivery específico,
 // para que el JS pueda sumarlo dinámicamente según la radio button.
 $baseTotalUsd = $totalUsd - $deliveryFeeInCart;
 
-// Saldo a Favor del Cliente (Deuda negativa)
+// Saldo a Favor del Cliente (Deuda negativa) calculado o ajustado con la simulación
 $clientBalance = ($sessionClientData && ($sessionClientData['current_debt'] < -0.001)) ? abs($sessionClientData['current_debt']) : 0;
 $amountRemaining = max(0, $totalUsd - $alreadyPaid - $clientBalance);
 

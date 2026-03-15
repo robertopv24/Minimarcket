@@ -29,9 +29,12 @@ if ($userId) {
     }
 }
 // ----------------------------------
-// LOGICA PARA CARGAR ORDEN AL EDITAR
-$orderId = $_GET['order_id'] ?? null;
+// LÓGICA PARA CARGAR ORDEN AL EDITAR (Usar Sesión o GET)
+$orderId = $_GET['order_id'] ?? $_SESSION['pos_editing_order_id'] ?? null;
 if ($orderId) {
+    // Asegurarnos de guardar la sesión de edición para que persista mientras navegamos por tienda.php
+    $_SESSION['pos_editing_order_id'] = $orderId;
+    
     $orderData = $orderManager->getOrderById($orderId);
     if ($orderData) {
         // 1. Sincronizar Cliente/Empleado en Sesión con nombre real de la BD
@@ -53,15 +56,13 @@ if ($orderId) {
             unset($_SESSION['pos_client_name']);
         }
 
-        // 2. Los ítems ya fueron cargados por order_actions.php antes de redirigir,
-        //    solo cargamos si el carrito está vacío (por si el usuario llega directamente)
+        // 2. Cargamos los ítems si el carrito está vacío (por si el usuario llega directo con ?order_id=)
         if (empty($cartManager->getCart($userId))) {
             $cartManager->loadOrderIntoCart($userId, $orderId);
         }
     }
 }
 
-// Procesar "Agregar al Carrito"
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     if (!$userId) {
         SessionHelper::setFlash('warning', 'Debes iniciar sesión para realizar esa acción.');
@@ -166,6 +167,14 @@ require_once '../templates/header.php';
 </script>
 
 <?= $cajaAlert ?>
+
+<?php if (!empty($_SESSION['pos_editing_order_id'])): ?>
+    <div class="alert alert-warning text-center m-0 border-0 rounded-0 shadow-sm">
+        <strong><i class="fa fa-edit me-2"></i> Estás editando la Orden #<?= $_SESSION['pos_editing_order_id'] ?></strong>
+        <span class="ms-2">El cliente y los productos actuales han sido cargados.</span>
+        <a href="carrito.php" class="btn btn-sm btn-dark ms-3">Ir al Carrito</a>
+    </div>
+<?php endif; ?>
 
 <div class="container mt-5">
 
@@ -771,12 +780,12 @@ require_once '../templates/header.php';
         });
 
         // 3. Cargar datos pre-seleccionados de sesión
-        <?php if (isset($_SESSION['pos_client_id'])): ?>
-            let optC = new Option('<?= $_SESSION['pos_client_name'] ?>', '<?= $_SESSION['pos_client_id'] ?>', true, true);
+        <?php if (!empty($_SESSION['pos_client_id'])): ?>
+            let optC = new Option('<?= addslashes($_SESSION['pos_client_name'] ?? '') ?>', '<?= $_SESSION['pos_client_id'] ?>', true, true);
             $('#posClientSelect').append(optC).trigger('change');
             setPosClient('<?= $_SESSION['pos_client_id'] ?>');
-        <?php elseif (isset($_SESSION['pos_employee_id'])): ?>
-            let optE = new Option('<?= $_SESSION['pos_employee_name'] ?>', '<?= $_SESSION['pos_employee_id'] ?>', true, true);
+        <?php elseif (!empty($_SESSION['pos_employee_id'])): ?>
+            let optE = new Option('<?= addslashes($_SESSION['pos_employee_name'] ?? '') ?>', '<?= $_SESSION['pos_employee_id'] ?>', true, true);
             $('#posEmployeeSelect').append(optE).trigger('change');
             setPosEmployee('<?= $_SESSION['pos_employee_id'] ?>');
             // Activar pestaña empleado

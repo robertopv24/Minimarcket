@@ -134,15 +134,17 @@ try {
     $db->beginTransaction();
 
     // B. IDENTIFICACIÓN Y LIMPIEZA DE AJUSTES PREVIOS
-    // Si estamos editando, buscamos al cliente y reversamos ajustes de saldo automáticos previos.
-    // Esto es CRÍTICO para que alreadyPaid solo incluya pagos REALES (Efectivo, etc) y no saldos "fantasma".
-    $clientId = ($_POST['credit_client_id'] ?? null) ?: (($_POST['pos_client_id'] ?? null) ?: ($_SESSION['pos_client_id'] ?? null));
-    if (!$clientId && $orderId) {
+    // Si estamos editando, buscamos al cliente ORIGINAL de la orden para devolverle su saldo antes de cualquier cambio.
+    // Esto evita que al cambiar de cliente en el POS, el saldo se "traspase" erróneamente de una persona a otra.
+    $originalClientId = null;
+    $originalEmployeeId = null;
+    if ($orderId) {
         $orderInfo = $orderManager->getOrderById($orderId);
-        $clientId = $orderInfo['client_id'] ?? null;
+        $originalClientId = $orderInfo['client_id'] ?? null;
+        $originalEmployeeId = $orderInfo['employee_id'] ?? null;
     }
 
-    if ($orderId > 0 && $clientId) {
+    if ($orderId > 0 && $originalClientId) {
         $stmtAdjust = $db->prepare("SELECT id, amount, type FROM transactions 
                                     WHERE reference_id = ? AND reference_type = 'order' 
                                     AND (payment_method_id = 7 OR (type = 'expense' AND (description LIKE '%Saldo%' OR reference_type = 'order_credit'))) ");
@@ -151,15 +153,21 @@ try {
 
         foreach ($adjustments as $adj) {
             if ($adj['type'] === 'income') {
-                $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?")->execute([$adj['amount'], $clientId]);
+                // Revertir Consumo: El cliente ORIGINAL recupera su saldo a favor
+                $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?")->execute([$adj['amount'], $originalClientId]);
             } else {
-                $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?")->execute([$adj['amount'], $clientId]);
+                // Revertir Saldo a Favor Otorgado: El cliente ORIGINAL pierde ese saldo
+                $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?")->execute([$adj['amount'], $originalClientId]);
             }
             $db->prepare("DELETE FROM transactions WHERE id = ?")->execute([$adj['id']]);
         }
     }
 
-    // AHORA SÍ: Calcular lo pagado REALMENTE antes de esta sesión
+    // Identificar Cliente NUEVO (el que está en la sesión o formulario actual)
+    $clientId = ($_POST['credit_client_id'] ?? null) ?: (($_POST['pos_client_id'] ?? null) ?: ($_SESSION['pos_client_id'] ?? null));
+    $empId = ($_POST['credit_employee_id'] ?? null) ?: (($_POST['pos_employee_id'] ?? null) ?: ($_SESSION['pos_employee_id'] ?? null));
+
+    // AHORA SÍ: Calcular lo pagado REALMENTE antes de esta sesión (Billetes físicos que quedan en la orden)
     if ($orderId) {
         $alreadyPaid = $transactionManager->getTotalPaidByOrder($orderId);
     }
@@ -176,8 +184,6 @@ try {
 
         // 3. Procesar según Tipo
         $creditType = $_POST['credit_type'] ?? ''; // client_credit, employee_credit, benefit
-        $clientId = $_POST['credit_client_id'] ?: null;
-        $empId = $_POST['credit_employee_id'] ?: null;
 
         // 2. Crear o Obtener Orden
         if (!$orderId) {
@@ -209,8 +215,8 @@ try {
             }
             $totalOrderAmount = $newTotal;
 
-            $stmtUpd = $db->prepare("UPDATE orders SET total_price = ?, consumption_type = ?, delivery_tier = ?, customer_note = ?, shipping_address = ? WHERE id = ?");
-            $stmtUpd->execute([$newTotal, $consumptionType, $deliveryTier, $customerName, $address, $orderId]);
+            $stmtUpd = $db->prepare("UPDATE orders SET total_price = ?, consumption_type = ?, delivery_tier = ?, customer_note = ?, shipping_address = ?, client_id = ?, employee_id = ? WHERE id = ?");
+            $stmtUpd->execute([$newTotal, $consumptionType, $deliveryTier, $customerName, $address, $clientId, $empId, $orderId]);
         }
 
         $notes = "Autorizado por Admin. Ref: " . date('Y-m-d H:i');
@@ -311,15 +317,25 @@ try {
         $totalOrderAmount = $newTotal; // Para el registro de transacciones más abajo
 
         $newStatus = ($consumptionType === 'delivery') ? 'paid' : 'delivered';
-        $stmtUpd = $db->prepare("UPDATE orders SET total_price = ?, consumption_type = ?, delivery_tier = ?, customer_note = ?, shipping_address = ?, status = ? WHERE id = ?");
-        $stmtUpd->execute([$newTotal, $consumptionType, $deliveryTier, $customerName, $address, $newStatus, $orderId]);
+        $stmtUpd = $db->prepare("UPDATE orders SET total_price = ?, consumption_type = ?, delivery_tier = ?, customer_note = ?, shipping_address = ?, status = ?, client_id = ?, employee_id = ? WHERE id = ?");
+        $stmtUpd->execute([$newTotal, $consumptionType, $deliveryTier, $customerName, $address, $newStatus, $clientId, $empId, $orderId]);
     }
 
-    // C. CALCULAR Y REGISTRAR VUELTO (MANUAL)
-    // El Manager ya no calcula vueltos, solo registra lo que entró.
+    // C. REGISTRAR PAGOS FÍSICOS Y PROCESAR SALDOS
+    // 1. Registrar los ingresos (billetes) recibidos en esta sesión
     $transactionManager->processOrderPayments($orderId, $processedPayments, $userId, $sessionId);
 
-    // 1. Calcular cuánto pagó realmente en USD en ESTA sesión
+    // 2. Obtener Saldo Actual del Cliente (Tras reversión si fue edición) para el cálculo de vueltos
+    $currentClientBalance = 0;
+    if ($clientId) {
+        $stmtBalance = $db->prepare("SELECT current_debt FROM clients WHERE id = ?");
+        $stmtBalance->execute([$clientId]);
+        $currentDebt = floatval($stmtBalance->fetchColumn() ?: 0);
+        // Saldo a favor es deuda negativa (Ej: Deuda -10 -> Saldo 10)
+        $currentClientBalance = max(0, -$currentDebt);
+    }
+
+    // 3. Calcular cuánto pagó realmente en USD en ESTA sesión
     $realPaidUsd = 0;
     foreach ($processedPayments as $p) {
         if ($p['currency'] == 'VES')
@@ -328,74 +344,52 @@ try {
             $realPaidUsd += $p['amount'];
     }
 
-    // 2. Calcular Vuelto Total (Pagos Previos + Pagos Hoy - Total Nueva Orden)
-    $totalPaymentsSoFar = $alreadyPaid + $realPaidUsd;
-    $changeDue = $totalPaymentsSoFar - $totalOrderAmount;
+    // 2. Calcular Vuelto Teórico (Pagos Previos + Pagos Hoy + Saldo Disponible - Total Nueva Orden)
+    $totalPhysicalPaidTodayAndBefore = $alreadyPaid + $realPaidUsd;
+    $theoreticalChange = ($totalPhysicalPaidTodayAndBefore + $currentClientBalance) - $totalOrderAmount;
 
-    // 3. Manejo de Diferencia de Pago (Saldos y Vueltos)
-    if (abs($changeDue) > 0.005) {
+    // 3. Manejo Unificado de Diferencia de Pago
+    if (abs($theoreticalChange) > 0.005 || ($totalOrderAmount > $totalPhysicalPaidTodayAndBefore)) {
         $changeMethodId = $_POST['change_method_id'] ?? null;
         
-        // Identificar Cliente (desde la orden o la sesión)
-        $orderInfo = $orderManager->getOrderById($orderId);
-        $clientId = $orderInfo['client_id'] ?? $_SESSION['pos_client_id'] ?? null;
-
-        // CASO A: EXCEDENTE (Vuelto) convertido a Saldo a Favor
-        if ($changeDue > 0.005 && $changeMethodId === 'store_credit' && $clientId) {
-            $stmtCredit = $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?");
-            $stmtCredit->execute([$changeDue, $clientId]);
-            
-            $transactionManager->registerTransaction(
-                'expense', 
-                $changeDue, 
-                "Saldo a favor Order #$orderId (Excedente)", 
-                $userId, 
-                'order', 
-                $orderId, 
-                'USD'
-            );
-        } 
-        // CASO B: DÉFICIT (Consumo de Saldo o Saldo Deudor)
-        // Si falta dinero y hay un cliente vinculado, lo cargamos a su cuenta automáticamente
-        // El usuario indica que esto debería ser automático si hay "crédito disponible".
-        elseif ($changeDue < -0.005 && $clientId) {
-            $deficit = abs($changeDue);
-            
-            // Actualizar saldo del cliente (Esto consume balance si es negativo, o aumenta deuda si es positivo)
-            $stmtDebt = $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?");
-            $stmtDebt->execute([$deficit, $clientId]);
-
-            $transactionManager->registerTransaction(
-                'income', 
-                $deficit, 
-                "Abono por Consumo de Saldo (Order #$orderId)", 
-                $userId, 
-                'order', 
-                $orderId, 
-                'USD',
-                7 // ID del método de pago 'Consumo de Saldo'
-            );
+        // Determinar si se entrega vuelto físico
+        $physicalChangeGiven = 0;
+        if ($theoreticalChange > 0.005 && !empty($changeMethodId) && $changeMethodId !== 'store_credit') {
+            $physicalChangeGiven = $theoreticalChange;
         }
-        // CASO C: VUELTO EN EFECTIVO / OTROS (Solo si changeDue > 0)
-        elseif ($changeDue > 0.005 && !empty($changeMethodId)) {
-            // REGISTRAR COMO EGRESO DE CAJA
-            // Obtener moneda del método de vuelto
+
+        // El monto neto que el cliente "consume" de su cuenta (Saldo o Deuda) es:
+        // Lo que cuesta la orden + lo que se lleva en efectivo - lo que pagó físicamente.
+        $netToChargeToAccount = ($totalOrderAmount + $physicalChangeGiven) - $totalPhysicalPaidTodayAndBefore;
+
+        if (abs($netToChargeToAccount) > 0.005) {
+            if ($clientId) {
+                if ($netToChargeToAccount > 0) {
+                    // CASO: DÉFICIT o RETIRO (Cargar a cuenta)
+                    $db->prepare("UPDATE clients SET current_debt = current_debt + ? WHERE id = ?")->execute([$netToChargeToAccount, $clientId]);
+                    
+                    $desc = ($physicalChangeGiven > 0) ? "Retiro Efectivo de Saldo (Vuelto Orden #$orderId)" : "Consumo de Saldo (Orden #$orderId)";
+                    $transactionManager->registerTransaction('income', $netToChargeToAccount, $desc, $userId, 'order', $orderId, 'USD', 7);
+                } else {
+                    // CASO: EXCEDENTE (Abonar a cuenta / Saldo a Favor)
+                    $excess = abs($netToChargeToAccount);
+                    $db->prepare("UPDATE clients SET current_debt = current_debt - ? WHERE id = ?")->execute([$excess, $clientId]);
+                    $transactionManager->registerTransaction('expense', $excess, "Saldo a favor Orden #$orderId (Excedente)", $userId, 'order', $orderId, 'USD');
+                }
+            } elseif ($netToChargeToAccount > 0.005) {
+                // Bloqueo de seguridad si falta dinero y no hay cliente
+                throw new Exception("Error de Caja: Hay un faltante de $" . number_format($netToChargeToAccount, 2) . " pero no hay cliente asignado para registrar deuda.");
+            }
+        }
+
+        // Registrar egreso de caja si hubo vuelto físico
+        if ($physicalChangeGiven > 0.005) {
             $stmtM = $db->prepare("SELECT currency FROM payment_methods WHERE id = ?");
             $stmtM->execute([$changeMethodId]);
             $changeCurrency = $stmtM->fetchColumn();
+            $changeAmountNominal = ($changeCurrency == 'VES') ? ($physicalChangeGiven * $rate) : $physicalChangeGiven;
 
-            // Calcular monto nominal (Ej: $1 vuelto en Bs = 60 Bs)
-            $changeAmountNominal = ($changeCurrency == 'VES') ? ($changeDue * $rate) : $changeDue;
-
-            // LLAMADA LIMPIA AL MANAGER
-            $transactionManager->registerOrderChange(
-                $orderId,
-                $changeAmountNominal, // Monto en moneda nominal
-                $changeCurrency,
-                $changeMethodId,
-                $userId,
-                $sessionId
-            );
+            $transactionManager->registerOrderChange($orderId, $changeAmountNominal, $changeCurrency, $changeMethodId, $userId, $sessionId);
         }
     }
 
@@ -408,16 +402,11 @@ try {
     unset($_SESSION['pos_editing_order_id']);
 
     // 4. Finalizar Transacción y Redirigir
-    // El pago de hoy es lo pagado manualmente + lo descontado automáticamente del saldo
+    // El "Pago Real de Hoy" para el ticket es lo pagado físicamente en esta sesión
     $netPaidToday = $realPaidUsd;
-    if ($changeDue < -0.005 && $clientId) {
-        $netPaidToday += abs($changeDue);
-    } elseif ($changeDue > 0.005) {
-        $netPaidToday -= $changeDue;
-    }
 
     $db->commit();
-    header("Location: ticket.php?id=" . $orderId . "&print=true&new_paid_usd=" . max(0, $netPaidToday));
+    header("Location: ticket.php?id=" . $orderId . "&print=true&new_paid_usd=" . max(0, $netPaidToday) . "&session_id=" . $sessionId);
     exit;
 
 } catch (Exception $e) {

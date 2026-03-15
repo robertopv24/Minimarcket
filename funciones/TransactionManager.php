@@ -259,5 +259,19 @@ class TransactionManager
         $stmt->execute([$orderId]);
         return floatval($stmt->fetchColumn() ?: 0);
     }
+
+    /**
+     * Obtener ajustes automáticos de saldo (Consumo de saldo o Vuelto guardado a favor)
+     * Utilizado para simular la reversión contable en el frontend (checkout.php).
+     */
+    public function getOrderAdjustments($orderId)
+    {
+        $sql = "SELECT id, amount_usd_ref as amount, type FROM transactions 
+                WHERE reference_id = ? AND reference_type = 'order' 
+                AND (payment_method_id = 7 OR (type = 'expense' AND (description LIKE '%Saldo%' OR reference_type = 'order_credit')))";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$orderId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 ?>
