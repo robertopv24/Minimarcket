@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 15-03-2026 a las 04:03:48
+-- Tiempo de generación: 15-03-2026 a las 07:55:23
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -184,9 +184,9 @@ CREATE TABLE `clients` (
 --
 
 INSERT INTO `clients` (`id`, `name`, `document_id`, `phone`, `email`, `address`, `credit_limit`, `current_debt`, `created_at`) VALUES
-(1, 'juan perez', '12345678', '04245555555', 'cliente_12345678@local.com', '', 0.000000, 0.000000, '2026-01-19 06:39:00'),
+(1, 'juan perez', '12345678', '04245555555', 'cliente_12345678@local.com', '', 0.000000, -2.000000, '2026-01-19 06:39:00'),
 (8, 'juan gonsalez', '12345677', '04245555556', 'cliente_12345677@local.com', '', 0.000000, 0.000000, '2026-01-19 07:08:57'),
-(10, 'roberto perozo', '19451788', '04246746570', 'cliente_19451788@local.com', '', 0.000000, -1.000000, '2026-02-07 01:13:02'),
+(10, 'roberto perozo', '19451788', '04246746570', 'cliente_19451788@local.com', '', 0.000000, 0.000000, '2026-02-07 01:13:02'),
 (12, 'robero gonsalez', '19451789', '04246746571', 'cliente_19451789@local.com', '', 0.000000, 0.000000, '2026-02-07 01:35:56'),
 (13, 'robero perez', '19451787', '', 'cliente_19451787@local.com', '', 0.000000, 0.000000, '2026-02-12 21:22:34'),
 (14, 'robero fermin', '12378739', '', 'cliente_12378739@local.com', '', 0.000000, 0.000000, '2026-02-12 21:28:45');
@@ -359,8 +359,8 @@ CREATE TABLE `manufactured_products` (
 --
 
 INSERT INTO `manufactured_products` (`id`, `name`, `unit`, `stock`, `unit_cost_average`, `last_production_date`, `min_stock`, `short_code`) VALUES
-(1, 'Masa Pizza', 'kg', 36.010000, 1.391400, '2026-03-14 16:17:00', 0.000000, NULL),
-(2, 'Salsa Napoles', 'lt', 4.010000, 0.121250, '2026-03-03 19:07:34', 0.000000, NULL),
+(1, 'Masa Pizza', 'kg', 32.710000, 1.391400, '2026-03-14 16:17:00', 0.000000, NULL),
+(2, 'Salsa Napoles', 'lt', 3.350000, 0.121250, '2026-03-03 19:07:34', 0.000000, NULL),
 (3, 'Carne de hamburguesa', 'kg', 6.840000, 7.810815, '2026-02-06 15:39:55', 0.000000, NULL),
 (4, 'Carne de hamburguesa Americana', 'kg', 2.920000, 11.100300, '2026-02-06 15:40:07', 0.000000, NULL),
 (5, 'Carne Mechada', 'kg', 3.920000, 17.202000, '2026-02-06 15:40:21', 0.000000, NULL),
@@ -604,7 +604,13 @@ INSERT INTO `orders` (`id`, `user_id`, `client_id`, `employee_id`, `total_price`
 (147, 4, 10, NULL, 15.00, 550.0000, 'delivered', 'delivery', 'C', NULL, NULL, 'Delivery', NULL, '', NULL, '2026-03-15 01:42:35', '2026-03-15 02:08:58', '2026-03-15 02:08:58', 0, 0, 0, 0),
 (148, 4, 10, NULL, 14.00, 550.0000, 'delivered', 'delivery', 'B', NULL, NULL, 'Delivery', NULL, '', NULL, '2026-03-15 02:08:00', '2026-03-15 02:37:17', '2026-03-15 02:37:17', 0, 0, 0, 0),
 (149, 4, 10, NULL, 13.00, 550.0000, 'ready', 'takeaway', 'C', NULL, NULL, 'Delivery', NULL, '', '', '2026-03-15 02:37:59', '2026-03-15 02:44:54', NULL, 1, 0, 0, 1),
-(150, 4, 10, NULL, 14.00, 550.0000, 'paid', 'delivery', 'B', NULL, NULL, 'Delivery', NULL, 'roberto perozo', NULL, '2026-03-15 02:47:05', '2026-03-15 03:01:22', NULL, 0, 0, 0, 0);
+(150, 4, 10, NULL, 14.00, 550.0000, 'delivered', 'delivery', 'B', NULL, NULL, 'Delivery', NULL, 'roberto perozo', NULL, '2026-03-15 02:47:05', '2026-03-15 05:12:55', '2026-03-15 05:12:55', 0, 0, 0, 0),
+(151, 4, 10, NULL, 15.00, 550.0000, 'delivered', 'delivery', 'C', NULL, NULL, 'Delivery', NULL, '', NULL, '2026-03-15 05:13:36', '2026-03-15 05:32:42', '2026-03-15 05:32:42', 0, 0, 0, 0),
+(152, 4, 10, NULL, 15.00, 550.0000, 'delivered', 'delivery', 'A', NULL, NULL, 'Delivery', NULL, '', NULL, '2026-03-15 05:33:15', '2026-03-15 05:55:02', '2026-03-15 05:55:02', 0, 0, 0, 0),
+(153, 4, 10, NULL, 15.00, 550.0000, 'delivered', 'delivery', 'C', NULL, NULL, 'Delivery', NULL, '', NULL, '2026-03-15 05:54:51', '2026-03-15 06:44:54', '2026-03-15 06:44:54', 0, 0, 0, 0),
+(154, 4, 1, NULL, 15.00, 550.0000, 'delivered', 'delivery', 'A', NULL, NULL, 'Delivery', NULL, '', NULL, '2026-03-15 06:28:54', '2026-03-15 06:44:57', '2026-03-15 06:44:57', 0, 0, 0, 0),
+(155, 4, 10, NULL, 13.00, 550.0000, 'delivered', 'delivery', 'A', NULL, NULL, 'Delivery', NULL, 'roberto perozo', NULL, '2026-03-15 06:45:45', '2026-03-15 06:48:31', '2026-03-15 06:48:31', 0, 0, 0, 0),
+(156, 4, 10, NULL, 15.00, 550.0000, 'paid', 'delivery', 'C', NULL, NULL, 'Delivery', NULL, 'roberto perozo', NULL, '2026-03-15 06:49:41', '2026-03-15 06:51:46', NULL, 0, 0, 0, 0);
 
 -- --------------------------------------------------------
 
@@ -933,7 +939,24 @@ INSERT INTO `order_items` (`id`, `order_id`, `product_id`, `quantity`, `price`, 
 (469, 149, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
 (473, 150, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
 (474, 150, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
-(475, 150, 217, 1, 1.00, 0.00, 'delivery', NULL, NULL);
+(475, 150, 217, 1, 1.00, 0.00, 'delivery', NULL, NULL),
+(482, 151, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(483, 151, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
+(484, 151, 217, 1, 2.00, 0.00, 'delivery', NULL, NULL),
+(490, 152, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(491, 152, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
+(492, 152, 217, 1, 2.00, 0.00, 'delivery', NULL, NULL),
+(496, 153, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(497, 153, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
+(498, 153, 217, 1, 2.00, 0.00, 'delivery', NULL, NULL),
+(507, 154, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(508, 154, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
+(509, 154, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(521, 155, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(522, 155, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
+(528, 156, 216, 1, 2.00, 1.42, 'delivery', NULL, NULL),
+(529, 156, 206, 1, 11.00, 5.57, 'delivery', NULL, NULL),
+(530, 156, 217, 1, 2.00, 0.00, 'delivery', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1969,7 +1992,59 @@ INSERT INTO `order_item_modifiers` (`id`, `order_item_id`, `modifier_type`, `com
 (1409, 470, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
 (1411, 471, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
 (1412, 471, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
-(1413, 471, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw');
+(1413, 471, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1414, 476, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1415, 476, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1417, 477, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1418, 477, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1419, 477, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1420, 479, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1421, 479, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1423, 480, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1424, 480, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1425, 480, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1426, 485, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1427, 485, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1429, 486, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1430, 486, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1431, 486, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1432, 487, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1433, 487, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1435, 488, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1436, 488, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1437, 488, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1438, 490, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1439, 490, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1441, 491, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1442, 491, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1443, 491, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1444, 493, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1445, 493, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1447, 494, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1448, 494, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1449, 494, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1450, 496, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1451, 496, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1453, 497, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1454, 497, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1455, 497, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1456, 499, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1457, 499, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1459, 500, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1460, 500, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1461, 500, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1462, 501, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1463, 501, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1465, 510, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1466, 510, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1468, 511, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1469, 511, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1470, 511, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw'),
+(1471, 523, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1472, 523, 'side', 215, 1.0000, 0.000000, NULL, 0, 0, 'product'),
+(1474, 524, 'info', NULL, 0.0000, 0.000000, '', 0, 0, 'raw'),
+(1475, 524, 'side', 30, 0.1500, 0.000000, NULL, 0, 0, 'raw'),
+(1476, 524, 'side', 29, 0.1000, 0.000000, NULL, 0, 0, 'raw');
 
 -- --------------------------------------------------------
 
@@ -2451,7 +2526,27 @@ INSERT INTO `order_time_log` (`id`, `order_id`, `station`, `event_type`, `create
 (464, 149, 'pizza', 'ready', '2026-03-15 02:44:54'),
 (465, 150, 'bar', 'received', '2026-03-15 02:47:05'),
 (466, 150, 'pizza', 'received', '2026-03-15 02:47:05'),
-(467, 150, 'system', 'preparing', '2026-03-15 02:47:05');
+(467, 150, 'system', 'preparing', '2026-03-15 02:47:05'),
+(468, 150, 'system', 'delivered', '2026-03-15 05:12:55'),
+(469, 151, 'bar', 'received', '2026-03-15 05:13:36'),
+(470, 151, 'pizza', 'received', '2026-03-15 05:13:36'),
+(471, 151, 'system', 'delivered', '2026-03-15 05:32:42'),
+(472, 152, 'bar', 'received', '2026-03-15 05:33:15'),
+(473, 152, 'pizza', 'received', '2026-03-15 05:33:15'),
+(474, 153, 'bar', 'received', '2026-03-15 05:54:51'),
+(475, 153, 'pizza', 'received', '2026-03-15 05:54:51'),
+(476, 152, 'system', 'delivered', '2026-03-15 05:55:02'),
+(477, 154, 'bar', 'received', '2026-03-15 06:28:54'),
+(478, 154, 'pizza', 'received', '2026-03-15 06:28:54'),
+(479, 153, 'system', 'delivered', '2026-03-15 06:44:54'),
+(480, 154, 'system', 'delivered', '2026-03-15 06:44:57'),
+(481, 155, 'bar', 'received', '2026-03-15 06:45:46'),
+(482, 155, 'pizza', 'received', '2026-03-15 06:45:46'),
+(483, 155, 'system', 'preparing', '2026-03-15 06:45:46'),
+(484, 155, 'system', 'delivered', '2026-03-15 06:48:31'),
+(485, 156, 'bar', 'received', '2026-03-15 06:49:41'),
+(486, 156, 'pizza', 'received', '2026-03-15 06:49:41'),
+(487, 156, 'system', 'preparing', '2026-03-15 06:49:41');
 
 -- --------------------------------------------------------
 
@@ -2684,15 +2779,15 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (135, 'NESTEA', '', 3.00, 1650.00, 50, 'simple', 'bar', 'uploads/product_images/0166cc0b690c3ba0e9326d3ffee8109e.png', '2025-12-27 22:03:45', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 1),
 (136, 'PAPELÓN', '', 3.00, 1650.00, 49, 'simple', 'bar', 'uploads/product_images/80dad7a8d57e91e02f57f612922d5bea.png', '2025-12-27 22:04:09', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 1),
 (137, 'JUGO ', '', 1.00, 550.00, 50, 'simple', 'bar', 'uploads/product_images/2c55fc33305b12e855c98638f97b5311.png', '2025-12-27 22:04:44', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 1),
-(138, 'COMBO 1', 'PIZZA FAMILIAR X3\r\nREFRESCO x2', 23.00, 12650.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:06:51', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(139, 'COMBO 2', 'PIZZA FAMILIAR\r\nWHOPER / PERROS X2\r\nPAPAS FRITAS\r\nREFRESCO', 17.00, 9350.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:09:14', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(140, 'COMBO 3', 'PIZZA FAMILIAR X2\r\nREFRESCO', 15.00, 8250.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:10:17', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(141, 'COMBO 4', 'AMERICANAS X2\r\nPAPAS FRITAS\r\nREFRESCO', 13.00, 7150.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:11:24', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(142, 'COMBO 5', 'PIZZA FAMILIAR X3 (1/2 KILO DE QUESO CON BORDE DE QUESO)\r\nREFRESCO x2', 35.00, 19250.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:14:24', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(143, 'COMBO 6', 'WHOPERS X3\r\nREFRESCO', 12.00, 6600.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:15:47', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(144, 'COMBO 7', 'PIZZA FAMILIAR\r\nMINIS X4\r\nPAPAS FRITAS\r\nREFRESCO', 15.00, 8250.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:16:59', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(145, 'COMBO 8', 'PIZZA FAMILIAR\r\nMINIS X3\r\nREFRESCO', 12.00, 6600.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:18:02', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
-(146, 'COMBO 9', 'MINIS X10 (CARNE / POLLO)\r\nREFRESCO', 15.00, 8250.00, 0, 'compound', 'kitchen', 'default.jpg', '2025-12-27 22:20:23', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 4, NULL, 1),
+(138, 'COMBO 1', 'PIZZA FAMILIAR X3\r\nREFRESCO x2', 23.00, 12650.00, 0, 'compound', 'kitchen', 'uploads/product_images/3a9fe3dc8f93ef59163ec2bdaf1b2296.png', '2025-12-27 22:06:51', 20.00, '2026-03-15 04:37:32', NULL, 0, 'standard', 5, 4, NULL, 1),
+(139, 'COMBO 2', 'PIZZA FAMILIAR\r\nWHOPER / PERROS X2\r\nPAPAS FRITAS\r\nREFRESCO', 17.00, 9350.00, 0, 'compound', 'kitchen', 'uploads/product_images/242e9b506413599b4e53a85d42dcb59e.png', '2025-12-27 22:09:14', 20.00, '2026-03-15 04:39:05', NULL, 0, 'standard', 5, 4, NULL, 1),
+(140, 'COMBO 3', 'PIZZA FAMILIAR X2\r\nREFRESCO', 15.00, 8250.00, 0, 'compound', 'kitchen', 'uploads/product_images/38fd7d1409ca6b2a7aa160b7cca1f555.png', '2025-12-27 22:10:17', 20.00, '2026-03-15 04:40:15', NULL, 0, 'standard', 5, 4, NULL, 1),
+(141, 'COMBO 4', 'AMERICANAS X2\r\nPAPAS FRITAS\r\nREFRESCO', 13.00, 7150.00, 0, 'compound', 'kitchen', 'uploads/product_images/f5592594345331a4858a407c5609a501.png', '2025-12-27 22:11:24', 20.00, '2026-03-15 04:43:19', NULL, 0, 'standard', 5, 4, NULL, 1),
+(142, 'COMBO 5', 'PIZZA FAMILIAR X3 (1/2 KILO DE QUESO CON BORDE DE QUESO)\r\nREFRESCO x2', 35.00, 19250.00, 0, 'compound', 'kitchen', 'uploads/product_images/b0bae9762ad2574b5f42291dd1bf9759.png', '2025-12-27 22:14:24', 20.00, '2026-03-15 04:43:41', NULL, 0, 'standard', 5, 4, NULL, 1),
+(143, 'COMBO 6', 'WHOPERS X3\r\nREFRESCO', 12.00, 6600.00, 0, 'compound', 'kitchen', 'uploads/product_images/b037286c41fc3d741b963c5bcb44f333.png', '2025-12-27 22:15:47', 20.00, '2026-03-15 04:44:04', NULL, 0, 'standard', 5, 4, NULL, 1),
+(144, 'COMBO 7', 'PIZZA FAMILIAR\r\nMINIS X4\r\nPAPAS FRITAS\r\nREFRESCO', 15.00, 8250.00, 0, 'compound', 'kitchen', 'uploads/product_images/e1377795237ea949d8fd91e575063dc9.png', '2025-12-27 22:16:59', 20.00, '2026-03-15 04:44:22', NULL, 0, 'standard', 5, 4, NULL, 1),
+(145, 'COMBO 8', 'PIZZA FAMILIAR\r\nMINIS X3\r\nREFRESCO', 12.00, 6600.00, 0, 'compound', 'kitchen', 'uploads/product_images/68e2365bdc5bbc5944e4c3d3b10603e9.png', '2025-12-27 22:18:02', 20.00, '2026-03-15 04:44:39', NULL, 0, 'standard', 5, 4, NULL, 1),
+(146, 'COMBO 9', 'MINIS X10 (CARNE / POLLO)\r\nREFRESCO', 15.00, 8250.00, 0, 'compound', 'kitchen', 'uploads/product_images/e19600e66a6b3cf87de5007612e573fa.png', '2025-12-27 22:20:23', 20.00, '2026-03-15 04:44:57', NULL, 0, 'standard', 5, 4, NULL, 1),
 (153, 'WHOPPER ESPECIAL MARACUCHA', '', 12.00, 6600.00, 0, 'prepared', 'kitchen', 'uploads/product_images/095879541c6987b785c950229e6b62ce.png', '2025-12-27 23:01:49', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 1, NULL, 1),
 (154, 'WHOPPER ESPECIAL MEGA', '', 12.00, 6600.00, 0, 'prepared', 'kitchen', 'uploads/product_images/6372d80bd8f86dc5cd322b8010b48a72.png', '2025-12-27 23:03:08', 20.00, '2026-02-27 22:04:15', NULL, 3, 'standard', 5, 1, NULL, 1),
 (155, 'WHOPPER ESPECIAL TRIFÁSICA', '', 12.00, 6600.00, 0, 'prepared', 'kitchen', 'uploads/product_images/375cf1015e13a189733d41511e7b8d69.png', '2025-12-27 23:03:44', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 1, NULL, 1),
@@ -2740,15 +2835,15 @@ INSERT INTO `products` (`id`, `name`, `description`, `price_usd`, `price_ves`, `
 (205, 'MEDIO KILO DE QUESO CON BORDE DE QUESO', '', 16.00, 8800.00, 0, 'prepared', 'pizza', 'uploads/product_images/ad084b9f9e529a3041651dac58d26397.png', '2026-01-21 21:35:49', 20.00, '2026-02-28 11:37:49', NULL, 4, 'proportional', 5, 7, NULL, 1),
 (206, 'FAMILIAR', '', 11.00, 6050.00, 0, 'prepared', 'pizza', 'uploads/product_images/9e683131a5de1c4cddb92a339df592bc.png', '2026-01-25 03:57:02', 20.00, '2026-02-28 11:36:26', NULL, 2, 'proportional', 5, 2, 'F', 1),
 (207, 'AMERICANA', '', 8.50, 4675.00, 0, 'prepared', 'kitchen', 'uploads/product_images/21834e9ed9cb0dfa3e9f34db69f5ad78.png', '2026-02-08 01:17:47', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 1, NULL, 0),
-(208, 'COCA-COLA', '', 1.20, 660.00, 0, 'simple', 'bar', 'default.jpg', '2026-02-08 02:08:15', 20.00, '2026-02-28 08:50:49', NULL, 0, 'standard', 5, 3, NULL, 0),
-(209, 'CHINOTTO', '', 2.00, 1100.00, 0, 'simple', 'bar', 'default.jpg', '2026-02-08 02:20:23', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
-(211, 'NARANJA', '', 2.00, 1100.00, 19, 'simple', 'bar', 'default.jpg', '2026-02-08 03:23:50', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
-(212, 'MANZANITA', '', 2.00, 1100.00, 19, 'simple', 'bar', 'default.jpg', '2026-02-08 03:25:04', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
-(213, 'TORONJA', '', 2.00, 1100.00, 20, 'simple', 'bar', 'default.jpg', '2026-02-08 03:25:36', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
-(214, 'UVA', '', 1.20, 660.00, 12, 'simple', 'bar', 'default.jpg', '2026-02-08 03:26:05', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
-(215, 'FRESCOLITA', '', 2.00, 1100.00, 16, 'simple', 'bar', 'default.jpg', '2026-02-08 03:28:19', 20.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
+(208, 'COCA-COLA', '', 1.20, 660.00, 0, 'simple', 'bar', 'uploads/product_images/4e0fe62a9310c10b5e3e64e65064f49a.png', '2026-02-08 02:08:15', 20.00, '2026-03-15 04:46:13', NULL, 0, 'standard', 5, 3, NULL, 0),
+(209, 'CHINOTTO', '', 2.00, 1100.00, 0, 'simple', 'bar', 'uploads/product_images/1abb1dbd7ac2ae8206063df45fa675b9.png', '2026-02-08 02:20:23', 20.00, '2026-03-15 05:03:33', NULL, 0, 'standard', 5, 3, NULL, 0),
+(211, 'NARANJA', '', 2.00, 1100.00, 19, 'simple', 'bar', 'uploads/product_images/48269b218641db700bff24f332ffd625.png', '2026-02-08 03:23:50', 20.00, '2026-03-15 05:03:50', NULL, 0, 'standard', 5, 3, NULL, 0),
+(212, 'MANZANITA', '', 2.00, 1100.00, 19, 'simple', 'bar', 'uploads/product_images/b81cba977613d1114fde27d9623149b0.png', '2026-02-08 03:25:04', 20.00, '2026-03-15 05:04:04', NULL, 0, 'standard', 5, 3, NULL, 0),
+(213, 'TORONJA', '', 2.00, 1100.00, 20, 'simple', 'bar', 'uploads/product_images/112faf906843b4d5ae5c9fe510f77149.png', '2026-02-08 03:25:36', 20.00, '2026-03-15 05:04:15', NULL, 0, 'standard', 5, 3, NULL, 0),
+(214, 'UVA', '', 1.20, 660.00, 12, 'simple', 'bar', 'uploads/product_images/ba9146c9fba10ce38397d9b64fe8aefd.png', '2026-02-08 03:26:05', 20.00, '2026-03-15 05:04:35', NULL, 0, 'standard', 5, 3, NULL, 0),
+(215, 'FRESCOLITA', '', 2.00, 1100.00, 9, 'simple', 'bar', 'uploads/product_images/b7572ef8c920be9ce99c92b7c4b20dd6.png', '2026-02-08 03:28:19', 20.00, '2026-03-15 05:04:50', NULL, 0, 'standard', 5, 3, NULL, 0),
 (216, 'REFRESCO', '', 2.00, 1100.00, 0, 'compound', 'bar', 'uploads/product_images/c21daf1f1fe88b03cde1854275cdc148.png', '2026-02-12 20:27:09', 30.00, '2026-02-27 22:04:15', NULL, 0, 'standard', 5, 3, NULL, 1),
-(217, 'Servicio Delivery', 'Servicio de entrega a domicilio', 0.00, 0.00, 9964, 'simple', '', NULL, '2026-02-28 02:08:40', 20.00, NULL, NULL, 0, 'standard', 5, 8, NULL, 0);
+(217, 'Servicio Delivery', 'Servicio de entrega a domicilio', 0.00, 0.00, 9958, 'simple', '', 'uploads/product_images/49575b648822790441c46e431e221fc3.png', '2026-02-28 02:08:40', 20.00, '2026-03-15 05:11:05', NULL, 0, 'standard', 5, 8, NULL, 0);
 
 -- --------------------------------------------------------
 
@@ -4598,7 +4693,7 @@ CREATE TABLE `raw_materials` (
 
 INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_unit`, `min_stock`, `is_cooking_supply`, `category`, `updated_at`, `short_code`) VALUES
 (1, 'azucar', 'kg', 5.141600, 1.500000, 5.000000, 0, 'ingredient', '2026-03-14 20:17:00', NULL),
-(2, 'harina de trigo', 'kg', 18.484400, 1.200000, 25.000000, 0, 'ingredient', '2026-03-15 02:47:05', NULL),
+(2, 'harina de trigo', 'kg', 18.184400, 1.200000, 25.000000, 0, 'ingredient', '2026-03-15 06:49:41', NULL),
 (3, 'lomito', 'kg', 10.859000, 16.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:40:48', NULL),
 (4, 'salchicha', 'und', 54.000000, 0.370000, 50.000000, 0, 'ingredient', '2026-03-12 23:57:46', NULL),
 (5, 'carne mechada', 'kg', 8.000000, 16.000000, 2.500000, 0, 'ingredient', '2026-02-06 19:48:10', NULL),
@@ -4624,11 +4719,11 @@ INSERT INTO `raw_materials` (`id`, `name`, `unit`, `stock_quantity`, `cost_per_u
 (26, 'pan de americana', 'und', 50.000000, 0.360000, 30.000000, 0, 'ingredient', '2026-02-28 10:37:41', NULL),
 (27, 'vinagre', 'lt', 4.000000, 1.500000, 2.000000, 1, 'ingredient', '2026-01-17 01:31:29', NULL),
 (28, 'peperoni', 'kg', 0.500000, 11.000000, 1.000000, 0, 'ingredient', '2026-03-15 02:08:24', 'P'),
-(29, 'jamon de pierna', 'kg', 4.200000, 7.000000, 5.000000, 0, 'ingredient', '2026-03-15 02:47:05', 'J'),
-(30, 'maiz', 'kg', 20.800000, 5.500000, 5.000000, 0, 'ingredient', '2026-03-15 02:47:05', 'M'),
-(31, 'queso mozzarella', 'kg', 7.000000, 8.500000, 24.000000, 0, 'ingredient', '2026-03-15 02:47:05', 'Q mozza'),
+(29, 'jamon de pierna', 'kg', 3.900000, 7.000000, 5.000000, 0, 'ingredient', '2026-03-15 06:49:41', 'J'),
+(30, 'maiz', 'kg', 20.350000, 5.500000, 5.000000, 0, 'ingredient', '2026-03-15 06:49:41', 'M'),
+(31, 'queso mozzarella', 'kg', 5.200000, 8.500000, 24.000000, 0, 'ingredient', '2026-03-15 06:49:41', 'Q mozza'),
 (32, 'queso pasteurizado', 'kg', 11.320000, 7.500000, 6.000000, 0, 'ingredient', '2026-02-28 05:41:30', 'Q past'),
-(33, 'mantequilla', 'kg', 15.960000, 4.700000, 2.000000, 0, 'ingredient', '2026-03-15 02:47:05', NULL),
+(33, 'mantequilla', 'kg', 15.600000, 4.700000, 2.000000, 0, 'ingredient', '2026-03-15 06:49:41', NULL),
 (34, 'manteca', 'kg', 5.212000, 1.700000, 5.000000, 0, 'ingredient', '2026-03-14 20:17:00', NULL),
 (35, 'levadura', 'kg', 0.172000, 9.000000, 0.200000, 0, 'ingredient', '2026-03-14 20:17:00', NULL),
 (36, 'champiñones', 'kg', 5.350000, 5.900000, 3.000000, 0, 'ingredient', '2026-03-03 23:46:13', 'CH'),
@@ -4945,7 +5040,20 @@ INSERT INTO `transactions` (`id`, `cash_session_id`, `type`, `amount`, `currency
 (216, 0, 'income', 4.00, 'USD', 550.00, 4.00, 7, 'order', 149, 'Retiro Efectivo de Saldo (Vuelto Orden #149)', NULL, NULL, 4, '2026-03-15 02:39:28'),
 (217, 6, 'expense', 550.00, 'VES', 550.00, 1.00, 2, 'order', 149, 'Vuelto Venta #149', NULL, NULL, 4, '2026-03-15 02:39:28'),
 (218, 6, 'income', 15.00, 'USD', 550.00, 15.00, 1, 'order', 150, 'Cobro Venta #150', NULL, NULL, 4, '2026-03-15 02:47:05'),
-(220, 6, 'expense', 1.00, 'USD', 550.00, 1.00, 7, 'order', 150, 'Saldo a favor Orden #150 (Excedente)', NULL, NULL, 4, '2026-03-15 03:01:22');
+(220, 6, 'expense', 1.00, 'USD', 550.00, 1.00, 7, 'order', 150, 'Saldo a favor Orden #150 (Excedente)', NULL, NULL, 4, '2026-03-15 03:01:22'),
+(221, 6, 'income', 15.00, 'USD', 550.00, 15.00, 1, 'order', 151, 'Cobro Venta #151', NULL, NULL, 4, '2026-03-15 05:14:36'),
+(222, 6, 'income', 1.00, 'USD', 550.00, 1.00, 7, 'order', 151, 'Retiro Efectivo de Saldo (Vuelto Orden #151)', NULL, NULL, 4, '2026-03-15 05:18:04'),
+(223, 6, 'expense', 1.00, 'USD', 550.00, 1.00, 1, 'order', 151, 'Vuelto Venta #151', NULL, NULL, 4, '2026-03-15 05:18:04'),
+(224, 6, 'income', 15.00, 'USD', 550.00, 15.00, 1, 'order', 152, 'Cobro Venta #152', NULL, NULL, 4, '2026-03-15 05:53:56'),
+(225, 6, 'income', 15.00, 'USD', 550.00, 15.00, 1, 'order', 153, 'Cobro Venta #153', NULL, NULL, 4, '2026-03-15 06:39:45'),
+(226, 6, 'income', 17.00, 'USD', 550.00, 17.00, 1, 'order', 154, 'Cobro Venta #154', NULL, NULL, 4, '2026-03-15 06:43:25'),
+(227, 6, 'expense', 2.00, 'USD', 550.00, 2.00, 7, 'order', 154, 'Saldo a favor Orden #154 (Excedente)', NULL, NULL, 4, '2026-03-15 06:44:23'),
+(228, 6, 'income', 15.00, 'USD', 550.00, 15.00, 1, 'order', 155, 'Cobro Venta #155', NULL, NULL, 4, '2026-03-15 06:45:46'),
+(231, 6, 'expense', 2.00, 'USD', 550.00, 2.00, 7, 'order', 155, 'Saldo a favor Orden #155 (Excedente)', NULL, NULL, 4, '2026-03-15 06:48:25'),
+(232, 6, 'income', 13.00, 'USD', 550.00, 13.00, 1, 'order', 156, 'Cobro Venta #156', NULL, NULL, 4, '2026-03-15 06:49:41'),
+(235, 6, 'expense', 1100.00, 'VES', 550.00, 2.00, 2, 'order', 156, 'Vuelto Venta #156', NULL, NULL, 4, '2026-03-15 06:50:11'),
+(236, 6, 'income', 2.00, 'USD', 550.00, 2.00, 1, 'order', 156, 'Cobro Venta #156', NULL, NULL, 4, '2026-03-15 06:51:46'),
+(237, 6, 'income', 2.00, 'USD', 550.00, 2.00, 7, 'order', 156, 'Consumo de Saldo (Orden #156)', NULL, NULL, 4, '2026-03-15 06:51:46');
 
 -- --------------------------------------------------------
 
@@ -5380,13 +5488,13 @@ ALTER TABLE `accounts_receivable`
 -- AUTO_INCREMENT de la tabla `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=556;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=643;
 
 --
 -- AUTO_INCREMENT de la tabla `cart_item_modifiers`
 --
 ALTER TABLE `cart_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3442;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3588;
 
 --
 -- AUTO_INCREMENT de la tabla `cash_sessions`
@@ -5446,25 +5554,25 @@ ALTER TABLE `menu_roles`
 -- AUTO_INCREMENT de la tabla `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=151;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=157;
 
 --
 -- AUTO_INCREMENT de la tabla `order_items`
 --
 ALTER TABLE `order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=476;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=531;
 
 --
 -- AUTO_INCREMENT de la tabla `order_item_modifiers`
 --
 ALTER TABLE `order_item_modifiers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1414;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1477;
 
 --
 -- AUTO_INCREMENT de la tabla `order_time_log`
 --
 ALTER TABLE `order_time_log`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=468;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=488;
 
 --
 -- AUTO_INCREMENT de la tabla `payment_methods`
@@ -5584,7 +5692,7 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT de la tabla `transactions`
 --
 ALTER TABLE `transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=221;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=238;
 
 --
 -- AUTO_INCREMENT de la tabla `tv_playlist_items`
