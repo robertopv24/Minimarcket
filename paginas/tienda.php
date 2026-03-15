@@ -56,10 +56,9 @@ if ($orderId) {
             unset($_SESSION['pos_client_name']);
         }
 
-        // 2. Cargamos los ítems si el carrito está vacío (por si el usuario llega directo con ?order_id=)
-        if (empty($cartManager->getCart($userId))) {
-            $cartManager->loadOrderIntoCart($userId, $orderId);
-        }
+        // 2. Cargamos los ítems (Vaciamos primero para evitar duplicados si el flujo falló antes)
+        $cartManager->emptyCart($userId);
+        $cartManager->loadOrderIntoCart($userId, $orderId);
     }
 }
 

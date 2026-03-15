@@ -48,8 +48,10 @@ try {
                     $group['is_takeaway'] = 1;
                     $group['consumption_type'] = 'delivery';
                 }
+                unset($group);
             }
         }
+        unset($item);
     }
 
     // --- INYECCIÓN DE CLIENTE/EMPLEADO A LA ORDEN ---
@@ -80,9 +82,9 @@ try {
         $orderManager->replaceOrderItems($orderId, $cartItems);
         
         // Actualizar el estado a 'preparing' para que vuelva a salir en cocina si es necesario,
-        // y asegurar que el tipo de consumo y dirección se actualizan por si el usuario los cambió en el carrito.
-        $stmtUpdate = $db->prepare("UPDATE orders SET status = 'preparing', consumption_type = ?, shipping_address = ?, updated_at = NOW() WHERE id = ?");
-        $stmtUpdate->execute([$type, $address, $orderId]);
+        // y asegurar que el tipo de consumo, dirección y delivery_tier se actualizan por si el usuario los cambió en el carrito.
+        $stmtUpdate = $db->prepare("UPDATE orders SET status = 'preparing', consumption_type = ?, delivery_tier = ?, shipping_address = ?, updated_at = NOW() WHERE id = ?");
+        $stmtUpdate->execute([$type, $deliveryTier, $address, $orderId]);
         
         $message = 'Pedido modificado y reenviado a preparación con éxito.';
         

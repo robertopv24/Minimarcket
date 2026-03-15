@@ -44,6 +44,7 @@ if ($consumptionType === 'delivery') {
             $item['consumption_type'] = 'delivery';
         }
     }
+    unset($item);
 
     // Calcular Cargo por Servicio
     $base = floatval($config->get('delivery_base_cost', 0));
@@ -223,7 +224,7 @@ try {
 
         if ($creditType === 'benefit') {
             // Registrar como Gasto de la empresa (Ingreso para la orden para cuadrar ticket)
-            $transactionManager->registerTransaction('income', $totalOrderAmount, "Beneficio Empresa (Cortesía)", $userId, 'order', $orderId, 'USD', 7);
+            $transactionManager->registerTransaction('income', $totalOrderAmount, "Beneficio Empresa (Cortesía)", $userId, 'order', $orderId, 'USD', 7, $sessionId);
             $orderManager->updateOrderStatus($orderId, 'paid');
         } elseif ($creditType === 'client_credit') {
             if (!$clientId) throw new Exception("Falta ID de Cliente para Crédito.");
@@ -231,7 +232,7 @@ try {
             if (strpos($res, 'Error') !== false) throw new Exception($res);
             
             // Registrar Transacción para aparecer en Ticket
-            $transactionManager->registerTransaction('income', $totalOrderAmount, "Venta a Crédito Autorizada", $userId, 'order', $orderId, 'USD', 7);
+            $transactionManager->registerTransaction('income', $totalOrderAmount, "Venta a Crédito Autorizada", $userId, 'order', $orderId, 'USD', 7, $sessionId);
             
             $orderManager->updateOrderStatus($orderId, 'paid');
         } elseif ($creditType === 'employee_credit') {
@@ -240,7 +241,7 @@ try {
             $creditManager->registerDebt($orderId, $totalOrderAmount, null, $empId, null, $notes, false);
             
             // Registrar Transacción para aparecer en Ticket
-            $transactionManager->registerTransaction('income', $totalOrderAmount, "Venta a Crédito Emp. Autorizada", $userId, 'order', $orderId, 'USD', 7);
+            $transactionManager->registerTransaction('income', $totalOrderAmount, "Venta a Crédito Emp. Autorizada", $userId, 'order', $orderId, 'USD', 7, $sessionId);
             
             $orderManager->updateOrderStatus($orderId, 'paid');
         } else {

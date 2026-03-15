@@ -314,7 +314,8 @@ class CartManager
                     $item['stock_error'] = ($item['stock_error'] ? $item['stock_error'] . ", " : "") . "Agotado: " . $m['item_name'];
                 }
             }
-        } 
+        }
+        unset($item);
 
         foreach ($items as &$item) {
             $basePrice = floatval($item['price_usd']);
@@ -447,6 +448,7 @@ class CartManager
             $item['unit_price_final'] = $basePrice + $extraPrice;
             $item['total_price'] = $item['unit_price_final'] * $item['quantity'];
         }
+        unset($item);
         return $items;
     }
 

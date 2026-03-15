@@ -26,38 +26,47 @@ $cartItemsRaw = $cartManager->getCart($userId);
 
 if ($orderId && !empty($orderData)) {
     // Si hay orden de referencia, usamos el carrito (que fue cargado desde esa orden)
-    // y obtenemos el total directamente del carrito más actualizado
+    // o cargamos los ítems directamente si el carrito está vacío.
     if (!empty($cartItemsRaw)) {
         $cartItems = $cartItemsRaw;
-        $totals = $cartManager->calculateTotal($cartItems);
-        $totalUsd = $totals['total_usd'];
     } else {
-        // Fallback: cargar ítems desde la orden
         $cartItems = $orderManager->getOrderItems($orderId);
-        foreach ($cartItems as &$item) {
-            $item['total_price'] = $item['price'] * $item['quantity'];
-        }
-        $totalUsd = $orderData['total_price'];
     }
+    
+    // Calculamos el total real basado en los ítems (Independientemente de lo que diga orderData['total_price'])
+    foreach ($cartItems as &$item) {
+        if (!isset($item['total_price'])) {
+            $item['total_price'] = ($item['unit_price_final'] ?? $item['price'] ?? 0) * $item['quantity'];
+        }
+    }
+    unset($item);
+
+    $totalUsd = 0;
+    foreach($cartItems as $item) $totalUsd += $item['total_price'];
+
 } elseif (!empty($cartItemsRaw)) {
     // Nueva venta desde carrito
     $cartItems = $cartItemsRaw;
     $totals = $cartManager->calculateTotal($cartItems);
     $totalUsd = $totals['total_usd'];
-    $orderId = null; // Aseguramos que no hay orden de referencia
+    $orderId = null;
 } else {
-    if (!empty($_GET['order_id'])) {
-        // Acceso directo a checkout con order_id (ej: "Procesar Pago")
-        $cartItems = $orderManager->getOrderItems($orderId);
-        foreach ($cartItems as &$item) {
-            $item['total_price'] = $item['price'] * $item['quantity'];
-        }
-        $totalUsd = $orderData['total_price'];
-    } else {
-        header("Location: tienda.php");
-        exit;
-    }
+    // Fallback de seguridad
+    header("Location: tienda.php");
+    exit;
 }
+
+// 3. Ordenar ítems: Asegurar que "Servicio Delivery" esté siempre al final
+// para que no rompa el orden visual de los productos físicos.
+usort($cartItems, function($a, $b) {
+    $nameA = $a['name'] ?? $a['product_name'] ?? '';
+    $nameB = $b['name'] ?? $b['product_name'] ?? '';
+    $isDelA = ($nameA === 'Servicio Delivery');
+    $isDelB = ($nameB === 'Servicio Delivery');
+    if ($isDelA && !$isDelB) return 1;
+    if (!$isDelA && $isDelB) return -1;
+    return 0; // Mantener orden relativo original
+});
 
 $rate = $config->get('exchange_rate');
 $methods = $transactionManager->getPaymentMethods();
@@ -143,7 +152,7 @@ require_once '../templates/menu.php';
                 </div>
                 <div class="list-group list-group-flush shadow-sm">
                     <?php foreach ($cartItems as $item):
-                        if ($item['name'] === 'Servicio Delivery') continue; // Ocultar del loop de productos
+                        $isDeliveryItem = ($item['name'] === 'Servicio Delivery');
                         $cId = $item['id'];
                         $isCombo = ($item['product_type'] == 'compound');
                         $groupedMods = $item['modifiers_grouped'] ?? [];
@@ -151,8 +160,8 @@ require_once '../templates/menu.php';
                         <div class="list-group-item p-0 border-0 mb-2 shadow-sm rounded overflow-hidden">
                             <div
                                 class="bg-dark bg-opacity-50 px-3 py-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
-                                <span class="fw-bold text-info small">
-                                    <i class="fa <?= $isCombo ? 'fa-cubes' : 'fa-tag' ?> me-1"></i>
+                                <span class="fw-bold <?= $isDeliveryItem ? 'text-primary' : 'text-info' ?> small">
+                                    <i class="fa <?= $isDeliveryItem ? 'fa-truck' : ($isCombo ? 'fa-cubes' : 'fa-tag') ?> me-1"></i>
                                     <?= htmlspecialchars($item['name']) ?>
                                 </span>
                                 <span
@@ -205,9 +214,11 @@ require_once '../templates/menu.php';
                                     $myMods = $groupedMods[0] ?? ['is_takeaway' => 0, 'desc' => []];
                                     $icon = ($myMods['is_takeaway'] == 1) ? '🥡' : '🍽️';
                                     ?>
-                                    <div class="ps-2 py-1 border-start border-3 <?= ($myMods['is_takeaway'] == 1) ? 'border-warning' : 'border-info' ?>"
+                                    <div class="ps-2 py-1 border-start border-3 <?= $isDeliveryItem ? 'border-primary' : (($myMods['is_takeaway'] == 1) ? 'border-warning' : 'border-info') ?>"
                                         style="font-size: 0.8rem;">
-                                        <?php if (!empty($myMods['desc'])): ?>
+                                        <?php if ($isDeliveryItem): ?>
+                                            <div class="text-muted small">Cargo por servicio de entrega a domicilio.</div>
+                                        <?php elseif (!empty($myMods['desc'])): ?>
                                             <div class="text-muted small">
                                                 <?php foreach ($myMods['desc'] as $d): ?>
                                                     <div class="lh-1 mb-1">• <?= htmlspecialchars($d) ?></div>
@@ -225,7 +236,7 @@ require_once '../templates/menu.php';
                             </div>
                             <div class="bg-light px-3 py-1 text-end border-top">
                                 <span class="fw-bold text-success small">Subtotal:
-                                    $<?= number_format($item['total_price'], 2) ?></span>
+                                    $<span <?= $isDeliveryItem ? 'id="listDeliveryPrice"' : '' ?>><?= number_format($item['total_price'], 2) ?></span></span>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -258,14 +269,12 @@ require_once '../templates/menu.php';
                             <div id="summaryTotalVes" class="small text-muted"><?= number_format(($amountRemaining + $clientBalance) * $rate, 2) ?> Bs</div>
                         </div>
                     </div>
-                    <?php if ($clientBalance > 0): ?>
-                    <div id="clientBalanceRow" class="d-flex justify-content-between align-items-center border-top pt-1 mt-1 text-primary">
+                    <div id="clientBalanceRow" class="d-flex justify-content-between align-items-center border-top pt-1 mt-1 text-primary" style="<?= $clientBalance > 0 ? '' : 'display:none !important;' ?>">
                         <span class="small fw-bold animate__animated animate__pulse animate__infinite"><i class="fa fa-star me-1"></i> Saldo a Favor Aplicado:</span>
                         <div class="text-end">
-                            <div class="small fw-bold">-$<?= number_format($clientBalance, 2) ?></div>
+                            <div class="small fw-bold">-$<span id="displayClientBalance"><?= number_format($clientBalance, 2) ?></span></div>
                         </div>
                     </div>
-                    <?php endif; ?>
                     <div class="d-flex justify-content-between align-items-center border-dark border-top pt-2 mt-2">
                         <span class="fs-4 fw-bold">Diferencia a Cobrar:</span>
                         <div class="text-end">
@@ -305,6 +314,8 @@ require_once '../templates/menu.php';
                                 <div class="btn-group w-100" role="group">
                                     <?php 
                                     $ctype = $orderId ? ($orderData['consumption_type'] ?? 'dine_in') : 'dine_in';
+                                    // Sincronización proactiva: Si hay un cargo de delivery en el carrito, forzar el tipo
+                                    if ($deliveryFeeInCart > 0) $ctype = 'delivery';
                                     ?>
                                     <input type="radio" class="btn-check" name="consumption_type" id="type_dine_in" value="dine_in" <?= $ctype == 'dine_in' ? 'checked' : '' ?> onchange="toggleDeliveryFields()">
                                     <label class="btn btn-outline-info" for="type_dine_in">Local</label>
@@ -320,6 +331,12 @@ require_once '../templates/menu.php';
 
                         <?php 
                         $dtier = $orderId ? ($orderData['delivery_tier'] ?? 'A') : 'A';
+                        // Sincronización proactiva: Inferir el tier basándose en el cargo real del carrito
+                        if ($deliveryFeeInCart > 0) {
+                            if (abs($deliveryFeeInCart - $feeC) < 0.01) $dtier = 'C';
+                            elseif (abs($deliveryFeeInCart - $feeB) < 0.01) $dtier = 'B';
+                            else $dtier = 'A';
+                        }
                         $daddress = ($orderId && $ctype == 'delivery') ? ($orderData['shipping_address'] ?? '') : '';
                         ?>
                         <div id="deliveryFields" style="display: <?= $ctype == 'delivery' ? 'block' : 'none' ?>; background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px);" class="p-4 mb-4 rounded-4 shadow-sm animate__animated animate__fadeIn">
@@ -578,7 +595,7 @@ require_once '../templates/menu.php';
 <script>
     const initialTotalUsd = <?= $baseTotalUsd ?>;
     const alreadyPaidUsd = <?= $alreadyPaid ?>;
-    const clientBalanceUsd = <?= $clientBalance ?>;
+    let clientBalanceUsd = <?= $clientBalance ?>;
     let currentDeliveryFee = 0;
     let totalOrderUsd = initialTotalUsd;
     const rate = <?= $rate ?>;
@@ -683,6 +700,13 @@ require_once '../templates/menu.php';
 
         // Actualizar UI del resumen
         document.getElementById('summaryDeliveryFee').textContent = '$' + currentDeliveryFee.toFixed(2);
+        
+        // Sincronizar también el ítem en la lista detallada si existe
+        const listDelPrice = document.getElementById('listDeliveryPrice');
+        if (listDelPrice) {
+            listDelPrice.textContent = currentDeliveryFee.toFixed(2);
+        }
+
         document.getElementById('summaryTotalUsd').textContent = '$' + remainingDue.toFixed(2);
         document.getElementById('summaryTotalVes').textContent = (remainingDue * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 }) + ' Bs';
 
@@ -852,12 +876,41 @@ require_once '../templates/menu.php';
         document.getElementById('selClientName').innerText = name;
         document.getElementById('selClientLimit').innerText = limit;
         document.getElementById('selClientDebt').innerText = debt;
+        
+        // Sincronizar con el input oculto principal
+        document.getElementById('credit_client_id').value = id;
 
         selectedClientInfo.classList.remove('d-none');
         clientResultsDiv.style.display = 'none';
         searchClientInput.value = name;
         searchClientInput.classList.add('is-valid');
         searchClientInput.classList.remove('is-invalid');
+
+        // --- DINAMICIDAD DE SALDO: Actualizar Balance en Caliente ---
+        // Saldo a favor es deuda negativa (Ej: -1.00 -> balance 1.00)
+        clientBalanceUsd = (debt < -0.001) ? Math.abs(debt) : 0;
+        
+        // Actualizar UI del resumen
+        const balanceRow = document.getElementById('clientBalanceRow');
+        const balanceDisplay = document.getElementById('displayClientBalance');
+        if (balanceRow && balanceDisplay) {
+            balanceDisplay.innerText = clientBalanceUsd.toFixed(2);
+            if (clientBalanceUsd > 0) {
+                balanceRow.style.setProperty('display', 'flex', 'important');
+            } else {
+                balanceRow.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        // Persistir en servidor vía AJAX para que process_checkout lo vea incluso sin "Modo Crédito"
+        fetch('ajax/set_pos_client.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: id })
+        }).then(r => r.json()).then(data => {
+            console.log('Client synced to session:', data);
+            calculate(); // Recalcular todo con el nuevo balance
+        });
     };
 
     // Employee Search

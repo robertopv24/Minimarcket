@@ -1,6 +1,0 @@
-ID: 1 | NAME: Efectivo USD | TYPE: cash
-ID: 2 | NAME: Efectivo VES | TYPE: cash
-ID: 3 | NAME: Zelle | TYPE: digital
-ID: 4 | NAME: Pago Móvil | TYPE: bank
-ID: 5 | NAME: Punto de Venta | TYPE: bank
-ID: 6 | NAME: Binance USDT | TYPE: digital
